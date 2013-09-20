@@ -1,0 +1,599 @@
+--- a/django/db/models/manager.py
++++ b/django/db/models/manager.py
+@@ -167,6 +167,9 @@
+     def select_related(self, *args, **kwargs):
+         return self.get_query_set().select_related(*args, **kwargs)
+ 
++    def prefetch_related(self, *args, **kwargs):
++        return self.get_query_set().prefetch_related(*args, **kwargs)
++
+     def values(self, *args, **kwargs):
+         return self.get_query_set().values(*args, **kwargs)
+ 
+--- a/django/db/models/query.py
++++ b/django/db/models/query.py
+@@ -2,7 +2,7 @@
+ The main QuerySet implementation. This provides the public API for the ORM.
+ """
+ 
+-from itertools import izip
++import itertools
+ 
+ from django.db import connections, router, transaction, IntegrityError
+ from django.db.models.aggregates import Aggregate
+@@ -37,6 +37,8 @@
+         self._iter = None
+         self._sticky_filter = False
+         self._for_write = False
++        self._prefetch_related_lookups = []
++        self._prefetch_done = False
+ 
+     ########################
+     # PYTHON MAGIC METHODS #
+@@ -82,9 +84,17 @@
+                 self._result_cache = list(self.iterator())
+         elif self._iter:
+             self._result_cache.extend(self._iter)
++        if self._prefetch_related_lookups and not self._prefetch_done:
++            self._prefetch_related_objects()
+         return len(self._result_cache)
+ 
+     def __iter__(self):
++        if self._prefetch_related_lookups and not self._prefetch_done:
++            # We need all the results in order to be able to do the prefetch
++            # in one go. To minimize code duplication, we use the __len__
++            # code path which also forces this, and also does the prefetch
++            len(self)
++
+         if self._result_cache is None:
+             self._iter = self.iterator()
+             self._result_cache = []
+@@ -107,6 +117,12 @@
+                 self._fill_cache()
+ 
+     def __nonzero__(self):
++        if self._prefetch_related_lookups and not self._prefetch_done:
++            # We need all the results in order to be able to do the prefetch
++            # in one go. To minimize code duplication, we use the __len__
++            # code path which also forces this, and also does the prefetch
++            len(self)
++
+         if self._result_cache is not None:
+             return bool(self._result_cache)
+         try:
+@@ -496,6 +512,11 @@
+             return self.query.has_results(using=self.db)
+         return bool(self._result_cache)
+ 
++    def _prefetch_related_objects(self):
++        # This method can only be called once the result cache has been filled.
++        prefetch_related_objects(self._result_cache, self._prefetch_related_lookups)
++        self._prefetch_done = True
++
+     ##################################################
+     # PUBLIC METHODS THAT RETURN A QUERYSET SUBCLASS #
+     ##################################################
+@@ -607,6 +628,23 @@
+             obj.query.max_depth = depth
+         return obj
+ 
++    def prefetch_related(self, *lookups):
++        """
++        Returns a new QuerySet instance that will prefetch the specified
++        Many-To-One and Many-To-Many related objects when the QuerySet is
++        evaluated.
++
++        When prefetch_related() is called more than once, the list of lookups to
++        prefetch is appended to. If prefetch_related(None) is called, the
++        the list is cleared.
++        """
++        clone = self._clone()
++        if lookups == (None,):
++            clone._prefetch_related_lookups = []
++        else:
++            clone._prefetch_related_lookups.extend(lookups)
++        return clone
++
+     def dup_select_related(self, other):
+         """
+         Copies the related selection status from the QuerySet 'other' to the
+@@ -756,6 +794,7 @@
+             query.filter_is_sticky = True
+         c = klass(model=self.model, query=query, using=self._db)
+         c._for_write = self._for_write
++        c._prefetch_related_lookups = self._prefetch_related_lookups[:]
+         c.__dict__.update(kwargs)
+         if setup and hasattr(c, '_setup_query'):
+             c._setup_query()
+@@ -1434,3 +1473,219 @@
+     query = sql.InsertQuery(model)
+     query.insert_values(values, raw_values)
+     return query.get_compiler(using=using).execute_sql(return_id)
++
++
++def prefetch_related_objects(result_cache, related_lookups):
++    """
++    Helper function for prefetch_related functionality
++
++    Populates prefetched objects caches for a list of results
++    from a QuerySet
++    """
++    from django.db.models.sql.constants import LOOKUP_SEP
++
++    if len(result_cache) == 0:
++        return # nothing to do
++
++    model = result_cache[0].__class__
++
++    # We need to be able to dynamically add to the list of prefetch_related
++    # lookups that we look up (see below).  So we need some book keeping to
++    # ensure we don't do duplicate work.
++    done_lookups = set() # list of lookups like foo__bar__baz
++    done_queries = {}    # dictionary of things like 'foo__bar': [results]
++
++    auto_lookups = [] # we add to this as we go through.
++    followed_descriptors = set() # recursion protection
++
++    all_lookups = itertools.chain(related_lookups, auto_lookups)
++    for lookup in all_lookups:
++        if lookup in done_lookups:
++            # We've done exactly this already, skip the whole thing
++            continue
++        done_lookups.add(lookup)
++
++        # Top level, the list of objects to decorate is the the result cache
++        # from the primary QuerySet. It won't be for deeper levels.
++        obj_list = result_cache
++
++        attrs = lookup.split(LOOKUP_SEP)
++        for level, attr in enumerate(attrs):
++            # Prepare main instances
++            if len(obj_list) == 0:
++                break
++
++            good_objects = True
++            for obj in obj_list:
++                if not hasattr(obj, '_prefetched_objects_cache'):
++                    try:
++                        obj._prefetched_objects_cache = {}
++                    except AttributeError:
++                        # Must be in a QuerySet subclass that is not returning
++                        # Model instances, either in Django or 3rd
++                        # party. prefetch_related() doesn't make sense, so quit
++                        # now.
++                        good_objects = False
++                        break
++                else:
++                    # We already did this list
++                    break
++            if not good_objects:
++                break
++
++            # Descend down tree
++
++            # We assume that objects retrieved are homogenous (which is the premise
++            # of prefetch_related), so what applies to first object applies to all.
++            first_obj = obj_list[0]
++            prefetcher, descriptor, attr_found, is_fetched = get_prefetcher(first_obj, attr)
++
++            if not attr_found:
++                raise AttributeError("Cannot find '%s' on %s object, '%s' is an invalid "
++                                     "parameter to prefetch_related()" %
++                                     (attr, first_obj.__class__.__name__, lookup))
++
++            if level == len(attrs) - 1 and prefetcher is None:
++                # Last one, this *must* resolve to something that supports
++                # prefetching, otherwise there is no point adding it and the
++                # developer asking for it has made a mistake.
++                raise ValueError("'%s' does not resolve to a item that supports "
++                                 "prefetching - this is an invalid parameter to "
++                                 "prefetch_related()." % lookup)
++
++            if prefetcher is not None and not is_fetched:
++                # Check we didn't do this already
++                current_lookup = LOOKUP_SEP.join(attrs[0:level+1])
++                if current_lookup in done_queries:
++                    obj_list = done_queries[current_lookup]
++                else:
++                    obj_list, additional_prl = prefetch_one_level(obj_list, prefetcher, attr)
++                    # We need to ensure we don't keep adding lookups from the
++                    # same relationships to stop infinite recursion. So, if we
++                    # are already on an automatically added lookup, don't add
++                    # the new lookups from relationships we've seen already.
++                    if not (lookup in auto_lookups and
++                            descriptor in followed_descriptors):
++                        for f in additional_prl:
++                            new_prl = LOOKUP_SEP.join([current_lookup, f])
++                            auto_lookups.append(new_prl)
++                        done_queries[current_lookup] = obj_list
++                    followed_descriptors.add(descriptor)
++            else:
++                # Either a singly related object that has already been fetched
++                # (e.g. via select_related), or hopefully some other property
++                # that doesn't support prefetching but needs to be traversed.
++
++                # We replace the current list of parent objects with that list.
++                obj_list = [getattr(obj, attr) for obj in obj_list]
++
++                # Filter out 'None' so that we can continue with nullable
++                # relations.
++                obj_list = [obj for obj in obj_list if obj is not None]
++
++
++def get_prefetcher(instance, attr):
++    """
++    For the attribute 'attr' on the given instance, finds
++    an object that has a get_prefetch_query_set().
++    Returns a 4 tuple containing:
++    (the object with get_prefetch_query_set (or None),
++     the descriptor object representing this relationship (or None),
++     a boolean that is False if the attribute was not found at all,
++     a boolean that is True if the attribute has already been fetched)
++    """
++    prefetcher = None
++    attr_found = False
++    is_fetched = False
++
++    # For singly related objects, we have to avoid getting the attribute
++    # from the object, as this will trigger the query. So we first try
++    # on the class, in order to get the descriptor object.
++    rel_obj_descriptor = getattr(instance.__class__, attr, None)
++    if rel_obj_descriptor is None:
++        try:
++            rel_obj = getattr(instance, attr)
++            attr_found = True
++        except AttributeError:
++            pass
++    else:
++        attr_found = True
++        if rel_obj_descriptor:
++            # singly related object, descriptor object has the
++            # get_prefetch_query_set() method.
++            if hasattr(rel_obj_descriptor, 'get_prefetch_query_set'):
++                prefetcher = rel_obj_descriptor
++                if rel_obj_descriptor.is_cached(instance):
++                    is_fetched = True
++            else:
++                # descriptor doesn't support prefetching, so we go ahead and get
++                # the attribute on the instance rather than the class to
++                # support many related managers
++                rel_obj = getattr(instance, attr)
++                if hasattr(rel_obj, 'get_prefetch_query_set'):
++                    prefetcher = rel_obj
++    return prefetcher, rel_obj_descriptor, attr_found, is_fetched
++
++
++def prefetch_one_level(instances, prefetcher, attname):
++    """
++    Helper function for prefetch_related_objects
++
++    Runs prefetches on all instances using the prefetcher object,
++    assigning results to relevant caches in instance.
++
++    The prefetched objects are returned, along with any additional
++    prefetches that must be done due to prefetch_related lookups
++    found from default managers.
++    """
++    # prefetcher must have a method get_prefetch_query_set() which takes a list
++    # of instances, and returns a tuple:
++
++    # (queryset of instances of self.model that are related to passed in instances,
++    #  callable that gets value to be matched for returned instances,
++    #  callable that gets value to be matched for passed in instances,
++    #  boolean that is True for singly related objects,
++    #  cache name to assign to).
++
++    # The 'values to be matched' must be hashable as they will be used
++    # in a dictionary.
++
++    rel_qs, rel_obj_attr, instance_attr, single, cache_name =\
++        prefetcher.get_prefetch_query_set(instances)
++    # We have to handle the possibility that the default manager itself added
++    # prefetch_related lookups to the QuerySet we just got back. We don't want to
++    # trigger the prefetch_related functionality by evaluating the query.
++    # Rather, we need to merge in the prefetch_related lookups.
++    additional_prl = getattr(rel_qs, '_prefetch_related_lookups', [])
++    if additional_prl:
++        # Don't need to clone because the manager should have given us a fresh
++        # instance, so we access an internal instead of using public interface
++        # for performance reasons.
++        rel_qs._prefetch_related_lookups = []
++
++    all_related_objects = list(rel_qs)
++
++    rel_obj_cache = {}
++    for rel_obj in all_related_objects:
++        rel_attr_val = rel_obj_attr(rel_obj)
++        if rel_attr_val not in rel_obj_cache:
++            rel_obj_cache[rel_attr_val] = []
++        rel_obj_cache[rel_attr_val].append(rel_obj)
++
++    for obj in instances:
++        instance_attr_val = instance_attr(obj)
++        vals = rel_obj_cache.get(instance_attr_val, [])
++        if single:
++            # Need to assign to single cache on instance
++            if vals:
++                setattr(obj, cache_name, vals[0])
++        else:
++            # Multi, attribute represents a manager with an .all() method that
++            # returns a QuerySet
++            qs = getattr(obj, attname).all()
++            qs._result_cache = vals
++            # We don't want the individual qs doing prefetch_related now, since we
++            # have merged this into the current work.
++            qs._prefetch_done = True
++            obj._prefetched_objects_cache[cache_name] = qs
++    return all_related_objects, additional_prl
+--- a/django/db/models/fields/related.py
++++ b/django/db/models/fields/related.py
+@@ -1,3 +1,5 @@
++from operator import attrgetter
++
+ from django.conf import settings
+ from django.db import connection, router, transaction
+ from django.db.backends import util
+@@ -228,6 +230,22 @@
+         self.related = related
+         self.cache_name = related.get_cache_name()
+ 
++    def is_cached(self, instance):
++        return hasattr(instance, self.cache_name)
++
++    def get_query_set(self, **db_hints):
++        db = router.db_for_read(self.related.model, **db_hints)
++        return self.related.model._base_manager.using(db)
++
++    def get_prefetch_query_set(self, instances):
++        vals = set(instance._get_pk_val() for instance in instances)
++        params = {'%s__pk__in' % self.related.field.name: vals}
++        return (self.get_query_set(instance=instances[0]).filter(**params),
++                attrgetter(self.related.field.attname),
++                lambda obj: obj._get_pk_val(),
++                True,
++                self.cache_name)
++
+     def __get__(self, instance, instance_type=None):
+         if instance is None:
+             return self
+@@ -284,6 +302,33 @@
+     # ReverseSingleRelatedObjectDescriptor instance.
+     def __init__(self, field_with_rel):
+         self.field = field_with_rel
++        self.cache_name = self.field.get_cache_name()
++
++    def is_cached(self, instance):
++        return hasattr(instance, self.cache_name)
++
++    def get_query_set(self, **db_hints):
++        db = router.db_for_read(self.field.rel.to, **db_hints)
++        rel_mgr = self.field.rel.to._default_manager
++        # If the related manager indicates that it should be used for
++        # related fields, respect that.
++        if getattr(rel_mgr, 'use_for_related_fields', False):
++            return rel_mgr.using(db)
++        else:
++            return QuerySet(self.field.rel.to).using(db)
++
++    def get_prefetch_query_set(self, instances):
++        vals = set(getattr(instance, self.field.attname) for instance in instances)
++        other_field = self.field.rel.get_related_field()
++        if other_field.rel:
++            params = {'%s__pk__in' % self.field.rel.field_name: vals}
++        else:
++            params = {'%s__in' % self.field.rel.field_name: vals}
++        return (self.get_query_set(instance=instances[0]).filter(**params),
++                attrgetter(self.field.rel.field_name),
++                attrgetter(self.field.attname),
++                True,
++                self.cache_name)
+ 
+     def __get__(self, instance, instance_type=None):
+         if instance is None:
+@@ -419,8 +464,22 @@
+ 
+         class RelatedManager(superclass):
+             def get_query_set(self):
+-                db = self._db or router.db_for_read(rel_model, instance=instance)
+-                return superclass.get_query_set(self).using(db).filter(**(self.core_filters))
++                try:
++                    return instance._prefetched_objects_cache[rel_field.related_query_name()]
++                except (AttributeError, KeyError):
++                    db = self._db or router.db_for_read(rel_model, instance=instance)
++                    return superclass.get_query_set(self).using(db).filter(**(self.core_filters))
++
++            def get_prefetch_query_set(self, instances):
++                db = self._db or router.db_for_read(self.model, instance=instances[0])
++                query = {'%s__%s__in' % (rel_field.name, attname):
++                             set(getattr(obj, attname) for obj in instances)}
++                qs = super(RelatedManager, self).get_query_set().using(db).filter(**query)
++                return (qs,
++                        attrgetter(rel_field.get_attname()),
++                        attrgetter(attname),
++                        False,
++                        rel_field.related_query_name())
+ 
+             def add(self, *objs):
+                 for obj in objs:
+@@ -476,10 +535,11 @@
+     and adds behavior for many-to-many related objects."""
+     through = rel.through
+     class ManyRelatedManager(superclass):
+-        def __init__(self, model=None, core_filters=None, instance=None, symmetrical=None,
++        def __init__(self, model=None, core_filters=None, query_field_name=None, instance=None, symmetrical=None,
+                 join_table=None, source_field_name=None, target_field_name=None,
+-                reverse=False):
++                reverse=False, prefetch_cache_name=None):
+             super(ManyRelatedManager, self).__init__()
++            self.query_field_name = query_field_name
+             self.core_filters = core_filters
+             self.model = model
+             self.symmetrical = symmetrical
+@@ -487,14 +547,47 @@
+             self.source_field_name = source_field_name
+             self.target_field_name = target_field_name
+             self.through = through
++            self.prefetch_cache_name = prefetch_cache_name
+             self._pk_val = self.instance.pk
+             self.reverse = reverse
+             if self._pk_val is None:
+                 raise ValueError("%r instance needs to have a primary key value before a many-to-many relationship can be used." % instance.__class__.__name__)
+ 
+         def get_query_set(self):
+-            db = self._db or router.db_for_read(self.instance.__class__, instance=self.instance)
+-            return superclass.get_query_set(self).using(db)._next_is_sticky().filter(**(self.core_filters))
++            try:
++                return self.instance._prefetched_objects_cache[self.prefetch_cache_name]
++            except (AttributeError, KeyError):
++                db = self._db or router.db_for_read(self.instance.__class__, instance=self.instance)
++                return superclass.get_query_set(self).using(db)._next_is_sticky().filter(**(self.core_filters))
++
++        def get_prefetch_query_set(self, instances):
++            instance = instances[0]
++            from django.db import connections
++            db = self._db or router.db_for_read(instance.__class__, instance=instance)
++            query = {'%s__pk__in' % self.query_field_name:
++                         set(obj._get_pk_val() for obj in instances)}
++            qs = super(ManyRelatedManager, self).get_query_set().using(db)._next_is_sticky().filter(**query)
++
++            # M2M: need to annotate the query in order to get the primary model
++            # that the secondary model was actually related to. We know that
++            # there will already be a join on the join table, so we can just add
++            # the select.
++
++            # For non-autocreated 'through' models, can't assume we are
++            # dealing with PK values.
++            fk = self.through._meta.get_field(self.source_field_name)
++            source_col = fk.column
++            join_table = self.through._meta.db_table
++            connection = connections[db]
++            qn = connection.ops.quote_name
++            qs = qs.extra(select={'_prefetch_related_val':
++                                      '%s.%s' % (qn(join_table), qn(source_col))})
++            select_attname = fk.rel.get_related_field().get_attname()
++            return (qs,
++                    attrgetter('_prefetch_related_val'),
++                    attrgetter(select_attname),
++                    False,
++                    self.prefetch_cache_name)
+ 
+         # If the ManyToMany relation has an intermediary model,
+         # the add and remove methods do not exist.
+@@ -672,6 +765,8 @@
+         manager = RelatedManager(
+             model=rel_model,
+             core_filters={'%s__pk' % self.related.field.name: instance._get_pk_val()},
++            query_field_name=self.related.field.name,
++            prefetch_cache_name=self.related.field.related_query_name(),
+             instance=instance,
+             symmetrical=False,
+             source_field_name=self.related.field.m2m_reverse_field_name(),
+@@ -724,6 +819,8 @@
+         manager = RelatedManager(
+             model=rel_model,
+             core_filters={'%s__pk' % self.field.related_query_name(): instance._get_pk_val()},
++            query_field_name=self.field.related_query_name(),
++            prefetch_cache_name=self.field.name,
+             instance=instance,
+             symmetrical=self.field.rel.symmetrical,
+             source_field_name=self.field.m2m_field_name(),
+--- a/django/contrib/contenttypes/generic.py
++++ b/django/contrib/contenttypes/generic.py
+@@ -2,6 +2,9 @@
+ Classes allowing "generic" relations through ContentType and object-id fields.
+ """
+ 
++from collections import defaultdict
++from operator import attrgetter
++
+ from django.core.exceptions import ObjectDoesNotExist
+ from django.db import connection
+ from django.db.models import signals
+@@ -61,6 +64,28 @@
+             # This should never happen. I love comments like this, don't you?
+             raise Exception("Impossible arguments to GFK.get_content_type!")
+ 
++    def get_prefetch_query_set(self, instances):
++        # For efficiency, group the instances by content type and then do one
++        # query per model
++        fk_dict = defaultdict(set)
++        # We need one instance for each group in order to get the right db:
++        instance_dict = {}
++        ct_attname = self.model._meta.get_field(self.ct_field).get_attname()
++        for instance in instances:
++            # We avoid looking for values if either ct_id or fkey value is None
++            ct_id = getattr(instance, ct_attname)
++            if ct_id is not None:
++                fk_val = getattr(instance, self.fk_field)
++                if fk_val is not None:
++                    fk_dict[ct_id].add(fk_val)
++                    instance_dict[ct_id] = instance
++
++        ret_val = []
++        for ct_id, fkeys in fk_dict.items():
++            instance = instance_dict[ct_id]
++            ct = self.get_content_type(id=ct_id, using=instance._state.db)
++            ret_val.extend(ct.get_all_objects_for_this_type(pk__in=fkeys))
++
+     def __get__(self, instance, instance_type=None):
+         if instance is None:
+             return self
+@@ -226,7 +251,8 @@
+             target_col_name = qn(self.field.m2m_reverse_name()),
+             content_type = ContentType.objects.db_manager(instance._state.db).get_for_model(instance),
+             content_type_field_name = self.field.content_type_field_name,
+-            object_id_field_name = self.field.object_id_field_name
++            object_id_field_name = self.field.object_id_field_name,
++            prefetch_cache_name = self.field.attname,
+         )
+ 
+         return manager
+@@ -249,7 +275,8 @@
+     class GenericRelatedObjectManager(superclass):
+         def __init__(self, model=None, core_filters=None, instance=None, symmetrical=None,
+                      join_table=None, source_col_name=None, target_col_name=None, content_type=None,
+-                     content_type_field_name=None, object_id_field_name=None):
++                     content_type_field_name=None, object_id_field_name=None,
++                     prefetch_cache_name=None):
+ 
+             super(GenericRelatedObjectManager, self).__init__()
+             self.core_filters = core_filters or {}
+@@ -263,15 +290,33 @@
+             self.target_col_name = target_col_name
+             self.content_type_field_name = content_type_field_name
+             self.object_id_field_name = object_id_field_name
++            self.prefetch_cache_name = prefetch_cache_name
+             self.pk_val = self.instance._get_pk_val()
+ 
+         def get_query_set(self):
+-            db = self._db or router.db_for_read(self.model, instance=self.instance)
++            try:
++                return self.instance._prefetched_objects_cache[self.prefetch_cache_name]
++            except (AttributeError, KeyError):
++                db = self._db or router.db_for_read(self.model, instance=self.instance)
++                query = {
++                    '%s__pk' % self.content_type_field_name : self.content_type.id,
++                    '%s__exact' % self.object_id_field_name : self.pk_val,
++                }
++                return superclass.get_query_set(self).using(db).filter(**query)
++
++        def get_prefetch_query_set(self, instances):
++            db = self._db or router.db_for_read(self.model, instance=instances[0])
+             query = {
+-                '%s__pk' % self.content_type_field_name : self.content_type.id,
+-                '%s__exact' % self.object_id_field_name : self.pk_val,
+-            }
+-            return superclass.get_query_set(self).using(db).filter(**query)
++                '%s__pk' % self.content_type_field_name: self.content_type.id,
++                '%s__in' % self.object_id_field_name:
++                    set(obj._get_pk_val() for obj in instances)
++                }
++            qs = super(GenericRelatedObjectManager, self).get_query_set().using(db).filter(**query)
++            return (qs,
++                    attrgetter(self.object_id_field_name),
++                    lambda obj: obj._get_pk_val(),
++                    False,
++                    self.prefetch_cache_name)
+ 
+         def add(self, *objs):
+             for obj in objs:

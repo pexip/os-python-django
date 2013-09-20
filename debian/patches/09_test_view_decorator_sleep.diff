@@ -1,0 +1,17 @@
+Description: Increase the sleep time before the final cache timeout
+ test.  The original sleep of 2s works locally but fails on the build
+ machines.
+Author: Barry Warsaw <barry@ubuntu.com>
+Bug: https://code.djangoproject.com/ticket/16686
+
+--- a/tests/regressiontests/cache/tests.py
++++ b/tests/regressiontests/cache/tests.py
+@@ -1426,7 +1426,7 @@
+         self.assertEqual(response.content, 'Hello World 10')
+ 
+         # And if we wait a few more seconds
+-        time.sleep(2)
++        time.sleep(5)
+ 
+         # the custom timeouot cache will miss
+         response = other_with_timeout_view(request, '18')

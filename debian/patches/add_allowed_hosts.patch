@@ -1,0 +1,384 @@
+From 27cd872e6e36a81d0bb6f5b8765a1705fecfc253 Mon Sep 17 00:00:00 2001
+From: Carl Meyer <carl@oddbird.net>
+Date: Sat, 9 Feb 2013 12:25:52 -0700
+Subject: [PATCH] [1.3.x] Added ALLOWED_HOSTS setting for HTTP host header
+ validation.
+
+This is a security fix; disclosure and advisory coming shortly.
+---
+ django/conf/global_settings.py           |    4 ++
+ django/conf/project_template/settings.py |    4 ++
+ django/http/__init__.py                  |   54 ++++++++++++++++--
+ django/test/utils.py                     |    6 ++
+ docs/ref/settings.txt                    |   36 ++++++++++++
+ docs/releases/1.3.6.txt                  |   31 ++++++++++
+ docs/releases/index.txt                  |    1 +
+ tests/regressiontests/requests/tests.py  |   91 ++++++++++++++++++++----------
+ 8 files changed, 191 insertions(+), 36 deletions(-)
+ create mode 100644 docs/releases/1.3.6.txt
+
+Index: python-django-1.3.1/django/conf/global_settings.py
+===================================================================
+--- python-django-1.3.1.orig/django/conf/global_settings.py	2013-03-04 10:13:08.123669509 -0500
++++ python-django-1.3.1/django/conf/global_settings.py	2013-03-04 10:13:08.115669509 -0500
+@@ -29,6 +29,10 @@
+ #   * Receive x-headers
+ INTERNAL_IPS = ()
+ 
++# Hosts/domain names that are valid for this site.
++# "*" matches anything, ".example.com" matches example.com and all subdomains
++ALLOWED_HOSTS = ['*']
++
+ # Local time zone for this installation. All choices can be found here:
+ # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name (although not all
+ # systems may support all possibilities).
+Index: python-django-1.3.1/django/conf/project_template/settings.py
+===================================================================
+--- python-django-1.3.1.orig/django/conf/project_template/settings.py	2013-03-04 10:13:08.123669509 -0500
++++ python-django-1.3.1/django/conf/project_template/settings.py	2013-03-04 10:13:08.115669509 -0500
+@@ -20,6 +20,10 @@
+     }
+ }
+ 
++# Hosts/domain names that are valid for this site; required if DEBUG is False
++# See https://docs.djangoproject.com/en/{{ docs_version }}/ref/settings/#allowed-hosts
++ALLOWED_HOSTS = []
++
+ # Local time zone for this installation. Choices can be found here:
+ # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
+ # although not all choices may be available on all operating systems.
+Index: python-django-1.3.1/django/http/__init__.py
+===================================================================
+--- python-django-1.3.1.orig/django/http/__init__.py	2013-03-04 10:13:08.123669509 -0500
++++ python-django-1.3.1/django/http/__init__.py	2013-03-04 10:13:08.115669509 -0500
+@@ -168,11 +168,15 @@
+             if server_port != (self.is_secure() and '443' or '80'):
+                 host = '%s:%s' % (host, server_port)
+ 
+-        # Disallow potentially poisoned hostnames.
+-        if not host_validation_re.match(host.lower()):
+-            raise SuspiciousOperation('Invalid HTTP_HOST header: %s' % host)
+-
+-        return host
++        if settings.DEBUG:
++            allowed_hosts = ['*']
++        else:
++            allowed_hosts = settings.ALLOWED_HOSTS
++        if validate_host(host, allowed_hosts):
++            return host
++        else:
++            raise SuspiciousOperation(
++                "Invalid HTTP_HOST header (you may need to set ALLOWED_HOSTS): %s" % host)
+ 
+     def get_full_path(self):
+         # RFC 3986 requires query string arguments to be in the ASCII range.
+@@ -704,3 +708,43 @@
+     else:
+         return s
+ 
++def validate_host(host, allowed_hosts):
++    """
++    Validate the given host header value for this site.
++
++    Check that the host looks valid and matches a host or host pattern in the
++    given list of ``allowed_hosts``. Any pattern beginning with a period
++    matches a domain and all its subdomains (e.g. ``.example.com`` matches
++    ``example.com`` and any subdomain), ``*`` matches anything, and anything
++    else must match exactly.
++
++    Return ``True`` for a valid host, ``False`` otherwise.
++
++    """
++    # All validation is case-insensitive
++    host = host.lower()
++
++    # Basic sanity check
++    if not host_validation_re.match(host):
++        return False
++
++    # Validate only the domain part.
++    if host[-1] == ']':
++        # It's an IPv6 address without a port.
++        domain = host
++    else:
++        domain = host.rsplit(':', 1)[0]
++
++    for pattern in allowed_hosts:
++        pattern = pattern.lower()
++        match = (
++            pattern == '*' or
++            pattern.startswith('.') and (
++                domain.endswith(pattern) or domain == pattern[1:]
++                ) or
++            pattern == domain
++            )
++        if match:
++            return True
++
++    return False
+Index: python-django-1.3.1/django/test/utils.py
+===================================================================
+--- python-django-1.3.1.orig/django/test/utils.py	2013-03-04 10:13:08.123669509 -0500
++++ python-django-1.3.1/django/test/utils.py	2013-03-04 10:13:08.115669509 -0500
+@@ -76,6 +76,9 @@
+     mail.original_email_backend = settings.EMAIL_BACKEND
+     settings.EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
+ 
++    settings._original_allowed_hosts = settings.ALLOWED_HOSTS
++    settings.ALLOWED_HOSTS = ['*']
++
+     mail.outbox = []
+ 
+     deactivate()
+@@ -97,6 +100,9 @@
+     settings.EMAIL_BACKEND = mail.original_email_backend
+     del mail.original_email_backend
+ 
++    settings.ALLOWED_HOSTS = settings._original_allowed_hosts
++    del settings._original_allowed_hosts
++
+     del mail.outbox
+ 
+ 
+Index: python-django-1.3.1/docs/ref/settings.txt
+===================================================================
+--- python-django-1.3.1.orig/docs/ref/settings.txt	2013-03-04 10:13:08.123669509 -0500
++++ python-django-1.3.1/docs/ref/settings.txt	2013-03-04 10:13:08.119669509 -0500
+@@ -75,6 +75,42 @@
+ Note that Django will e-mail *all* of these people whenever an error happens.
+ See :doc:`/howto/error-reporting` for more information.
+ 
++.. setting:: ALLOWED_HOSTS
++
++ALLOWED_HOSTS
++-------------
++
++Default: ``['*']``
++
++A list of strings representing the host/domain names that this Django site can
++serve. This is a security measure to prevent an attacker from poisoning caches
++and password reset emails with links to malicious hosts by submitting requests
++with a fake HTTP ``Host`` header, which is possible even under many
++seemingly-safe webserver configurations.
++
++Values in this list can be fully qualified names (e.g. ``'www.example.com'``),
++in which case they will be matched against the request's ``Host`` header
++exactly (case-insensitive, not including port). A value beginning with a period
++can be used as a subdomain wildcard: ``'.example.com'`` will match
++``example.com``, ``www.example.com``, and any other subdomain of
++``example.com``. A value of ``'*'`` will match anything; in this case you are
++responsible to provide your own validation of the ``Host`` header (perhaps in a
++middleware; if so this middleware must be listed first in
++:setting:`MIDDLEWARE_CLASSES`).
++
++If the ``Host`` header (or ``X-Forwarded-Host`` if
++:setting:`USE_X_FORWARDED_HOST` is enabled) does not match any value in this
++list, the :meth:`django.http.HttpRequest.get_host()` method will raise
++:exc:`~django.core.exceptions.SuspiciousOperation`.
++
++When :setting:`DEBUG` is ``True`` or when running tests, host validation is
++disabled; any host will be accepted. Thus it's usually only necessary to set it
++in production.
++
++This validation only applies via :meth:`~django.http.HttpRequest.get_host()`;
++if your code accesses the ``Host`` header directly from ``request.META`` you
++are bypassing this security protection.
++
+ .. setting:: ALLOWED_INCLUDE_ROOTS
+ 
+ ALLOWED_INCLUDE_ROOTS
+Index: python-django-1.3.1/tests/regressiontests/requests/tests.py
+===================================================================
+--- python-django-1.3.1.orig/tests/regressiontests/requests/tests.py	2013-03-04 10:13:08.123669509 -0500
++++ python-django-1.3.1/tests/regressiontests/requests/tests.py	2013-03-04 10:13:08.119669509 -0500
+@@ -63,17 +63,23 @@
+             'http://www.example.com/path/with:colons')
+ 
+     def test_http_get_host(self):
+-        old_USE_X_FORWARDED_HOST = settings.USE_X_FORWARDED_HOST
++        _old_USE_X_FORWARDED_HOST = settings.USE_X_FORWARDED_HOST
++        _old_ALLOWED_HOSTS = settings.ALLOWED_HOSTS
+         try:
+             settings.USE_X_FORWARDED_HOST = False
++            settings.ALLOWED_HOSTS = [
++                'forward.com', 'example.com', 'internal.com', '12.34.56.78',
++                '[2001:19f0:feee::dead:beef:cafe]', 'xn--4ca9at.com',
++                '.multitenant.com', 'INSENSITIVE.com',
++                ]
+ 
+             # Check if X_FORWARDED_HOST is provided.
+             request = HttpRequest()
+             request.META = {
+-                u'HTTP_X_FORWARDED_HOST': u'forward.com',
+-                u'HTTP_HOST': u'example.com',
+-                u'SERVER_NAME': u'internal.com',
+-                u'SERVER_PORT': 80,
++                'HTTP_X_FORWARDED_HOST': 'forward.com',
++                'HTTP_HOST': 'example.com',
++                'SERVER_NAME': 'internal.com',
++                'SERVER_PORT': 80,
+             }
+             # X_FORWARDED_HOST is ignored.
+             self.assertEqual(request.get_host(), 'example.com')
+@@ -81,25 +87,25 @@
+             # Check if X_FORWARDED_HOST isn't provided.
+             request = HttpRequest()
+             request.META = {
+-                u'HTTP_HOST': u'example.com',
+-                u'SERVER_NAME': u'internal.com',
+-                u'SERVER_PORT': 80,
++                'HTTP_HOST': 'example.com',
++                'SERVER_NAME': 'internal.com',
++                'SERVER_PORT': 80,
+             }
+             self.assertEqual(request.get_host(), 'example.com')
+ 
+             # Check if HTTP_HOST isn't provided.
+             request = HttpRequest()
+             request.META = {
+-                u'SERVER_NAME': u'internal.com',
+-                u'SERVER_PORT': 80,
++                'SERVER_NAME': 'internal.com',
++                'SERVER_PORT': 80,
+             }
+             self.assertEqual(request.get_host(), 'internal.com')
+ 
+             # Check if HTTP_HOST isn't provided, and we're on a nonstandard port
+             request = HttpRequest()
+             request.META = {
+-                u'SERVER_NAME': u'internal.com',
+-                u'SERVER_PORT': 8042,
++                'SERVER_NAME': 'internal.com',
++                'SERVER_PORT': 8042,
+             }
+             self.assertEqual(request.get_host(), 'internal.com:8042')
+ 
+@@ -112,6 +118,9 @@
+                 '[2001:19f0:feee::dead:beef:cafe]',
+                 '[2001:19f0:feee::dead:beef:cafe]:8080',
+                 'xn--4ca9at.com', # Punnycode for öäü.com
++                'anything.multitenant.com',
++                'multitenant.com',
++                'insensitive.com',
+             ]
+ 
+             poisoned_hosts = [
+@@ -120,6 +129,7 @@
+                 'example.com:dr.frankenstein@evil.tld:80',
+                 'example.com:80/badpath',
+                 'example.com: recovermypassword.com',
++                'other.com', # not in ALLOWED_HOSTS
+             ]
+ 
+             for host in legit_hosts:
+@@ -130,29 +140,31 @@
+                 request.get_host()
+ 
+             for host in poisoned_hosts:
+-                def test_host_poisoning():
++                def _test():
+                     request = HttpRequest()
+                     request.META = {
+                         'HTTP_HOST': host,
+                     }
+                     request.get_host()
+-                self.assertRaises(SuspiciousOperation, test_host_poisoning)
+-
++                self.assertRaises(SuspiciousOperation, _test)
+         finally:
+-            settings.USE_X_FORWARDED_HOST = old_USE_X_FORWARDED_HOST
++            settings.ALLOWED_HOSTS = _old_ALLOWED_HOSTS
++            settings.USE_X_FORWARDED_HOST = _old_USE_X_FORWARDED_HOST
+ 
+     def test_http_get_host_with_x_forwarded_host(self):
+-        old_USE_X_FORWARDED_HOST = settings.USE_X_FORWARDED_HOST
++        _old_USE_X_FORWARDED_HOST = settings.USE_X_FORWARDED_HOST
++        _old_ALLOWED_HOSTS = settings.ALLOWED_HOSTS
+         try:
+             settings.USE_X_FORWARDED_HOST = True
++            settings.ALLOWED_HOSTS = ['*']
+ 
+             # Check if X_FORWARDED_HOST is provided.
+             request = HttpRequest()
+             request.META = {
+-                u'HTTP_X_FORWARDED_HOST': u'forward.com',
+-                u'HTTP_HOST': u'example.com',
+-                u'SERVER_NAME': u'internal.com',
+-                u'SERVER_PORT': 80,
++                'HTTP_X_FORWARDED_HOST': 'forward.com',
++                'HTTP_HOST': 'example.com',
++                'SERVER_NAME': 'internal.com',
++                'SERVER_PORT': 80,
+             }
+             # X_FORWARDED_HOST is obeyed.
+             self.assertEqual(request.get_host(), 'forward.com')
+@@ -160,25 +172,25 @@
+             # Check if X_FORWARDED_HOST isn't provided.
+             request = HttpRequest()
+             request.META = {
+-                u'HTTP_HOST': u'example.com',
+-                u'SERVER_NAME': u'internal.com',
+-                u'SERVER_PORT': 80,
++                'HTTP_HOST': 'example.com',
++                'SERVER_NAME': 'internal.com',
++                'SERVER_PORT': 80,
+             }
+             self.assertEqual(request.get_host(), 'example.com')
+ 
+             # Check if HTTP_HOST isn't provided.
+             request = HttpRequest()
+             request.META = {
+-                u'SERVER_NAME': u'internal.com',
+-                u'SERVER_PORT': 80,
++                'SERVER_NAME': 'internal.com',
++                'SERVER_PORT': 80,
+             }
+             self.assertEqual(request.get_host(), 'internal.com')
+ 
+             # Check if HTTP_HOST isn't provided, and we're on a nonstandard port
+             request = HttpRequest()
+             request.META = {
+-                u'SERVER_NAME': u'internal.com',
+-                u'SERVER_PORT': 8042,
++                'SERVER_NAME': 'internal.com',
++                'SERVER_PORT': 8042,
+             }
+             self.assertEqual(request.get_host(), 'internal.com:8042')
+ 
+@@ -209,16 +221,33 @@
+                 request.get_host()
+ 
+             for host in poisoned_hosts:
+-                def test_host_poisoning():
++                def _test():
+                     request = HttpRequest()
+                     request.META = {
+                         'HTTP_HOST': host,
+                     }
+                     request.get_host()
+-                self.assertRaises(SuspiciousOperation, test_host_poisoning)
++                self.assertRaises(SuspiciousOperation, _test)
++        finally:
++            settings.ALLOWED_HOSTS = _old_ALLOWED_HOSTS
++            settings.USE_X_FORWARDED_HOST = _old_USE_X_FORWARDED_HOST
++
++    def test_host_validation_disabled_in_debug_mode(self):
++        """If ALLOWED_HOSTS is empty and DEBUG is True, all hosts pass."""
++        _old_DEBUG = settings.DEBUG
++        _old_ALLOWED_HOSTS = settings.ALLOWED_HOSTS
++        try:
++            settings.DEBUG = True
++            settings.ALLOWED_HOSTS = []
+ 
++            request = HttpRequest()
++            request.META = {
++                'HTTP_HOST': 'example.com',
++            }
++            self.assertEqual(request.get_host(), 'example.com')
+         finally:
+-            settings.USE_X_FORWARDED_HOST = old_USE_X_FORWARDED_HOST
++            settings.DEBUG = _old_DEBUG
++            settings.ALLOWED_HOSTS = _old_ALLOWED_HOSTS
+ 
+     def test_near_expiration(self):
+         "Cookie will expire when an near expiration time is provided"

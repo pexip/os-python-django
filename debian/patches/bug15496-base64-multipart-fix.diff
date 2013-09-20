@@ -1,0 +1,14 @@
+Description: Ensure that multipart messages encoded with base64 are decoded properly
+Origin:      upstream https://github.com/django/django/commit/813dc01cd8
+Bug:         https://code.djangoproject.com/ticket/15496
+--- a/django/http/multipartparser.py
++++ b/django/http/multipartparser.py
+@@ -150,6 +150,8 @@
+                     continue
+ 
+                 transfer_encoding = meta_data.get('content-transfer-encoding')
++                if transfer_encoding is not None:
++                    transfer_encoding = transfer_encoding[0].strip()
+                 field_name = force_unicode(field_name, encoding, errors='replace')
+ 
+                 if item_type == FIELD:

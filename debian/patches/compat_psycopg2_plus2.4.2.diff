@@ -1,0 +1,56 @@
+Description: Fix for incompatibility with Psycopg2 2.4.2 or later
+Origin: https://code.djangoproject.com/attachment/ticket/16250/16250-3.diff
+Bug: http://launchpad.net/bugs/905837
+
+--- a/django/db/backends/creation.py
++++ b/django/db/backends/creation.py
+@@ -422,7 +422,7 @@
+         # if the database supports it because PostgreSQL doesn't allow
+         # CREATE/DROP DATABASE statements within transactions.
+         cursor = self.connection.cursor()
+-        self.set_autocommit()
++        self.prepare_for_test_db_ddl()
+         try:
+             cursor.execute("CREATE DATABASE %s %s" % (qn(test_database_name), suffix))
+         except Exception, e:
+@@ -467,20 +467,19 @@
+         # to do so, because it's not allowed to delete a database while being
+         # connected to it.
+         cursor = self.connection.cursor()
+-        self.set_autocommit()
++        self.prepare_for_test_db_ddl()
+         time.sleep(1) # To avoid "database is being accessed by other users" errors.
+         cursor.execute("DROP DATABASE %s" % self.connection.ops.quote_name(test_database_name))
+         self.connection.close()
+ 
+-    def set_autocommit(self):
+-        "Make sure a connection is in autocommit mode."
+-        if hasattr(self.connection.connection, "autocommit"):
+-            if callable(self.connection.connection.autocommit):
+-                self.connection.connection.autocommit(True)
+-            else:
+-                self.connection.connection.autocommit = True
+-        elif hasattr(self.connection.connection, "set_isolation_level"):
+-            self.connection.connection.set_isolation_level(0)
++    def prepare_for_test_db_ddl(self):
++        """
++        Hook for actions needed before the ``CREATE DATABASE``/``DROP DATABASE``
++        clauses we execute on the test database.
++        This is needed e.g. in PostgreSQL to rollback and close any active
++        transaction.
++        """
++        pass
+ 
+     def sql_table_creation_suffix(self):
+         "SQL to append to the end of the test table creation statements"
+--- a/django/db/backends/postgresql_psycopg2/creation.py
++++ b/django/db/backends/postgresql_psycopg2/creation.py
+@@ -74,3 +74,8 @@
+         else:
+             output = []
+         return output
++
++    def prepare_for_test_db_ddl(self):
++        """Rollback and close the active transaction."""
++        self.connection.connection.rollback()
++        self.connection.connection.set_isolation_level(0)
