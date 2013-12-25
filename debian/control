@@ -1,15 +1,17 @@
 Source: python-django
 Section: python
 Priority: optional
-Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+Maintainer: Pexip AS <packaging@pexip.com>
+XSBC-Pexip-Original-Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
 XSBC-Original-Maintainer: Chris Lamb <lamby@debian.org>
-Uploaders: Debian Python Modules Team <python-modules-team@lists.alioth.debian.org>, Raphaël Hertzog <hertzog@debian.org>
+XSBC-Pexip-Original-Uploaders: Debian Python Modules Team <python-modules-team@lists.alioth.debian.org>, Raphaël Hertzog <hertzog@debian.org>
 Standards-Version: 3.9.2
 Build-Depends: debhelper (>= 7.0.50), python (>= 2.6.6-3~), python-sphinx (>= 1.0.8), locales (>= 0)
 Build-Depends-Indep: libjs-jquery
 Homepage: http://www.djangoproject.com/
 Vcs-Svn: svn://svn.debian.org/python-modules/packages/python-django/trunk/
 Vcs-Browser: http://svn.debian.org/viewsvn/python-modules/packages/python-django/trunk/
+XS-Pexip-Upstream: http://archive.ubuntu.com/ubuntu/ precise
 
 Package: python-django
 Architecture: all
