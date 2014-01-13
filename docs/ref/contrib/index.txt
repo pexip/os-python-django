@@ -27,13 +27,10 @@ those packages have.
    comments/index
    contenttypes
    csrf
-   databrowse
    flatpages
    formtools/index
    gis/index
    humanize
-   localflavor
-   markup
    messages
    redirects
    sitemaps
@@ -56,7 +53,7 @@ auth
 
 Django's authentication framework.
 
-See :doc:`/topics/auth`.
+See :doc:`/topics/auth/index`.
 
 comments
 ========
@@ -102,7 +99,7 @@ An abstraction of the following workflow:
 See the :doc:`form preview documentation </ref/contrib/formtools/form-preview>`.
 
 django.contrib.formtools.wizard
---------------------------------
+-------------------------------
 
 Splits forms across multiple Web pages.
 
@@ -123,27 +120,8 @@ A set of Django template filters useful for adding a "human touch" to data.
 
 See the :doc:`humanize documentation </ref/contrib/humanize>`.
 
-localflavor
-===========
-
-A collection of various Django snippets that are useful only for a particular
-country or culture. For example, ``django.contrib.localflavor.us.forms``
-contains a ``USZipCodeField`` that you can use to validate U.S. zip codes.
-
-See the :doc:`localflavor documentation </ref/contrib/localflavor>`.
-
-markup
-======
-
-A collection of template filters that implement common markup languages
-
-See the :doc:`markup documentation </ref/contrib/markup>`.
-
 messages
 ========
-
-.. versionchanged:: 1.2
-    The messages framework was added.
 
 A framework for storing and retrieving temporary cookie- or session-based
 messages
