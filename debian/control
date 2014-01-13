@@ -2,22 +2,23 @@ Source: python-django
 Section: python
 Priority: optional
 Maintainer: Pexip AS <packaging@pexip.com>
-XSBC-Pexip-Original-Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
-XSBC-Original-Maintainer: Chris Lamb <lamby@debian.org>
-XSBC-Pexip-Original-Uploaders: Debian Python Modules Team <python-modules-team@lists.alioth.debian.org>, Raphaël Hertzog <hertzog@debian.org>
-Standards-Version: 3.9.2
-Build-Depends: debhelper (>= 7.0.50), python (>= 2.6.6-3~), python-sphinx (>= 1.0.8), locales (>= 0)
+XSBC-Pexip-Original-Maintainer: Debian Python Modules Team <python-modules-team@lists.alioth.debian.org>
+XSBC-Pexip-Original-Uploaders: Luke Faraone <lfaraone@debian.org>,
+ Raphaël Hertzog <hertzog@debian.org>,
+ Chris Lamb <lamby@debian.org>
+Standards-Version: 3.9.5
+Build-Depends: debhelper (>= 9), python (>= 2.6.6-3~), python-sphinx (>= 1.0.8), locales (>= 0)
 Build-Depends-Indep: libjs-jquery
 Homepage: http://www.djangoproject.com/
 Vcs-Svn: svn://svn.debian.org/python-modules/packages/python-django/trunk/
 Vcs-Browser: http://svn.debian.org/viewsvn/python-modules/packages/python-django/trunk/
-XS-Pexip-Upstream: http://archive.ubuntu.com/ubuntu/ precise
+XS-Pexip-Upstream: http://archive.debian.org/debian/ jessie
 
 Package: python-django
 Architecture: all
 Depends: ${misc:Depends}, ${python:Depends}
 Recommends: libjs-jquery
-Suggests: python-psycopg2, python-psycopg, python-mysqldb, python-flup, python-sqlite, python-yaml, geoip-database-contrib
+Suggests: python-psycopg2, python-psycopg, python-mysqldb, python-flup, python-sqlite, python-yaml, geoip-database-contrib, gettext, python-django-doc, ipython, bpython, libgdal1
 Description: High-level Python web development framework
  Django is a high-level web application framework that loosely follows the
  model-view-controller design pattern.

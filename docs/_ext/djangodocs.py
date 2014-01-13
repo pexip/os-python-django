@@ -1,22 +1,11 @@
 """
 Sphinx plugins for Django documentation.
 """
+import json
 import os
 import re
 
-from docutils import nodes, transforms
-try:
-    import json
-except ImportError:
-    try:
-        import simplejson as json
-    except ImportError:
-        try:
-            from django.utils import simplejson as json
-        except ImportError:
-            json = None
-
-from sphinx import addnodes, roles
+from sphinx import addnodes, __version__ as sphinx_ver
 from sphinx.builders.html import StandaloneHTMLBuilder
 from sphinx.writers.html import SmartyPantsHTMLTranslator
 from sphinx.util.console import bold
@@ -62,7 +51,6 @@ def setup(app):
     app.add_config_value('django_next_version', '0.0', True)
     app.add_directive('versionadded', VersionDirective)
     app.add_directive('versionchanged', VersionDirective)
-    app.add_transform(SuppressBlockquotes)
     app.add_builder(DjangoStandaloneHTMLBuilder)
 
 
@@ -74,51 +62,28 @@ class VersionDirective(Directive):
     option_spec = {}
 
     def run(self):
+        if len(self.arguments) > 1:
+            msg = """Only one argument accepted for directive '{directive_name}::'.
+            Comments should be provided as content,
+            not as an extra argument.""".format(directive_name=self.name)
+            raise self.error(msg)
+
         env = self.state.document.settings.env
-        arg0 = self.arguments[0]
-        is_nextversion = env.config.django_next_version == arg0
         ret = []
         node = addnodes.versionmodified()
         ret.append(node)
-        if not is_nextversion:
-            if len(self.arguments) == 1:
-                linktext = 'Please, see the release notes </releases/%s>' % (arg0)
-                xrefs = roles.XRefRole()('doc', linktext, linktext, self.lineno, self.state)
-                node.extend(xrefs[0])
-            node['version'] = arg0
-        else:
+
+        if self.arguments[0] == env.config.django_next_version:
             node['version'] = "Development version"
+        else:
+            node['version'] = self.arguments[0]
+
         node['type'] = self.name
-        if len(self.arguments) == 2:
-            inodes, messages = self.state.inline_text(self.arguments[1], self.lineno+1)
-            node.extend(inodes)
-            if self.content:
-                self.state.nested_parse(self.content, self.content_offset, node)
-            ret = ret + messages
+        if self.content:
+            self.state.nested_parse(self.content, self.content_offset, node)
         env.note_versionchange(node['type'], node['version'], node, self.lineno)
         return ret
 
-
-class SuppressBlockquotes(transforms.Transform):
-    """
-    Remove the default blockquotes that encase indented list, tables, etc.
-    """
-    default_priority = 300
-
-    suppress_blockquote_child_nodes = (
-        nodes.bullet_list,
-        nodes.enumerated_list,
-        nodes.definition_list,
-        nodes.literal_block,
-        nodes.doctest_block,
-        nodes.line_block,
-        nodes.table
-    )
-
-    def apply(self):
-        for node in self.document.traverse(nodes.block_quote):
-            if len(node.children) == 1 and isinstance(node.children[0], self.suppress_blockquote_child_nodes):
-                node.replace_self(node.children[0])
 
 class DjangoHTMLTranslator(SmartyPantsHTMLTranslator):
     """
@@ -127,26 +92,35 @@ class DjangoHTMLTranslator(SmartyPantsHTMLTranslator):
 
     # Don't use border=1, which docutils does by default.
     def visit_table(self, node):
+        self.context.append(self.compact_p)
+        self.compact_p = True
+        self._table_row_index = 0 # Needed by Sphinx
         self.body.append(self.starttag(node, 'table', CLASS='docutils'))
+
+    def depart_table(self, node):
+        self.compact_p = self.context.pop()
+        self.body.append('</table>\n')
 
     # <big>? Really?
     def visit_desc_parameterlist(self, node):
         self.body.append('(')
         self.first_param = 1
+        self.param_separator = node.child_text_separator
 
     def depart_desc_parameterlist(self, node):
         self.body.append(')')
 
-    #
-    # Don't apply smartypants to literal blocks
-    #
-    def visit_literal_block(self, node):
-        self.no_smarty += 1
-        SmartyPantsHTMLTranslator.visit_literal_block(self, node)
+    if sphinx_ver < '1.0.8':
+        #
+        # Don't apply smartypants to literal blocks
+        #
+        def visit_literal_block(self, node):
+            self.no_smarty += 1
+            SmartyPantsHTMLTranslator.visit_literal_block(self, node)
 
-    def depart_literal_block(self, node):
-        SmartyPantsHTMLTranslator.depart_literal_block(self, node)
-        self.no_smarty -= 1
+        def depart_literal_block(self, node):
+            SmartyPantsHTMLTranslator.depart_literal_block(self, node)
+            self.no_smarty -= 1
 
     #
     # Turn the "new in version" stuff (versionadded/versionchanged) into a
@@ -154,7 +128,7 @@ class DjangoHTMLTranslator(SmartyPantsHTMLTranslator):
     # which is a bit less obvious that I'd like.
     #
     # FIXME: these messages are all hardcoded in English. We need to change
-    # that to accomodate other language docs, but I can't work out how to make
+    # that to accommodate other language docs, but I can't work out how to make
     # that work.
     #
     version_text = {
@@ -169,7 +143,7 @@ class DjangoHTMLTranslator(SmartyPantsHTMLTranslator):
         )
         title = "%s%s" % (
             self.version_text[node['type']] % node['version'],
-            len(node) and ":" or "."
+            ":" if len(node) else "."
         )
         self.body.append('<span class="title">%s</span> ' % title)
 
@@ -229,9 +203,6 @@ class DjangoStandaloneHTMLBuilder(StandaloneHTMLBuilder):
 
     def finish(self):
         super(DjangoStandaloneHTMLBuilder, self).finish()
-        if json is None:
-            self.warn("cannot create templatebuiltins.js due to missing simplejson dependency")
-            return
         self.info(bold("writing templatebuiltins.js..."))
         xrefs = self.env.domaindata["std"]["objects"]
         templatebuiltins = {
@@ -241,8 +212,7 @@ class DjangoStandaloneHTMLBuilder(StandaloneHTMLBuilder):
                         if t == "templatefilter" and l == "ref/templates/builtins"],
         }
         outfilename = os.path.join(self.outdir, "templatebuiltins.js")
-        f = open(outfilename, 'wb')
-        f.write('var django_template_builtins = ')
-        json.dump(templatebuiltins, f)
-        f.write(';\n')
-        f.close();
+        with open(outfilename, 'w') as fp:
+            fp.write('var django_template_builtins = ')
+            json.dump(templatebuiltins, fp)
+            fp.write(';\n')
