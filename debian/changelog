@@ -1,3 +1,9 @@
+python-django (1.6.1-1pexip2) pexip; urgency=low
+
+  * Add patch for issue 16426. SQLite delete params limit.
+
+ -- Colin Bradbury <colin@pexip.com>  Mon, 24 Jan 2014 16:31:00 +0000
+
 python-django (1.6.1-1pexip1) pexip; urgency=low
 
   * Prepare Pexip packaging

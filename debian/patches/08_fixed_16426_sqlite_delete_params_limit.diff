@@ -1,0 +1,136 @@
+diff --git a/django/db/backends/__init__.py b/django/db/backends/__init__.py
+index 55ed1f0..8c8d296 100644
+--- a/django/db/backends/__init__.py
++++ b/django/db/backends/__init__.py
+@@ -706,6 +706,14 @@ class BaseDatabaseOperations(object):
+         """
+         return len(objs)
+ 
++    def delete_batch_size(self, objs):
++        """
++        Returns the maximum allowed delete batch size for the backend. The
++        objects are going to be deleted by something like
++            DELETE ... WHERE pk IN (list_of_obj_pks)
++        """
++        return len(objs)
++
+     def cache_key_culling_sql(self):
+         """
+         Returns an SQL query that retrieves the first cache key greater than the
+diff --git a/django/db/backends/sqlite3/base.py b/django/db/backends/sqlite3/base.py
+index 96b0314..f671e1b 100644
+--- a/django/db/backends/sqlite3/base.py
++++ b/django/db/backends/sqlite3/base.py
+@@ -198,6 +198,13 @@ class DatabaseOperations(BaseDatabaseOperations):
+         return "django_datetime_trunc('%s', %s, %%s)" % (
+             lookup_type.lower(), field_name), [tzname]
+ 
++    def delete_batch_size(self, objs):
++        """
++        More than 999 objs will make us hit SQLITE_LIMIT_VARIABLE_NUMBER
++        (999).
++        """
++        return 999
++
+     def drop_foreignkey_sql(self):
+         return ""
+ 
+diff --git a/django/db/models/deletion.py b/django/db/models/deletion.py
+index e0bfb9d..5d753d0 100644
+--- a/django/db/models/deletion.py
++++ b/django/db/models/deletion.py
+@@ -142,6 +142,19 @@ class Collector(object):
+                 return False
+         return True
+ 
++    def get_del_batches(self, objs):
++        """
++        Returns the objs in suitably sized batches for the used connection.
++        The problem we are trying to avoid is too many query parameters when
++        fetching the related objects.
++        """
++        conn_batch_size = connections[self.using].ops.delete_batch_size(objs)
++        if len(objs) > conn_batch_size:
++            return [objs[i:i + conn_batch_size]
++                    for i in range(0, len(objs), conn_batch_size)]
++        else:
++            return [objs]
++
+     def collect(self, objs, source=None, nullable=False, collect_related=True,
+         source_attr=None, reverse_dependency=False):
+         """
+@@ -190,11 +203,13 @@ class Collector(object):
+                 field = related.field
+                 if field.rel.on_delete == DO_NOTHING:
+                     continue
+-                sub_objs = self.related_objects(related, new_objs)
+-                if self.can_fast_delete(sub_objs, from_field=field):
+-                    self.fast_deletes.append(sub_objs)
+-                elif sub_objs:
+-                    field.rel.on_delete(self, field, sub_objs, self.using)
++                batches = self.get_del_batches(new_objs)
++                for batch in batches:
++                    sub_objs = self.related_objects(related, batch)
++                    if self.can_fast_delete(sub_objs, from_field=field):
++                        self.fast_deletes.append(sub_objs)
++                    elif sub_objs:
++                        field.rel.on_delete(self, field, sub_objs, self.using)
+             for field in model._meta.virtual_fields:
+                 if hasattr(field, 'bulk_related_objects'):
+                     # Its something like generic foreign key.
+diff --git a/tests/delete/tests.py b/tests/delete/tests.py
+index 6617307..4cad86c 100644
+--- a/tests/delete/tests.py
++++ b/tests/delete/tests.py
+@@ -1,7 +1,11 @@
+ from __future__ import absolute_import
+ 
++from math import ceil
++
+ from django.db import models, IntegrityError, connection
++from django.db.models.sql.constants import GET_ITERATOR_CHUNK_SIZE
+ from django.test import TestCase, skipUnlessDBFeature, skipIfDBFeature
++from django.test.utils import override_settings
+ from django.utils.six.moves import xrange
+ 
+ from .models import (R, RChild, S, T, U, A, M, MR, MRNull,
+@@ -164,7 +168,6 @@ class DeletionTests(TestCase):
+         self.assertFalse(m.m2m_through_null.exists())
+ 
+     def test_bulk(self):
+-        from django.db.models.sql.constants import GET_ITERATOR_CHUNK_SIZE
+         s = S.objects.create(r=R.objects.create())
+         for i in xrange(2*GET_ITERATOR_CHUNK_SIZE):
+             T.objects.create(s=s)
+@@ -307,6 +310,31 @@ class DeletionTests(TestCase):
+         r.delete()
+         self.assertEqual(HiddenUserProfile.objects.count(), 0)
+ 
++    def test_large_batch(self):
++        TEST_SIZE = 2000
++        objs = [Avatar() for i in range(0, TEST_SIZE)]
++        Avatar.objects.bulk_create(objs)
++        # The amount of queries isn't easy to calculate - for each batch
++        # we are going to do one related fetch, and additionally
++        # batch size // ITERATOR_CHUNK_SIZE deletes (where last batch might
++        # need fewer than the others). So, calculate reasonable upper and
++        # lower bounds.
++        batch_size = connection.ops.delete_batch_size(objs)
++        batches = ceil(float(len(objs)) / batch_size)
++        # One query for Avatar.objects.all() and then one related fetch for
++        # each batch.
++        fetches_to_mem = batches + 1
++        chunks_per_batch = ceil(float(batch_size) / GET_ITERATOR_CHUNK_SIZE)
++        qcount_upper_bound = batches * chunks_per_batch + fetches_to_mem
++        # We know all the full batches will need chunks_per_batch queries.
++        qcount_lower_bound = (batches - 1) * chunks_per_batch + fetches_to_mem
++        with override_settings(DEBUG=True):
++            connection.queries = []
++            Avatar.objects.all().delete()
++            self.assertTrue(len(connection.queries) <= qcount_upper_bound)
++            self.assertTrue(len(connection.queries) >= qcount_lower_bound)
++        self.assertEquals(Avatar.objects.count(), 0)
++
+ class FastDeleteTests(TestCase):
+ 
+     def test_fast_delete_fk(self):
