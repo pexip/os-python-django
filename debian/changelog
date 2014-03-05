@@ -1,3 +1,9 @@
+python-django (1.6.1-1pexip3) pexip; urgency=low
+
+  * Fix upstream field in control file.
+
+ -- John-Mark Bell <jmb@pexip.com>  Wed, 05 Mar 2014 12:37:21 +0000
+
 python-django (1.6.1-1pexip2) pexip; urgency=low
 
   * Add patch for issue 16426. SQLite delete params limit.
