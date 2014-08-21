@@ -1,3 +1,37 @@
+python-django (1.6.6-1) unstable; urgency=high
+
+  * New upstream security release.
+    - reverse() can generate URLs pointing to other hosts (CVE-2014-0480)
+    - file upload denial of service (CVE-2014-0481)
+    - RemoteUserMiddleware session hijacking (CVE-2014-0482)
+    - data leakage via querystring manipulation in admin (CVE-2014-0483)
+
+  [ Brian May ]
+  * Don't output stuff to stdout in django-admin. Closes: #757145
+
+  [ Raphaël Hertzog ]
+  * Update Vcs-* fields since the packaging repository moved to git.
+
+ -- Luke Faraone <lfaraone@debian.org>  Wed, 20 Aug 2014 19:30:21 -0700
+
+python-django (1.6.5-3) unstable; urgency=low
+
+  * Replace django-admin with script that can be run as python and shell.
+
+    This means we can autodetect which python version to use when run as
+    shell, while maintaining compatability with processes that try to run it
+    with a specific python version.
+
+    e.g. See bugs #755341 and #755321.
+
+ -- Brian May <bam@debian.org>  Mon, 21 Jul 2014 10:18:39 +1000
+
+python-django (1.6.5-2) unstable; urgency=low
+
+  * python3-django package. Closes: #736878.
+
+ -- Brian May <bam@debian.org>  Tue, 24 Jun 2014 10:51:47 +1000
+
 python-django (1.6.5-1) unstable; urgency=high
 
   * New upstream security release.
