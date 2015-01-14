@@ -374,6 +374,13 @@ because it is more accurate.
 
 .. _MySQL Unicode Character Sets: http://dev.mysql.com/doc/refman/5.7/en/charset-unicode-sets.html
 
+.. warning::
+
+    Model formsets validate unique fields in a case-sensitive manner. Thus when
+    using a case-insensitive collation, a formset with unique field values that
+    differ only by case will pass validation, but upon calling ``save()``, an
+    ``IntegrityError`` will be raised.
+
 Connecting to the database
 --------------------------
 
@@ -493,11 +500,6 @@ for the field. This affects :class:`~django.db.models.CharField`,
 
 DateTime fields
 ~~~~~~~~~~~~~~~
-
-MySQL does not have a timezone-aware column type. If an attempt is made to
-store a timezone-aware ``time`` or ``datetime`` to a
-:class:`~django.db.models.TimeField` or :class:`~django.db.models.DateTimeField`
-respectively, a ``ValueError`` is raised rather than truncating data.
 
 MySQL does not store fractions of seconds. Fractions of seconds are truncated
 to zero when the time is stored.
