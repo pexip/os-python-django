@@ -770,11 +770,11 @@ Example::
     It is {% now "jS F Y H:i" %}
 
 Note that you can backslash-escape a format string if you want to use the
-"raw" value. In this example, "f" is backslash-escaped, because otherwise
-"f" is a format string that displays the time. The "o" doesn't need to be
-escaped, because it's not a format character::
+"raw" value. In this example, both "o" and "f" are backslash-escaped, because
+otherwise each is a format string that displays the year and the time,
+respectively::
 
-    It is the {% now "jS o\f F" %}
+    It is the {% now "jS \o\f F" %}
 
 This would display as "It is the 4th of September".
 
@@ -810,13 +810,18 @@ This complex tag is best illustrated by way of an example: say that "places" is 
 ...and you'd like to display a hierarchical list that is ordered by country, like this:
 
 * India
-    * Mumbai: 19,000,000
-    * Calcutta: 15,000,000
+
+  * Mumbai: 19,000,000
+  * Calcutta: 15,000,000
+
 * USA
-    * New York: 20,000,000
-    * Chicago: 7,000,000
+
+  * New York: 20,000,000
+  * Chicago: 7,000,000
+
 * Japan
-    * Tokyo: 33,000,000
+
+  * Tokyo: 33,000,000
 
 
 You can use the ``{% regroup %}`` tag to group the list of cities by country.
@@ -870,15 +875,24 @@ With this input for ``cities``, the example ``{% regroup %}`` template code
 above would result in the following output:
 
 * India
-    * Mumbai: 19,000,000
+
+  * Mumbai: 19,000,000
+
 * USA
-    * New York: 20,000,000
+
+  * New York: 20,000,000
+
 * India
-    * Calcutta: 15,000,000
+
+  * Calcutta: 15,000,000
+
 * USA
-    * Chicago: 7,000,000
+
+  * Chicago: 7,000,000
+
 * Japan
-    * Tokyo: 33,000,000
+
+  * Tokyo: 33,000,000
 
 The easiest solution to this gotcha is to make sure in your view code that the
 data is ordered according to how you want to display it.

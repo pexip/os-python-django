@@ -328,6 +328,10 @@ class BaseModelAdmin(six.with_metaclass(RenameBaseModelAdminMethods)):
         return clean_lookup in self.list_filter or clean_lookup == self.date_hierarchy
 
     def to_field_allowed(self, request, to_field):
+        """
+        Returns True if the model associated with this admin should be
+        allowed to be referenced by the specified field.
+        """
         opts = self.model._meta
 
         try:
@@ -335,12 +339,23 @@ class BaseModelAdmin(six.with_metaclass(RenameBaseModelAdminMethods)):
         except FieldDoesNotExist:
             return False
 
+        # Always allow referencing the primary key since it's already possible
+        # to get this information from the change view URL.
+        if field.primary_key:
+            return True
+
         # Make sure at least one of the models registered for this site
-        # references this field.
-        registered_models = self.admin_site._registry
-        for related_object in opts.get_all_related_objects():
-            if (related_object.model in registered_models and
-                    field in related_object.field.foreign_related_fields):
+        # references this field through a FK or a M2M relationship.
+        registered_models = set()
+        for model, admin in self.admin_site._registry.items():
+            registered_models.add(model)
+            for inline in admin.inlines:
+                registered_models.add(inline.model)
+
+        for related_object in opts.get_all_related_objects(include_hidden=True):
+            related_model = related_object.model
+            if (any(issubclass(model, related_model) for model in registered_models) and
+                    related_object.field.rel.get_related_field() == field):
                 return True
 
         return False

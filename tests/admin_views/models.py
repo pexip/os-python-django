@@ -687,3 +687,51 @@ class Simple(models.Model):
 class Choice(models.Model):
     choice = models.IntegerField(blank=True, null=True,
         choices=((1, 'Yes'), (0, 'No'), (None, 'No opinion')))
+
+# Models for #23329
+class ReferencedByParent(models.Model):
+    name = models.CharField(max_length=20, unique=True)
+
+
+class ParentWithFK(models.Model):
+    fk = models.ForeignKey(
+        ReferencedByParent, to_field='name', related_name='hidden+',
+    )
+
+
+class ChildOfReferer(ParentWithFK):
+    pass
+
+
+class M2MReference(models.Model):
+    ref = models.ManyToManyField('self')
+
+
+# Models for #23431
+class ReferencedByInline(models.Model):
+    name = models.CharField(max_length=20, unique=True)
+
+
+class InlineReference(models.Model):
+    fk = models.ForeignKey(
+        ReferencedByInline, to_field='name', related_name='hidden+',
+    )
+
+
+class InlineReferer(models.Model):
+    refs = models.ManyToManyField(InlineReference)
+
+
+# Models for #23604
+class Recipe(models.Model):
+    pass
+
+
+class Ingredient(models.Model):
+    recipes = models.ManyToManyField(Recipe)
+
+
+# Model for #23839
+class NotReferenced(models.Model):
+    # Don't point any FK at this model.
+    pass

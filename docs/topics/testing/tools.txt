@@ -447,10 +447,12 @@ If you point the test client at a view that raises an exception, that exception
 will be visible in the test case. You can then use a standard ``try ... except``
 block or :meth:`~unittest.TestCase.assertRaises` to test for exceptions.
 
-The only exceptions that are not visible to the test client are ``Http404``,
-``PermissionDenied`` and ``SystemExit``. Django catches these exceptions
-internally and converts them into the appropriate HTTP response codes. In these
-cases, you can check ``response.status_code`` in your test.
+The only exceptions that are not visible to the test client are
+:class:`~django.http.Http404`,
+:class:`~django.core.exceptions.PermissionDenied`, :exc:`SystemExit`, and
+:class:`~django.core.exceptions.SuspiciousOperation`. Django catches these
+exceptions internally and converts them into the appropriate HTTP response
+codes. In these cases, you can check ``response.status_code`` in your test.
 
 Persistent state
 ~~~~~~~~~~~~~~~~
@@ -768,7 +770,7 @@ Finally, you may run the test as follows:
 
 .. code-block:: bash
 
-    ./manage.py test myapp.MySeleniumTests.test_login
+    ./manage.py test myapp.tests.MySeleniumTests.test_login
 
 This example will automatically open Firefox then go to the login page, enter
 the credentials and press the "Log in" button. Selenium offers other drivers in
@@ -878,7 +880,8 @@ attribute::
     from django.test.client import Client
 
     class MyTestClient(Client):
-        # Specialized methods for your environment...
+        # Specialized methods for your environment
+        ...
 
     class MyTest(TestCase):
         client_class = MyTestClient
@@ -1041,6 +1044,12 @@ If ``multi_db=True``, fixtures are loaded into all databases.
 
 Overriding settings
 ~~~~~~~~~~~~~~~~~~~
+
+.. warning::
+
+    Use the functions below to temporarily alter the value of settings in tests.
+    Don't manipulate ``django.conf.settings`` directly as Django won't restore
+    the original values after such manipulations.
 
 .. method:: SimpleTestCase.settings()
 
@@ -1472,6 +1481,25 @@ manually, assign the empty list to ``mail.outbox``::
 
     # Empty the test outbox
     mail.outbox = []
+
+.. _topics-testing-management-commands:
+
+Management Commands
+-------------------
+
+Management commands can be tested with the
+:func:`~django.core.management.call_command` function. The output can be
+redirected into a ``StringIO`` instance::
+
+    from django.core.management import call_command
+    from django.test import TestCase
+    from django.utils.six import StringIO
+
+    class ClosepollTest(TestCase):
+        def test_command_output(self):
+            out = StringIO()
+            call_command('closepoll', stdout=out)
+            self.assertIn('Expected output', out.getvalue())
 
 .. _skipping-tests:
 

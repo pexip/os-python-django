@@ -343,7 +343,7 @@ subclass::
     form rather than specifying an entirely new one by using the
     :meth:`ModelAdmin.get_form` method.
 
-    For an example see the section `Adding custom validation to the admin`_.
+    For an example see the section :ref:`admin-custom-validation`.
 
     .. admonition:: Note
 
@@ -599,7 +599,7 @@ subclass::
 
       For example::
 
-          class Person(object):
+          class Person(models.Model):
               first_name = models.CharField(max_length=50)
               last_name = models.CharField(max_length=50)
 
@@ -1067,7 +1067,7 @@ subclass::
 Custom template options
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-The `Overriding Admin Templates`_ section describes how to override or extend
+The :ref:`admin-overriding-templates` section describes how to override or extend
 the default admin templates.  Use the following options to override the default
 templates used by the :class:`ModelAdmin` views:
 
@@ -1136,7 +1136,7 @@ templates used by the :class:`ModelAdmin` views:
     ``ModelForm`` instance and a boolean value based on whether it is adding or
     changing the parent object.
 
-    For example to attach ``request.user`` to each changed formset
+    For example, to attach ``request.user`` to each changed formset
     model instance::
 
         class ArticleAdmin(admin.ModelAdmin):
@@ -1146,6 +1146,8 @@ templates used by the :class:`ModelAdmin` views:
                     instance.user = request.user
                     instance.save()
                 formset.save_m2m()
+
+    See also :ref:`saving-objects-in-the-formset`.
 
 .. method:: ModelAdmin.get_ordering(request)
 
@@ -1259,8 +1261,14 @@ templates used by the :class:`ModelAdmin` views:
     filtering based on add, change, and delete permissions::
 
         class MyModelAdmin(admin.ModelAdmin):
+            inlines = (MyInline,)
+
             def get_inline_instances(self, request, obj=None):
                 return [inline(self.model, self.admin_site) for inline in self.inlines]
+
+    If you override this method, make sure that the returned inlines are
+    instances of the classes defined in :attr:`inlines` or you might encounter
+    a "Bad Request" error when adding related objects.
 
 .. method:: ModelAdmin.get_urls()
 
@@ -1332,15 +1340,19 @@ templates used by the :class:`ModelAdmin` views:
     Returns a :class:`~django.forms.ModelForm` class for use in the admin add
     and change views, see :meth:`add_view` and :meth:`change_view`.
 
-    If you wanted to hide a field from non-superusers, for example, you could
-    override ``get_form`` as follows::
+    The base implementation uses :func:`~django.forms.models.modelform_factory`
+    to subclass :attr:`~form`, modified by attributes such as :attr:`~fields`
+    and :attr:`~exclude`. So, for example, if you wanted to offer additional
+    fields to superusers, you could swap in a different base form like so::
 
         class MyModelAdmin(admin.ModelAdmin):
             def get_form(self, request, obj=None, **kwargs):
-                self.exclude = []
-                if not request.user.is_superuser:
-                    self.exclude.append('field_to_hide')
+                if request.user.is_superuser:
+                    kwargs['form'] = MySuperuserForm
                 return super(MyModelAdmin, self).get_form(request, obj, **kwargs)
+
+    You may also simply return a custom :class:`~django.forms.ModelForm` class
+    directly.
 
 .. method:: ModelAdmin.get_formsets(request, obj=None)
 
@@ -1624,6 +1636,8 @@ return the uncompressed versions of the various JavaScript files, including
 ``jquery.js``; if not, it will return the 'minified' versions.
 
 .. _jQuery: http://jquery.com
+
+.. _admin-custom-validation:
 
 Adding custom validation to the admin
 -------------------------------------
@@ -2042,6 +2056,8 @@ other inline. In your ``admin.py`` for this example app::
 See the :doc:`contenttypes documentation </ref/contrib/contenttypes>` for more
 specific information.
 
+.. _admin-overriding-templates:
+
 Overriding admin templates
 ==========================
 
@@ -2173,7 +2189,7 @@ creating your own ``AdminSite`` instance (see below), and changing the
 ------------------------
 
 Templates can override or extend base admin templates as described in
-`Overriding Admin Templates`_.
+:ref:`admin-overriding-templates`.
 
 .. attribute:: AdminSite.index_template
 
