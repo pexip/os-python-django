@@ -1,3 +1,14 @@
+python-django (1.6.10-1pexip1) pexip; urgency=low
+
+  * New upstream release
+    https://www.djangoproject.com/weblog/2015/jan/13/security/
+    - WSGI header spoofing via underscore/dash conflation (CVE-2015-0219)
+    - Mitigated XSS attack via user-supplied redirect URLs (CVE-2015-0220)
+    - Denial-of-service attack against django.views.static.serve (CVE-2015-0221)
+    - Database denial-of-service with ModelMultipleChoiceField (CVE-2015-0222)
+
+ -- John-Mark Bell <jmb@pexip.com>  Wed, 14 Jan 2015 01:04:12 +0000
+
 python-django (1.6.6-1pexip1) pexip; urgency=low
 
   * New upstream release
