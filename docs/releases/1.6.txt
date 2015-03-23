@@ -446,7 +446,7 @@ but will not be removed from Django until version 1.8.
 
 .. _recommendations in the Python documentation: http://docs.python.org/2/library/doctest.html#unittest-api
 
-Removal of ``django.contrib.gis.tests.GeoDjangoTestSuiteRunner`` Geodjango custom test runner
+Removal of ``django.contrib.gis.tests.GeoDjangoTestSuiteRunner`` GeoDjango custom test runner
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This is for developers working on the GeoDjango application itself and related
@@ -1042,10 +1042,11 @@ If necessary, you can temporarily disable auto-escaping with
 ``CACHE_MIDDLEWARE_ANONYMOUS_ONLY`` setting
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-``CacheMiddleware`` used to provide a way to cache requests only if they
-weren't made by a logged-in user. This mechanism was largely ineffective
-because the middleware correctly takes into account the ``Vary: Cookie`` HTTP
-header, and this header is being set on a variety of occasions, such as:
+``CacheMiddleware`` and ``UpdateCacheMiddleware`` used to provide a way to
+cache requests only if they weren't made by a logged-in user. This mechanism
+was largely ineffective because the middleware correctly takes into account the
+``Vary: Cookie`` HTTP header, and this header is being set on a variety of
+occasions, such as:
 
 * accessing the session, or
 * using CSRF protection, which is turned on by default, or
