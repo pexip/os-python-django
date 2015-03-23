@@ -1,3 +1,12 @@
+python-django (1.6.11-1pexip1) pexip; urgency=low
+
+  * New upstream release
+    https://www.djangoproject.com/weblog/2015/mar/18/security-releases/
+    - Denial-of-service possibility with strip_tags() (CVE-2015-2316)
+    - Mitigated possible XSS attack via user-supplied redirect URLs (CVE-2015-2317)
+
+ -- John-Mark Bell <jmb@pexip.com>  Mon, 23 Mar 2015 21:32:32 +0000
+
 python-django (1.6.10-1pexip1) pexip; urgency=low
 
   * New upstream release
