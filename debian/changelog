@@ -1,3 +1,12 @@
+python-django (1.6.11-1pexip2) pexip; urgency=low
+
+  * Backport security fixes from upstream
+    https://www.djangoproject.com/weblog/2015/jul/08/security-releases/
+    - Denial-of-service possibility by filling session store (CVE-2015-5143)
+    - Header injection possibility since validators accept newlines in input (CVE-2015-5144)
+
+ -- John-Mark Bell <jmb@pexip.com>  Thu, 09 Jul 2015 10:26:47 +0100
+
 python-django (1.6.11-1pexip1) pexip; urgency=low
 
   * New upstream release
