@@ -1,3 +1,11 @@
+python-django (1.6.11-1pexip3) pexip; urgency=low
+
+  * Backport security fixes from upstream
+    https://www.djangoproject.com/weblog/2015/aug/18/security-releases/
+    - Denial-of-service possibility in logout() view by filling session store (CVE-2015-5963, CVE-2015-5964)
+
+ -- John-Mark Bell <jmb@pexip.com>  Wed, 26 Aug 2015 13:09:41 +0100
+
 python-django (1.6.11-1pexip2) pexip; urgency=low
 
   * Backport security fixes from upstream

@@ -4,3 +4,4 @@
 08_fixed_16426_sqlite_delete_params_limit.diff
 CVE-2015-5143.patch
 CVE-2015-5144.patch
+CVE-2015-5963-5964.patch
