@@ -13,6 +13,7 @@ class Foo(models.Model):
     def __str__(self):
         return "Foo %s" % self.name
 
+
 @python_2_unicode_compatible
 class Bar(models.Model):
     name = models.CharField(max_length=50)
@@ -23,12 +24,14 @@ class Bar(models.Model):
     def __str__(self):
         return "Bar %s" % self.place.name
 
+
 @python_2_unicode_compatible
 class Whiz(models.Model):
     name = models.CharField(max_length=50)
 
     def __str__(self):
         return "Whiz %s" % self.name
+
 
 @python_2_unicode_compatible
 class Child(models.Model):
@@ -38,6 +41,7 @@ class Child(models.Model):
     def __str__(self):
         return "Child %s" % self.name
 
+
 @python_2_unicode_compatible
 class Base(models.Model):
     name = models.CharField(max_length=50)
@@ -45,11 +49,12 @@ class Base(models.Model):
     def __str__(self):
         return "Base %s" % self.name
 
+
 @python_2_unicode_compatible
 class Article(models.Model):
     name = models.CharField(max_length=50)
     text = models.TextField()
-    submitted_from = models.IPAddressField(blank=True, null=True)
+    submitted_from = models.GenericIPAddressField(blank=True, null=True)
 
     def __str__(self):
         return "Article %s" % self.name

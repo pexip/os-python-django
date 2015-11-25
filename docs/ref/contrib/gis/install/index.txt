@@ -1,5 +1,3 @@
-.. _ref-gis-install:
-
 ======================
 GeoDjango Installation
 ======================
@@ -12,7 +10,7 @@ In general, GeoDjango installation requires:
 
 1. :ref:`Python and Django <django>`
 2. :ref:`spatial_database`
-3. :ref:`geospatial_libs`
+3. :doc:`geolibs`
 
 Details for each of the requirements and installation instructions
 are provided in the sections below. In addition, platform-specific
@@ -41,7 +39,6 @@ Because GeoDjango is included with Django, please refer to Django's
 :ref:`installation instructions <installing-official-release>` for details on
 how to install.
 
-
 .. _spatial_database:
 
 Spatial database
@@ -61,10 +58,10 @@ supported versions, and any notes for each of the supported database backends:
 ==================  ==============================  ==================  =========================================
 Database            Library Requirements            Supported Versions  Notes
 ==================  ==============================  ==================  =========================================
-PostgreSQL          GEOS, PROJ.4, PostGIS           8.4+                Requires PostGIS.
-MySQL               GEOS                            5.x                 Not OGC-compliant; :ref:`limited functionality <mysql-spatial-limitations>`.
-Oracle              GEOS                            10.2, 11            XE not supported; not tested with 9.
-SQLite              GEOS, GDAL, PROJ.4, SpatiaLite  3.6.+               Requires SpatiaLite 2.3+, pysqlite2 2.5+
+PostgreSQL          GEOS, PROJ.4, PostGIS           9.0+                Requires PostGIS.
+MySQL               GEOS                            5.5+                Not OGC-compliant; :ref:`limited functionality <mysql-spatial-limitations>`.
+Oracle              GEOS                            11.1+               XE not supported.
+SQLite              GEOS, GDAL, PROJ.4, SpatiaLite  3.6.+               Requires SpatiaLite 2.4+, pysqlite2 2.5+
 ==================  ==============================  ==================  =========================================
 
 See also `this comparison matrix`__ on the OSGeo Wiki for
@@ -100,39 +97,13 @@ Like other Django contrib applications, you will *only* need to add
 This is the so that ``gis`` templates can be located -- if not done, then
 features such as the geographic admin or KML sitemaps will not function properly.
 
-.. _addgoogleprojection:
-
-Add Google projection to ``spatial_ref_sys`` table
---------------------------------------------------
-
-.. note::
-
-    If you're running PostGIS 1.4 or above, you can skip this step. The entry
-    is already included in the default ``spatial_ref_sys`` table.
-
-In order to conduct database transformations to the so-called "Google"
-projection (a spherical mercator projection used by Google Maps),
-an entry must be added to your spatial database's ``spatial_ref_sys`` table.
-Invoke the Django shell from your project and execute the
-``add_srs_entry`` function:
-
-.. code-block:: pycon
-
-    $ python manage.py shell
-    >>> from django.contrib.gis.utils import add_srs_entry
-    >>> add_srs_entry(900913)
-
-This adds an entry for the 900913 SRID to the ``spatial_ref_sys`` (or equivalent)
-table, making it possible for the spatial database to transform coordinates in
-this projection.  You only need to execute this command *once* per spatial database.
-
 Troubleshooting
 ===============
 
 If you can't find the solution to your problem here then participate in the
 community!  You can:
 
-* Join the ``#geodjango`` IRC channel on FreeNode. Please be patient and polite
+* Join the ``#geodjango`` IRC channel on Freenode. Please be patient and polite
   -- while you may not get an immediate response, someone will attempt to answer
   your question as soon as they see it.
 * Ask your question on the `GeoDjango`__ mailing list.
@@ -218,16 +189,12 @@ Mac OS X
 Because of the variety of packaging systems available for OS X, users have
 several different options for installing GeoDjango. These options are:
 
+* :ref:`postgresapp` (easiest and recommended)
 * :ref:`homebrew`
 * :ref:`kyngchaos`
 * :ref:`fink`
 * :ref:`macports`
 * :ref:`build_from_source`
-
-.. note::
-
-    Currently, the easiest and recommended approach for installing GeoDjango
-    on OS X is to use the KyngChaos packages.
 
 This section also includes instructions for installing an upgraded version
 of :ref:`macosx_python` from packages provided by the Python Software
@@ -239,13 +206,14 @@ Python
 ^^^^^^
 
 Although OS X comes with Python installed, users can use framework
-installers (`2.6`__ and `2.7`__ are available) provided by
+installers (`2.7`__, `3.2`__ and `3.3`__ are available) provided by
 the Python Software Foundation.  An advantage to using the installer is
 that OS X's Python will remain "pristine" for internal operating system
 use.
 
-__ http://python.org/ftp/python/2.6.6/python-2.6.6-macosx10.3.dmg
-__ http://python.org/ftp/python/2.7.3/
+__ https://python.org/ftp/python/2.7.5/
+__ https://python.org/ftp/python/3.2.5/
+__ https://python.org/ftp/python/3.3.2/
 
 .. note::
 
@@ -254,6 +222,26 @@ __ http://python.org/ftp/python/2.7.3/
     ``python`` is entered at the command-line::
 
         export PATH=/Library/Frameworks/Python.framework/Versions/Current/bin:$PATH
+
+.. _postgresapp:
+
+Postgres.app
+^^^^^^^^^^^^
+
+`Postgres.app <http://postgresapp.com/>`_ is a standalone PostgreSQL server
+that includes the PostGIS extension. You will also need to install ``gdal`` and
+``libgeoip`` with :ref:`homebrew`.
+
+After installing Postgres.app, add the following to your ``.bash_profile`` so
+you can run the package's programs from the command-line. Replace ``X.Y`` with
+the version of PostgreSQL in the Postgres.app you installed:
+
+.. code-block:: bash
+
+    export PATH=$PATH:/Applications/Postgres.app/Contents/Versions/X.Y/bin
+
+You can check if the path is set up correctly by typing ``which psql`` at a
+terminal prompt.
 
 .. _homebrew:
 
@@ -326,7 +314,7 @@ psycopg2
 After you've installed the KyngChaos binaries and modified your ``PATH``, as
 described above, ``psycopg2`` may be installed using the following command::
 
-    $ sudo pip install psycopg2
+    $ pip install psycopg2
 
 .. note::
 
@@ -339,15 +327,12 @@ Fink
 ^^^^
 
 `Kurt Schwehr`__ has been gracious enough to create GeoDjango packages for users
-of the `Fink`__ package system.  The following packages are available, depending
-on which version of Python you want to use:
-
-* ``django-gis-py26``
-* ``django-gis-py25``
-* ``django-gis-py24``
+of the `Fink`__ package system. `Different packages are available`__ (starting
+with "django-gis"), depending on which version of Python you want to use.
 
 __ http://schwehr.org/blog/
 __ http://www.finkproject.org/
+__ http://pdb.finkproject.org/pdb/browse.php?summary=django-gis
 
 .. _macports:
 
@@ -360,7 +345,7 @@ the `Apple Developer Tools`_ are required.
 
 Summary::
 
-    $ sudo port install postgresql83-server
+    $ sudo port install postgresql93-server
     $ sudo port install geos
     $ sudo port install proj
     $ sudo port install postgis
@@ -372,12 +357,12 @@ Summary::
     You will also have to modify the ``PATH`` in your ``.profile`` so
     that the MacPorts programs are accessible from the command-line::
 
-        export PATH=/opt/local/bin:/opt/local/lib/postgresql83/bin
+        export PATH=/opt/local/bin:/opt/local/lib/postgresql93/bin
 
     In addition, add the ``DYLD_FALLBACK_LIBRARY_PATH`` setting so that
     the libraries can be found by Python::
 
-        export DYLD_FALLBACK_LIBRARY_PATH=/opt/local/lib:/opt/local/lib/postgresql83
+        export DYLD_FALLBACK_LIBRARY_PATH=/opt/local/lib:/opt/local/lib/postgresql93
 
 __ http://www.macports.org/
 
@@ -410,7 +395,7 @@ Next, run the installer and keep the defaults -- for example, keep
     products sometimes install a copy there.  *You should still install a
     fresh version of Python 2.7.*
 
-__ http://python.org/download/
+__ https://python.org/download/
 
 PostgreSQL
 ^^^^^^^^^^
@@ -451,7 +436,7 @@ From within the Application Stack Builder (to run outside of the installer,
 :menuselection:`Start --> Programs --> PostgreSQL 9.x`), select
 :menuselection:`PostgreSQL Database Server 9.x on port 5432` from the drop down
 menu.  Next, expand the :menuselection:`Categories --> Spatial Extensions` menu
-tree and select :menuselection:`PostGIS 1.5 for PostgreSQL 9.x`.
+tree and select :menuselection:`PostGIS X.Y for PostgreSQL 9.x`.
 
 After clicking next, you will be prompted to select your mirror, PostGIS
 will be downloaded, and the PostGIS installer will begin.  Select only the

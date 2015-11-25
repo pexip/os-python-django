@@ -1,16 +1,25 @@
-from functools import wraps
+import warnings
+from functools import update_wrapper, wraps
+from unittest import TestCase
 
 from django.contrib.admin.views.decorators import staff_member_required
-from django.contrib.auth.decorators import login_required, permission_required, user_passes_test
-from django.http import HttpResponse, HttpRequest, HttpResponseNotAllowed
+from django.contrib.auth.decorators import (
+    login_required, permission_required, user_passes_test,
+)
+from django.http import HttpRequest, HttpResponse, HttpResponseNotAllowed
 from django.middleware.clickjacking import XFrameOptionsMiddleware
 from django.utils.decorators import method_decorator
 from django.utils.functional import allow_lazy, lazy, memoize
-from django.utils.unittest import TestCase
-from django.views.decorators.cache import cache_page, never_cache, cache_control
-from django.views.decorators.clickjacking import xframe_options_deny, xframe_options_sameorigin, xframe_options_exempt
-from django.views.decorators.http import require_http_methods, require_GET, require_POST, require_safe, condition
-from django.views.decorators.vary import vary_on_headers, vary_on_cookie
+from django.views.decorators.cache import (
+    cache_control, cache_page, never_cache,
+)
+from django.views.decorators.clickjacking import (
+    xframe_options_deny, xframe_options_exempt, xframe_options_sameorigin,
+)
+from django.views.decorators.http import (
+    condition, require_GET, require_http_methods, require_POST, require_safe,
+)
+from django.views.decorators.vary import vary_on_cookie, vary_on_headers
 
 
 def fully_decorated(request):
@@ -22,6 +31,7 @@ fully_decorated.anything = "Expected __dict__"
 def compose(*functions):
     # compose(f, g)(*args, **kwargs) == f(g(*args, **kwargs))
     functions = list(reversed(functions))
+
     def _inner(*args, **kwargs):
         result = functions[0](*args, **kwargs)
         for f in functions[1:]:
@@ -43,13 +53,13 @@ full_decorator = compose(
     vary_on_cookie,
 
     # django.views.decorators.cache
-    cache_page(60*15),
+    cache_page(60 * 15),
     cache_control(private=True),
     never_cache,
 
     # django.contrib.auth.decorators
     # Apply user_passes_test twice to check #9474
-    user_passes_test(lambda u:True),
+    user_passes_test(lambda u: True),
     login_required,
     permission_required('change_world'),
 
@@ -57,12 +67,17 @@ full_decorator = compose(
     staff_member_required,
 
     # django.utils.functional
-    lambda f: memoize(f, {}, 1),
     allow_lazy,
     lazy,
 )
 
+# suppress the deprecation warning of memoize
+with warnings.catch_warnings():
+    warnings.filterwarnings('ignore')
+    fully_decorated = memoize(fully_decorated, {}, 1)
+
 fully_decorated = full_decorator(fully_decorated)
+
 
 class DecoratorsTest(TestCase):
 
@@ -94,8 +109,11 @@ class DecoratorsTest(TestCase):
         callback = user_passes_test(test1)(callback)
         callback = user_passes_test(test2)(callback)
 
-        class DummyUser(object): pass
-        class DummyRequest(object): pass
+        class DummyUser(object):
+            pass
+
+        class DummyRequest(object):
+            pass
 
         request = DummyRequest()
         request.user = DummyUser()
@@ -166,6 +184,17 @@ def myattr2_dec(func):
 myattr2_dec_m = method_decorator(myattr2_dec)
 
 
+class ClsDec(object):
+    def __init__(self, myattr):
+        self.myattr = myattr
+
+    def __call__(self, f):
+
+        def wrapped():
+            return f() and self.myattr
+        return update_wrapper(wrapped, f)
+
+
 class MethodDecoratorTests(TestCase):
     """
     Tests for method_decorator
@@ -204,6 +233,52 @@ class MethodDecoratorTests(TestCase):
 
         self.assertEqual(Test.method.__doc__, 'A method')
         self.assertEqual(Test.method.__name__, 'method')
+
+    # Test for argumented decorator
+    def test_argumented(self):
+        class Test(object):
+            @method_decorator(ClsDec(False))
+            def method(self):
+                return True
+
+        self.assertEqual(Test().method(), False)
+
+    def test_descriptors(self):
+
+        def original_dec(wrapped):
+            def _wrapped(arg):
+                return wrapped(arg)
+
+            return _wrapped
+
+        method_dec = method_decorator(original_dec)
+
+        class bound_wrapper(object):
+            def __init__(self, wrapped):
+                self.wrapped = wrapped
+                self.__name__ = wrapped.__name__
+
+            def __call__(self, arg):
+                return self.wrapped(arg)
+
+            def __get__(self, instance, owner):
+                return self
+
+        class descriptor_wrapper(object):
+            def __init__(self, wrapped):
+                self.wrapped = wrapped
+                self.__name__ = wrapped.__name__
+
+            def __get__(self, instance, owner):
+                return bound_wrapper(self.wrapped.__get__(instance, owner))
+
+        class Test(object):
+            @method_dec
+            @descriptor_wrapper
+            def method(self, arg):
+                return arg
+
+        self.assertEqual(Test().method(1), 1)
 
 
 class XFrameOptionsDecoratorsTests(TestCase):

@@ -1,11 +1,12 @@
 from __future__ import unicode_literals
 
-import time
+import datetime
 
 from django.core import signing
 from django.test import TestCase
-from django.utils.encoding import force_str
+from django.test.utils import freeze_time
 from django.utils import six
+from django.utils.encoding import force_str
 
 
 class TestSigner(TestCase):
@@ -31,9 +32,9 @@ class TestSigner(TestCase):
         signer = signing.Signer('predictable-secret', salt='extra-salt')
         self.assertEqual(
             signer.signature('hello'),
-                signing.base64_hmac('extra-salt' + 'signer',
-                'hello', 'predictable-secret').decode()
-            )
+            signing.base64_hmac('extra-salt' + 'signer',
+                                'hello', 'predictable-secret').decode()
+        )
         self.assertNotEqual(
             signing.Signer('predictable-secret', salt='one').signature('hello'),
             signing.Signer('predictable-secret', salt='two').signature('hello'))
@@ -105,23 +106,26 @@ class TestSigner(TestCase):
             self.assertRaises(
                 signing.BadSignature, signing.loads, transform(encoded))
 
+    def test_works_with_non_ascii_keys(self):
+        binary_key = b'\xe7'  # Set some binary (non-ASCII key)
+
+        s = signing.Signer(binary_key)
+        self.assertEqual('foo:6NB0fssLW5RQvZ3Y-MTerq2rX7w', s.sign('foo'))
+
+
 class TestTimestampSigner(TestCase):
 
     def test_timestamp_signer(self):
         value = 'hello'
-        _time = time.time
-        time.time = lambda: 123456789
-        try:
+        with freeze_time(123456789):
             signer = signing.TimestampSigner('predictable-key')
             ts = signer.sign(value)
             self.assertNotEqual(ts,
                 signing.Signer('predictable-key').sign(value))
-
             self.assertEqual(signer.unsign(ts), value)
-            time.time = lambda: 123456800
+
+        with freeze_time(123456800):
             self.assertEqual(signer.unsign(ts, max_age=12), value)
-            self.assertEqual(signer.unsign(ts, max_age=11), value)
-            self.assertRaises(
-                signing.SignatureExpired, signer.unsign, ts, max_age=10)
-        finally:
-            time.time = _time
+            # max_age parameter can also accept a datetime.timedelta object
+            self.assertEqual(signer.unsign(ts, max_age=datetime.timedelta(seconds=11)), value)
+            self.assertRaises(signing.SignatureExpired, signer.unsign, ts, max_age=10)

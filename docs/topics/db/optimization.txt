@@ -48,7 +48,7 @@ Use standard DB optimization techniques
   database-dependent topic that will depend on your particular application.
   The overhead of maintaining an index may outweigh any gains in query speed.
 
-.. _Indexes: http://en.wikipedia.org/wiki/Database_index
+.. _Indexes: https://en.wikipedia.org/wiki/Database_index
 
 * Appropriate use of field types.
 
@@ -98,7 +98,8 @@ of parentheses, but will call callables automatically, hiding the above
 distinction.
 
 Be careful with your own custom properties - it is up to you to implement
-caching.
+caching when required, for example using the
+:class:`~django.utils.functional.cached_property` decorator.
 
 Use the ``with`` template tag
 -----------------------------
@@ -121,19 +122,20 @@ For instance:
 * At the most basic level, use :ref:`filter and exclude <queryset-api>` to do
   filtering in the database.
 
-* Use :ref:`F() object query expressions <query-expressions>` to do filtering
-  against other fields within the same model.
+* Use :class:`F expressions <django.db.models.F>` to filter
+  based on other fields within the same model.
 
-* Use :doc:`annotate to do aggregation in the database </topics/db/aggregation>`.
+* Use :doc:`annotate to do aggregation in the database
+  </topics/db/aggregation>`.
 
 If these aren't enough to generate the SQL you need:
 
-Use ``QuerySet.extra()``
-------------------------
+Use ``RawSQL``
+--------------
 
-A less portable but more powerful method is
-:meth:`~django.db.models.query.QuerySet.extra()`, which allows some SQL to be
-explicitly added to the query. If that still isn't powerful enough:
+A less portable but more powerful method is the
+:class:`~django.db.models.expressions.RawSQL` expression, which allows some SQL
+to be explicitly added to the query. If that still isn't powerful enough:
 
 Use raw SQL
 -----------
@@ -242,6 +244,8 @@ Use QuerySet.exists()
 queryset``.
 
 But:
+
+.. _overuse_of_count_and_exists:
 
 Don't overuse ``count()`` and ``exists()``
 ------------------------------------------

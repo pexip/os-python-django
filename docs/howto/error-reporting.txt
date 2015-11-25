@@ -44,9 +44,9 @@ To activate this behavior, put the email addresses of the recipients in the
 
 .. seealso::
 
-   Server error emails are sent using the logging framework, so you can
-   customize this behavior by :doc:`customizing your logging configuration
-   </topics/logging>`.
+    Server error emails are sent using the logging framework, so you can
+    customize this behavior by :doc:`customizing your logging configuration
+    </topics/logging>`.
 
 404 errors
 ~~~~~~~~~~
@@ -105,14 +105,22 @@ and override its methods.
 
 .. seealso::
 
-   404 errors are logged using the logging framework. By default, these log
-   records are ignored, but you can use them for error reporting by writing a
-   handler and :doc:`configuring logging </topics/logging>` appropriately.
+    404 errors are logged using the logging framework. By default, these log
+    records are ignored, but you can use them for error reporting by writing a
+    handler and :doc:`configuring logging </topics/logging>` appropriately.
 
 .. _filtering-error-reports:
 
 Filtering error reports
 -----------------------
+
+.. warning::
+
+    Filtering sensitive data is a hard problem, and it's nearly impossible to
+    guarantee that sensitive won't leak into an error report. Therefore, error
+    reports should only be available to trusted team members and you should
+    avoid transmitting error reports unencrypted over the Internet (such as
+    through email).
 
 Filtering sensitive information
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -132,8 +140,8 @@ control which information should be filtered out of error reports in a
 production environment (that is, where :setting:`DEBUG` is set to ``False``):
 :func:`sensitive_variables` and :func:`sensitive_post_parameters`.
 
-.. _`full traceback`: http://en.wikipedia.org/wiki/Stack_trace
-.. _`traceback frame`: http://en.wikipedia.org/wiki/Stack_frame
+.. _`full traceback`: https://en.wikipedia.org/wiki/Stack_trace
+.. _`traceback frame`: https://en.wikipedia.org/wiki/Stack_frame
 
 .. function:: sensitive_variables(*variables)
 
@@ -163,13 +171,13 @@ production environment (that is, where :setting:`DEBUG` is set to ``False``):
         def my_function():
             ...
 
-    .. admonition:: When using mutiple decorators
+    .. admonition:: When using multiple decorators
 
         If the variable you want to hide is also a function argument (e.g.
         '``user``’ in the following example), and if the decorated function has
-        mutiple decorators, then make sure to place ``@sensitive_variables`` at
-        the top of the decorator chain. This way it will also hide the function
-        argument as it gets passed through the other decorators::
+        multiple decorators, then make sure to place ``@sensitive_variables``
+        at the top of the decorator chain. This way it will also hide the
+        function argument as it gets passed through the other decorators::
 
             @sensitive_variables('user', 'pw', 'cc')
             @some_decorator

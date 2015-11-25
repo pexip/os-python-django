@@ -6,6 +6,7 @@ from __future__ import unicode_literals
 from psycopg2 import Binary
 from psycopg2.extensions import ISQLQuote
 
+
 class PostGISAdapter(object):
     def __init__(self, geom):
         "Initializes on the geometry."
@@ -26,6 +27,9 @@ class PostGISAdapter(object):
         if not isinstance(other, PostGISAdapter):
             return False
         return (self.ewkb == other.ewkb) and (self.srid == other.srid)
+
+    def __hash__(self):
+        return hash((self.ewkb, self.srid))
 
     def __str__(self):
         return self.getquoted()
