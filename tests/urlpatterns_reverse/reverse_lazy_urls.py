@@ -1,12 +1,11 @@
-from __future__ import absolute_import
+from django.conf.urls import url
 
-from django.conf.urls import patterns, url
+from .views import LazyRedirectView, empty_view, login_required_view
 
-from .views import empty_view, LazyRedirectView, login_required_view
-
-urlpatterns = patterns('',
+urlpatterns = [
     url(r'^redirected_to/$', empty_view, name='named-lazy-url-redirected-to'),
     url(r'^login/$', empty_view, name='some-login-page'),
     url(r'^login_required_view/$', login_required_view),
-    url(r'^redirect/$', LazyRedirectView.as_view()),
-)
+    # TODO: Remove permanent=True where it doesn't matter in Django 1.9
+    url(r'^redirect/$', LazyRedirectView.as_view(permanent=True)),
+]

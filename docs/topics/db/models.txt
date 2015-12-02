@@ -77,7 +77,8 @@ application by the :djadmin:`manage.py startapp <startapp>` script),
     )
 
 When you add new apps to :setting:`INSTALLED_APPS`, be sure to run
-:djadmin:`manage.py syncdb <syncdb>`.
+:djadmin:`manage.py migrate <migrate>`, optionally making migrations
+for them first with :djadmin:`manage.py makemigrations <makemigrations>`.
 
 Fields
 ======
@@ -189,9 +190,9 @@ ones:
         >>> p = Person(name="Fred Flintstone", shirt_size="L")
         >>> p.save()
         >>> p.shirt_size
-        u'L'
+        'L'
         >>> p.get_shirt_size_display()
-        u'Large'
+        'Large'
 
 :attr:`~Field.default`
     The default value for the field. This can be a value or a callable
@@ -433,16 +434,14 @@ something like this::
     class Person(models.Model):
         name = models.CharField(max_length=128)
 
-        # On Python 3: def __str__(self):
-        def __unicode__(self):
+        def __str__(self):              # __unicode__ on Python 2
             return self.name
 
     class Group(models.Model):
         name = models.CharField(max_length=128)
         members = models.ManyToManyField(Person, through='Membership')
 
-        # On Python 3: def __str__(self):
-        def __unicode__(self):
+        def __str__(self):              # __unicode__ on Python 2
             return self.name
 
     class Membership(models.Model):
@@ -452,29 +451,37 @@ something like this::
         invite_reason = models.CharField(max_length=64)
 
 When you set up the intermediary model, you explicitly specify foreign
-keys to the models that are involved in the ManyToMany relation. This
+keys to the models that are involved in the many-to-many relationship. This
 explicit declaration defines how the two models are related.
 
 There are a few restrictions on the intermediate model:
 
 * Your intermediate model must contain one - and *only* one - foreign key
-  to the target model (this would be ``Person`` in our example). If you
-  have more than one foreign key, a validation error will be raised.
+  to the source model (this would be ``Group`` in our example), or you must
+  explicitly specify the foreign keys Django should use for the relationship
+  using :attr:`ManyToManyField.through_fields <ManyToManyField.through_fields>`.
+  If you have more than one foreign key and ``through_fields`` is not
+  specified, a validation error will be raised. A similar restriction applies
+  to the foreign key to the target model (this would be ``Person`` in our
+  example).
 
-* Your intermediate model must contain one - and *only* one - foreign key
-  to the source model (this would be ``Group`` in our example). If you
-  have more than one foreign key, a validation error will be raised.
-
-* The only exception to this is a model which has a many-to-many
-  relationship to itself, through an intermediary model. In this
-  case, two foreign keys to the same model are permitted, but they
-  will be treated as the two (different) sides of the many-to-many
-  relation.
+* For a model which has a many-to-many relationship to itself through an
+  intermediary model, two foreign keys to the same model are permitted, but
+  they will be treated as the two (different) sides of the many-to-many
+  relationship. If there are *more* than two foreign keys though, you
+  must also specify ``through_fields`` as above, or a validation error
+  will be raised.
 
 * When defining a many-to-many relationship from a model to
   itself, using an intermediary model, you *must* use
   :attr:`symmetrical=False <ManyToManyField.symmetrical>` (see
   :ref:`the model field reference <manytomany-arguments>`).
+
+.. versionchanged:: 1.7
+
+    In Django 1.6 and earlier, intermediate models containing more than one
+    foreign key to any of the models involved in the many-to-many relationship
+    used to be prohibited.
 
 Now that you have set up your :class:`~django.db.models.ManyToManyField` to use
 your intermediary model (``Membership``, in this case), you're ready to start
@@ -551,7 +558,7 @@ querying the ``Membership`` model::
     >>> ringos_membership.date_joined
     datetime.date(1962, 8, 16)
     >>> ringos_membership.invite_reason
-    u'Needed a new drummer.'
+    'Needed a new drummer.'
 
 Another way to access the same information is by querying the
 :ref:`many-to-many reverse relationship<m2m-reverse-relationships>` from a
@@ -561,7 +568,7 @@ Another way to access the same information is by querying the
     >>> ringos_membership.date_joined
     datetime.date(1962, 8, 16)
     >>> ringos_membership.invite_reason
-    u'Needed a new drummer.'
+    'Needed a new drummer.'
 
 
 One-to-one relationships
@@ -680,6 +687,20 @@ Meta`` to a model is completely optional.
 
 A complete list of all possible ``Meta`` options can be found in the :doc:`model
 option reference </ref/models/options>`.
+
+.. _model-attributes:
+
+Model attributes
+================
+
+``objects``
+    The most important attribute of a model is the
+    :class:`~django.db.models.Manager`. It's the interface through which
+    database query operations are provided to Django models and is used to
+    :ref:`retrieve the instances <retrieving-objects>` from the database. If no
+    custom ``Manager`` is defined, the default name is
+    :attr:`~django.db.models.Model.objects`. Managers are only accessible via
+    model classes, not the model instances.
 
 .. _model-methods:
 
@@ -804,9 +825,11 @@ code will automatically support those arguments when they are added.
 
     Note that the :meth:`~Model.delete()` method for an object is not
     necessarily called when :ref:`deleting objects in bulk using a
-    QuerySet<topics-db-queries-delete>`. To ensure customized delete logic
-    gets executed, you can use :data:`~django.db.models.signals.pre_delete`
-    and/or :data:`~django.db.models.signals.post_delete` signals.
+    QuerySet <topics-db-queries-delete>` or as a result of a :attr:`cascading
+    delete <django.db.models.ForeignKey.on_delete>`. To ensure customized
+    delete logic gets executed, you can use
+    :data:`~django.db.models.signals.pre_delete` and/or
+    :data:`~django.db.models.signals.post_delete` signals.
 
     Unfortunately, there isn't a workaround when
     :meth:`creating<django.db.models.query.QuerySet.bulk_create>` or
@@ -972,7 +995,7 @@ The reverse name of the ``common.ChildA.m2m`` field will be
 reverse name of the ``rare.ChildB.m2m`` field will be ``rare_childb_related``.
 It is up to you how you use the ``'%(class)s'`` and ``'%(app_label)s`` portion
 to construct your related name, but if you forget to use it, Django will raise
-errors when you validate your models (or run :djadmin:`syncdb`).
+errors when you perform system checks (or run :djadmin:`migrate`).
 
 If you don't specify a :attr:`~django.db.models.ForeignKey.related_name`
 attribute for a field in an abstract base class, the default reverse name will
@@ -1002,8 +1025,8 @@ For example::
         address = models.CharField(max_length=80)
 
     class Restaurant(Place):
-        serves_hot_dogs = models.BooleanField()
-        serves_pizza = models.BooleanField()
+        serves_hot_dogs = models.BooleanField(default=False)
+        serves_pizza = models.BooleanField(default=False)
 
 All of the fields of ``Place`` will also be available in ``Restaurant``,
 although the data will reside in a different database table. So these are both
@@ -1023,7 +1046,8 @@ of the model name::
 
 However, if ``p`` in the above example was *not* a ``Restaurant`` (it had been
 created directly as a ``Place`` object or was the parent of some other class),
-referring to ``p.restaurant`` would raise a Restaurant.DoesNotExist exception.
+referring to ``p.restaurant`` would raise a ``Restaurant.DoesNotExist``
+exception.
 
 ``Meta`` and multi-table inheritance
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1088,7 +1112,7 @@ Specifying the parent link field
 
 As mentioned, Django will automatically create a
 :class:`~django.db.models.OneToOneField` linking your child
-class back any non-abstract parent models. If you want to control the
+class back to any non-abstract parent models. If you want to control the
 name of the attribute linking back to the parent, you can create your
 own :class:`~django.db.models.OneToOneField` and set
 :attr:`parent_link=True <django.db.models.OneToOneField.parent_link>`
@@ -1172,9 +1196,6 @@ can't inherit from multiple non-abstract models as the proxy model doesn't
 provide any connection between the rows in the different database tables. A
 proxy model can inherit from any number of abstract model classes, providing
 they do *not* define any model fields.
-
-Proxy models inherit any ``Meta`` options that they don't define from their
-non-abstract model parent (the model they are proxying for).
 
 Proxy model managers
 ~~~~~~~~~~~~~~~~~~~~
@@ -1262,6 +1283,8 @@ So, the general rules are:
    This sets things up so that the proxy model is an exact copy of the
    storage structure of the original model when data is saved.
 
+.. _model-multiple-inheritance-topic:
+
 Multiple inheritance
 --------------------
 
@@ -1278,6 +1301,67 @@ field or method to every class that inherits the mix-in. Try to keep your
 inheritance hierarchies as simple and straightforward as possible so that you
 won't have to struggle to work out where a particular piece of information is
 coming from.
+
+.. versionchanged:: 1.7
+
+Before Django 1.7, inheriting from multiple models that had an ``id`` primary
+key field did not raise an error, but could result in data loss. For example,
+consider these models (which no longer validate due to the clashing ``id``
+fields)::
+
+    class Article(models.Model):
+        headline = models.CharField(max_length=50)
+        body = models.TextField()
+
+    class Book(models.Model):
+        title = models.CharField(max_length=50)
+
+    class BookReview(Book, Article):
+        pass
+
+This snippet demonstrates how creating a child object overwrote the value of a
+previously created parent object::
+
+    >>> article = Article.objects.create(headline='Some piece of news.')
+    >>> review = BookReview.objects.create(
+    ...     headline='Review of Little Red Riding Hood.',
+    ...     title='Little Red Riding Hood')
+    >>>
+    >>> assert Article.objects.get(pk=article.pk).headline == article.headline
+    Traceback (most recent call last):
+      File "<console>", line 1, in <module>
+    AssertionError
+    >>> # the "Some piece of news." headline has been overwritten.
+    >>> Article.objects.get(pk=article.pk).headline
+    'Review of Little Red Riding Hood.'
+
+To properly use multiple inheritance, you can use an explicit
+:class:`~django.db.models.AutoField` in the base models::
+
+    class Article(models.Model):
+        article_id = models.AutoField(primary_key=True)
+        ...
+
+    class Book(models.Model):
+        book_id = models.AutoField(primary_key=True)
+        ...
+
+    class BookReview(Book, Article):
+        pass
+
+Or use a common ancestor to hold the :class:`~django.db.models.AutoField`::
+
+    class Piece(models.Model):
+        pass
+
+    class Article(Piece):
+        ...
+
+    class Book(Piece):
+        ...
+
+    class BookReview(Book, Article):
+        pass
 
 Field name "hiding" is not permitted
 -------------------------------------

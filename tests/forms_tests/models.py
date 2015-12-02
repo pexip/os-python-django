@@ -1,40 +1,58 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-import os
 import datetime
+import itertools
 import tempfile
 
 from django.core.files.storage import FileSystemStorage
 from django.db import models
 from django.utils.encoding import python_2_unicode_compatible
 
+callable_default_counter = itertools.count()
+callable_default = lambda: next(callable_default_counter)
 
-temp_storage_location = tempfile.mkdtemp(dir=os.environ['DJANGO_TEST_TEMP_DIR'])
-temp_storage = FileSystemStorage(location=temp_storage_location)
+
+temp_storage = FileSystemStorage(location=tempfile.mkdtemp())
 
 
 class BoundaryModel(models.Model):
     positive_integer = models.PositiveIntegerField(null=True, blank=True)
 
 
-callable_default_value = 0
-def callable_default():
-    global callable_default_value
-    callable_default_value = callable_default_value + 1
-    return callable_default_value
-
-
 class Defaults(models.Model):
     name = models.CharField(max_length=255, default='class default value')
-    def_date = models.DateField(default = datetime.date(1980, 1, 1))
+    def_date = models.DateField(default=datetime.date(1980, 1, 1))
     value = models.IntegerField(default=42)
     callable_default = models.IntegerField(default=callable_default)
 
 
 class ChoiceModel(models.Model):
     """For ModelChoiceField and ModelMultipleChoiceField tests."""
+    CHOICES = [
+        ('', 'No Preference'),
+        ('f', 'Foo'),
+        ('b', 'Bar'),
+    ]
+
+    INTEGER_CHOICES = [
+        (None, 'No Preference'),
+        (1, 'Foo'),
+        (2, 'Bar'),
+    ]
+
+    STRING_CHOICES_WITH_NONE = [
+        (None, 'No Preference'),
+        ('f', 'Foo'),
+        ('b', 'Bar'),
+    ]
+
     name = models.CharField(max_length=10)
+    choice = models.CharField(max_length=2, blank=True, choices=CHOICES)
+    choice_string_w_none = models.CharField(
+        max_length=2, blank=True, null=True, choices=STRING_CHOICES_WITH_NONE)
+    choice_integer = models.IntegerField(choices=INTEGER_CHOICES, blank=True,
+                                         null=True)
 
 
 @python_2_unicode_compatible
@@ -63,10 +81,11 @@ class ChoiceFieldModel(models.Model):
     multi_choice_int = models.ManyToManyField(ChoiceOptionModel, blank=False, related_name='multi_choice_int',
                                               default=lambda: [1])
 
+
 class OptionalMultiChoiceModel(models.Model):
     multi_choice = models.ManyToManyField(ChoiceOptionModel, blank=False, related_name='not_relevant',
                                           default=lambda: ChoiceOptionModel.objects.filter(name='default'))
-    multi_choice_optional = models.ManyToManyField(ChoiceOptionModel, blank=True, null=True,
+    multi_choice_optional = models.ManyToManyField(ChoiceOptionModel, blank=True,
                                                    related_name='not_relevant2')
 
 

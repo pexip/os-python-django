@@ -1,18 +1,20 @@
 """Adds xref targets to the top of files."""
 
-import sys
 import os
+import sys
 
 testing = False
 
 DONT_TOUCH = (
-        './index.txt',
-        )
+    './index.txt',
+)
+
 
 def target_name(fn):
     if fn.endswith('.txt'):
         fn = fn[:-4]
     return '_' + fn.lstrip('./').replace('/', '-')
+
 
 def process_file(fn, lines):
     lines.insert(0, '\n')
@@ -23,6 +25,7 @@ def process_file(fn, lines):
     except IOError:
         print("Can't open %s for writing. Not touching it." % fn)
 
+
 def has_target(fn):
     try:
         with open(fn, 'r') as fp:
@@ -31,13 +34,14 @@ def has_target(fn):
         print("Can't open or read %s. Not touching it." % fn)
         return (True, None)
 
-    #print fn, len(lines)
+    # print fn, len(lines)
     if len(lines) < 1:
         print("Not touching empty file %s." % fn)
         return (True, None)
     if lines[0].startswith('.. _'):
         return (True, None)
     return (False, lines)
+
 
 def main(argv=None):
     if argv is None:
@@ -49,10 +53,10 @@ def main(argv=None):
     files = []
     for root in argv[1:]:
         for (dirpath, dirnames, filenames) in os.walk(root):
-            files.extend([(dirpath, f) for f in filenames])
+            files.extend((dirpath, f) for f in filenames)
     files.sort()
     files = [os.path.join(p, fn) for p, fn in files if fn.endswith('.txt')]
-    #print files
+    # print files
 
     for fn in files:
         if fn in DONT_TOUCH:

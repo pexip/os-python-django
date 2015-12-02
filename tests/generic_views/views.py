@@ -1,4 +1,4 @@
-from __future__ import absolute_import
+from __future__ import unicode_literals
 
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
@@ -6,8 +6,8 @@ from django.core.urlresolvers import reverse, reverse_lazy
 from django.utils.decorators import method_decorator
 from django.views import generic
 
+from .models import Artist, Author, Book, BookSigning, Page
 from .test_forms import AuthorForm, ContactForm
-from .models import Artist, Author, Book, Page, BookSigning
 
 
 class CustomTemplateView(generic.TemplateView):
@@ -43,7 +43,7 @@ class DictList(generic.ListView):
     """A ListView that doesn't use a model."""
     queryset = [
         {'first': 'John', 'last': 'Lennon'},
-        {'first': 'Yoko',  'last': 'Ono'}
+        {'first': 'Yoko', 'last': 'Ono'}
     ]
     template_name = 'generic_views/list.html'
 
@@ -57,6 +57,10 @@ class AuthorList(generic.ListView):
     queryset = Author.objects.all()
 
 
+class BookList(generic.ListView):
+    model = Book
+
+
 class CustomPaginator(Paginator):
     def __init__(self, queryset, page_size, orphans=0, allow_empty_first_page=True):
         super(CustomPaginator, self).__init__(
@@ -64,6 +68,7 @@ class CustomPaginator(Paginator):
             page_size,
             orphans=2,
             allow_empty_first_page=allow_empty_first_page)
+
 
 class AuthorListCustomPaginator(AuthorList):
     paginate_by = 5
@@ -113,7 +118,7 @@ class SpecializedAuthorCreate(generic.CreateView):
     context_object_name = 'thingy'
 
     def get_success_url(self):
-        return reverse('author_detail', args=[self.object.id,])
+        return reverse('author_detail', args=[self.object.id])
 
 
 class AuthorCreateRestricted(AuthorCreate):
@@ -151,7 +156,7 @@ class SpecializedAuthorUpdate(generic.UpdateView):
     context_object_name = 'thingy'
 
     def get_success_url(self):
-        return reverse('author_detail', args=[self.object.id,])
+        return reverse('author_detail', args=[self.object.id])
 
 
 class NaiveAuthorDelete(generic.DeleteView):
@@ -167,35 +172,41 @@ class SpecializedAuthorDelete(generic.DeleteView):
     queryset = Author.objects.all()
     template_name = 'generic_views/confirm_delete.html'
     context_object_name = 'thingy'
-
-    def get_success_url(self):
-        return reverse('authors_list')
+    success_url = reverse_lazy('authors_list')
 
 
 class BookConfig(object):
     queryset = Book.objects.all()
     date_field = 'pubdate'
 
+
 class BookArchive(BookConfig, generic.ArchiveIndexView):
     pass
+
 
 class BookYearArchive(BookConfig, generic.YearArchiveView):
     pass
 
+
 class BookMonthArchive(BookConfig, generic.MonthArchiveView):
     pass
+
 
 class BookWeekArchive(BookConfig, generic.WeekArchiveView):
     pass
 
+
 class BookDayArchive(BookConfig, generic.DayArchiveView):
     pass
+
 
 class BookTodayArchive(BookConfig, generic.TodayArchiveView):
     pass
 
+
 class BookDetail(BookConfig, generic.DateDetailView):
     pass
+
 
 class AuthorGetQuerySetFormView(generic.edit.ModelFormMixin):
     fields = '__all__'
@@ -203,9 +214,10 @@ class AuthorGetQuerySetFormView(generic.edit.ModelFormMixin):
     def get_queryset(self):
         return Author.objects.all()
 
+
 class BookDetailGetObjectCustomQueryset(BookDetail):
     def get_object(self, queryset=None):
-        return super(BookDetailGetObjectCustomQueryset,self).get_object(
+        return super(BookDetailGetObjectCustomQueryset, self).get_object(
             queryset=Book.objects.filter(pk=2))
 
 
@@ -234,34 +246,44 @@ class CustomContextView(generic.detail.SingleObjectMixin, generic.View):
     def get_context_object_name(self, obj):
         return "test_name"
 
+
 class CustomSingleObjectView(generic.detail.SingleObjectMixin, generic.View):
     model = Book
     object = Book(name="dummy")
+
 
 class BookSigningConfig(object):
     model = BookSigning
     date_field = 'event_date'
     # use the same templates as for books
+
     def get_template_names(self):
         return ['generic_views/book%s.html' % self.template_name_suffix]
+
 
 class BookSigningArchive(BookSigningConfig, generic.ArchiveIndexView):
     pass
 
+
 class BookSigningYearArchive(BookSigningConfig, generic.YearArchiveView):
     pass
+
 
 class BookSigningMonthArchive(BookSigningConfig, generic.MonthArchiveView):
     pass
 
+
 class BookSigningWeekArchive(BookSigningConfig, generic.WeekArchiveView):
     pass
+
 
 class BookSigningDayArchive(BookSigningConfig, generic.DayArchiveView):
     pass
 
+
 class BookSigningTodayArchive(BookSigningConfig, generic.TodayArchiveView):
     pass
+
 
 class BookSigningDetail(BookSigningConfig, generic.DateDetailView):
     context_object_name = 'book'
@@ -280,3 +302,8 @@ class NonModelDetail(generic.DetailView):
 
     def get_object(self, queryset=None):
         return NonModel()
+
+
+class ObjectDoesNotExistDetail(generic.DetailView):
+    def get_queryset(self):
+        return Book.does_not_exist.all()

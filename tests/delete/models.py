@@ -98,6 +98,12 @@ class Avatar(models.Model):
     desc = models.TextField(null=True)
 
 
+# This model is used to test a duplicate query regression (#25685)
+class AvatarProxy(Avatar):
+    class Meta:
+        proxy = True
+
+
 class User(models.Model):
     avatar = models.ForeignKey(Avatar, null=True)
 
@@ -109,20 +115,26 @@ class HiddenUser(models.Model):
 class HiddenUserProfile(models.Model):
     user = models.ForeignKey(HiddenUser)
 
+
 class M2MTo(models.Model):
     pass
+
 
 class M2MFrom(models.Model):
     m2m = models.ManyToManyField(M2MTo)
 
+
 class Parent(models.Model):
     pass
+
 
 class Child(Parent):
     pass
 
+
 class Base(models.Model):
     pass
+
 
 class RelToBase(models.Model):
     base = models.ForeignKey(Base, on_delete=models.DO_NOTHING)

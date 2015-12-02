@@ -1,18 +1,22 @@
-from __future__ import absolute_import, unicode_literals
+from __future__ import unicode_literals
 
 import datetime
+import sys
+import unittest
 
-from django.contrib.admin import (site, ModelAdmin, SimpleListFilter,
-    BooleanFieldListFilter)
+from django.contrib.admin import (
+    AllValuesFieldListFilter, BooleanFieldListFilter, ModelAdmin,
+    RelatedOnlyFieldListFilter, SimpleListFilter, site,
+)
 from django.contrib.admin.views.main import ChangeList
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
 from django.core.exceptions import ImproperlyConfigured
-from django.test import TestCase, RequestFactory
-from django.test.utils import override_settings, six
+from django.test import RequestFactory, TestCase, override_settings
+from django.utils import six
 from django.utils.encoding import force_text
 
-from .models import Book, Department, Employee
+from .models import Book, Bookmark, Department, Employee, TaggedItem
 
 
 def select_by(dictlist, key, value):
@@ -38,25 +42,31 @@ class DecadeListFilter(SimpleListFilter):
         if decade == 'the 00s':
             return queryset.filter(year__gte=2000, year__lte=2009)
 
+
 class DecadeListFilterWithTitleAndParameter(DecadeListFilter):
     title = 'publication decade'
     parameter_name = 'publication-decade'
 
+
 class DecadeListFilterWithoutTitle(DecadeListFilter):
     parameter_name = 'publication-decade'
 
+
 class DecadeListFilterWithoutParameter(DecadeListFilter):
     title = 'publication decade'
+
 
 class DecadeListFilterWithNoneReturningLookups(DecadeListFilterWithTitleAndParameter):
 
     def lookups(self, request, model_admin):
         pass
 
+
 class DecadeListFilterWithFailingQueryset(DecadeListFilterWithTitleAndParameter):
 
     def queryset(self, request, queryset):
-        raise 1/0
+        raise 1 / 0
+
 
 class DecadeListFilterWithQuerysetBasedLookups(DecadeListFilterWithTitleAndParameter):
 
@@ -69,13 +79,15 @@ class DecadeListFilterWithQuerysetBasedLookups(DecadeListFilterWithTitleAndParam
         if qs.filter(year__gte=2000, year__lte=2009).exists():
             yield ('the 00s', "the 2000's")
 
+
 class DecadeListFilterParameterEndsWith__In(DecadeListFilter):
     title = 'publication decade'
-    parameter_name = 'decade__in' # Ends with '__in"
+    parameter_name = 'decade__in'  # Ends with '__in"
+
 
 class DecadeListFilterParameterEndsWith__Isnull(DecadeListFilter):
     title = 'publication decade'
-    parameter_name = 'decade__isnull' # Ends with '__isnull"
+    parameter_name = 'decade__isnull'  # Ends with '__isnull"
 
 
 class DepartmentListFilterLookupWithNonStringValue(SimpleListFilter):
@@ -83,50 +95,102 @@ class DepartmentListFilterLookupWithNonStringValue(SimpleListFilter):
     parameter_name = 'department'
 
     def lookups(self, request, model_admin):
-        return sorted(set([
+        return sorted({
             (employee.department.id,  # Intentionally not a string (Refs #19318)
              employee.department.code)
             for employee in model_admin.get_queryset(request).all()
-        ]))
+        })
 
     def queryset(self, request, queryset):
         if self.value():
             return queryset.filter(department__id=self.value())
 
+
+class DepartmentListFilterLookupWithUnderscoredParameter(DepartmentListFilterLookupWithNonStringValue):
+    parameter_name = 'department__whatever'
+
+
+class DepartmentListFilterLookupWithDynamicValue(DecadeListFilterWithTitleAndParameter):
+
+    def lookups(self, request, model_admin):
+        if self.value() == 'the 80s':
+            return (('the 90s', "the 1990's"),)
+        elif self.value() == 'the 90s':
+            return (('the 80s', "the 1980's"),)
+        else:
+            return (('the 80s', "the 1980's"), ('the 90s', "the 1990's"),)
+
+
 class CustomUserAdmin(UserAdmin):
     list_filter = ('books_authored', 'books_contributed')
+
 
 class BookAdmin(ModelAdmin):
     list_filter = ('year', 'author', 'contributors', 'is_best_seller', 'date_registered', 'no')
     ordering = ('-id',)
 
+
 class BookAdminWithTupleBooleanFilter(BookAdmin):
     list_filter = ('year', 'author', 'contributors', ('is_best_seller', BooleanFieldListFilter), 'date_registered', 'no')
+
+
+class BookAdminWithUnderscoreLookupAndTuple(BookAdmin):
+    list_filter = ('year', ('author__email', AllValuesFieldListFilter), 'contributors', 'is_best_seller', 'date_registered', 'no')
+
+
+class BookAdminWithCustomQueryset(ModelAdmin):
+
+    def __init__(self, user, *args, **kwargs):
+        self.user = user
+        super(BookAdminWithCustomQueryset, self).__init__(*args, **kwargs)
+
+    list_filter = ('year',)
+
+    def get_queryset(self, request):
+        return super(BookAdminWithCustomQueryset, self).get_queryset(request).filter(author=self.user)
+
+
+class BookAdminRelatedOnlyFilter(ModelAdmin):
+    list_filter = (
+        'year', 'is_best_seller', 'date_registered', 'no',
+        ('author', RelatedOnlyFieldListFilter),
+        ('contributors', RelatedOnlyFieldListFilter),
+    )
+    ordering = ('-id',)
+
 
 class DecadeFilterBookAdmin(ModelAdmin):
     list_filter = ('author', DecadeListFilterWithTitleAndParameter)
     ordering = ('-id',)
 
+
 class DecadeFilterBookAdminWithoutTitle(ModelAdmin):
     list_filter = (DecadeListFilterWithoutTitle,)
+
 
 class DecadeFilterBookAdminWithoutParameter(ModelAdmin):
     list_filter = (DecadeListFilterWithoutParameter,)
 
+
 class DecadeFilterBookAdminWithNoneReturningLookups(ModelAdmin):
     list_filter = (DecadeListFilterWithNoneReturningLookups,)
+
 
 class DecadeFilterBookAdminWithFailingQueryset(ModelAdmin):
     list_filter = (DecadeListFilterWithFailingQueryset,)
 
+
 class DecadeFilterBookAdminWithQuerysetBasedLookups(ModelAdmin):
     list_filter = (DecadeListFilterWithQuerysetBasedLookups,)
+
 
 class DecadeFilterBookAdminParameterEndsWith__In(ModelAdmin):
     list_filter = (DecadeListFilterParameterEndsWith__In,)
 
+
 class DecadeFilterBookAdminParameterEndsWith__Isnull(ModelAdmin):
     list_filter = (DecadeListFilterParameterEndsWith__Isnull,)
+
 
 class EmployeeAdmin(ModelAdmin):
     list_display = ['name', 'department']
@@ -135,6 +199,18 @@ class EmployeeAdmin(ModelAdmin):
 
 class DepartmentFilterEmployeeAdmin(EmployeeAdmin):
     list_filter = [DepartmentListFilterLookupWithNonStringValue, ]
+
+
+class DepartmentFilterUnderscoredEmployeeAdmin(EmployeeAdmin):
+    list_filter = [DepartmentListFilterLookupWithUnderscoredParameter, ]
+
+
+class DepartmentFilterDynamicValueBookAdmin(EmployeeAdmin):
+    list_filter = [DepartmentListFilterLookupWithDynamicValue, ]
+
+
+class BookmarkAdminGenericRelation(ModelAdmin):
+    list_filter = ['tags__tag']
 
 
 class ListFiltersTests(TestCase):
@@ -196,9 +272,13 @@ class ListFiltersTests(TestCase):
         self.assertEqual(force_text(filterspec.title), 'date registered')
         choice = select_by(filterspec.choices(changelist), "display", "Today")
         self.assertEqual(choice['selected'], True)
-        self.assertEqual(choice['query_string'], '?date_registered__gte=%s'
-                                                 '&date_registered__lt=%s'
-                                                % (self.today, self.tomorrow))
+        self.assertEqual(
+            choice['query_string'],
+            '?date_registered__gte=%s&date_registered__lt=%s' % (
+                self.today,
+                self.tomorrow,
+            )
+        )
 
         request = self.request_factory.get('/', {'date_registered__gte': self.today.replace(day=1),
                                                  'date_registered__lt': self.next_month})
@@ -217,9 +297,13 @@ class ListFiltersTests(TestCase):
         self.assertEqual(force_text(filterspec.title), 'date registered')
         choice = select_by(filterspec.choices(changelist), "display", "This month")
         self.assertEqual(choice['selected'], True)
-        self.assertEqual(choice['query_string'], '?date_registered__gte=%s'
-                                                 '&date_registered__lt=%s'
-                                                % (self.today.replace(day=1), self.next_month))
+        self.assertEqual(
+            choice['query_string'],
+            '?date_registered__gte=%s&date_registered__lt=%s' % (
+                self.today.replace(day=1),
+                self.next_month,
+            )
+        )
 
         request = self.request_factory.get('/', {'date_registered__gte': self.today.replace(month=1, day=1),
                                                  'date_registered__lt': self.next_year})
@@ -238,12 +322,18 @@ class ListFiltersTests(TestCase):
         self.assertEqual(force_text(filterspec.title), 'date registered')
         choice = select_by(filterspec.choices(changelist), "display", "This year")
         self.assertEqual(choice['selected'], True)
-        self.assertEqual(choice['query_string'], '?date_registered__gte=%s'
-                                                 '&date_registered__lt=%s'
-                                                % (self.today.replace(month=1, day=1), self.next_year))
+        self.assertEqual(
+            choice['query_string'],
+            '?date_registered__gte=%s&date_registered__lt=%s' % (
+                self.today.replace(month=1, day=1),
+                self.next_year,
+            )
+        )
 
-        request = self.request_factory.get('/', {'date_registered__gte': str(self.one_week_ago),
-                                                 'date_registered__lt': str(self.tomorrow)})
+        request = self.request_factory.get('/', {
+            'date_registered__gte': str(self.one_week_ago),
+            'date_registered__lt': str(self.tomorrow),
+        })
         changelist = self.get_changelist(request, Book, modeladmin)
 
         # Make sure the correct queryset is returned
@@ -255,10 +345,19 @@ class ListFiltersTests(TestCase):
         self.assertEqual(force_text(filterspec.title), 'date registered')
         choice = select_by(filterspec.choices(changelist), "display", "Past 7 days")
         self.assertEqual(choice['selected'], True)
-        self.assertEqual(choice['query_string'], '?date_registered__gte=%s'
-                                                 '&date_registered__lt=%s'
-                                                % (str(self.one_week_ago), str(self.tomorrow)))
+        self.assertEqual(
+            choice['query_string'],
+            '?date_registered__gte=%s&date_registered__lt=%s' % (
+                str(self.one_week_ago),
+                str(self.tomorrow),
+            )
+        )
 
+    @unittest.skipIf(
+        sys.platform.startswith('win'),
+        "Windows doesn't support setting a timezone that differs from the "
+        "system timezone."
+    )
     @override_settings(USE_TZ=True)
     def test_datefieldlistfilter_with_time_zone_support(self):
         # Regression for #17830
@@ -291,8 +390,32 @@ class ListFiltersTests(TestCase):
         self.assertEqual(choices[2]['selected'], True)
         self.assertEqual(choices[2]['query_string'], '?year=2002')
 
+    def test_allvaluesfieldlistfilter_custom_qs(self):
+        # Make sure that correct filters are returned with custom querysets
+        modeladmin = BookAdminWithCustomQueryset(self.alfred, Book, site)
+        request = self.request_factory.get('/')
+        changelist = self.get_changelist(request, Book, modeladmin)
+
+        filterspec = changelist.get_filters(request)[0][0]
+        choices = list(filterspec.choices(changelist))
+        # Should have 'All', 1999 and 2009 options i.e. the subset of years of
+        # books written by alfred (which is the filtering criteria set by
+        # BookAdminWithCustomQueryset.get_queryset())
+        self.assertEqual(3, len(choices))
+        self.assertEqual(choices[0]['query_string'], '?')
+        self.assertEqual(choices[1]['query_string'], '?year=1999')
+        self.assertEqual(choices[2]['query_string'], '?year=2009')
+
     def test_relatedfieldlistfilter_foreignkey(self):
         modeladmin = BookAdmin(Book, site)
+
+        request = self.request_factory.get('/')
+        changelist = self.get_changelist(request, Book, modeladmin)
+
+        # Make sure that all users are present in the author's list filter
+        filterspec = changelist.get_filters(request)[0][1]
+        expected = [(self.alfred.pk, 'alfred'), (self.bob.pk, 'bob'), (self.lisa.pk, 'lisa')]
+        self.assertEqual(sorted(filterspec.lookup_choices), sorted(expected))
 
         request = self.request_factory.get('/', {'author__isnull': 'True'})
         changelist = self.get_changelist(request, Book, modeladmin)
@@ -321,6 +444,14 @@ class ListFiltersTests(TestCase):
 
     def test_relatedfieldlistfilter_manytomany(self):
         modeladmin = BookAdmin(Book, site)
+
+        request = self.request_factory.get('/')
+        changelist = self.get_changelist(request, Book, modeladmin)
+
+        # Make sure that all users are present in the contrib's list filter
+        filterspec = changelist.get_filters(request)[0][2]
+        expected = [(self.alfred.pk, 'alfred'), (self.bob.pk, 'bob'), (self.lisa.pk, 'lisa')]
+        self.assertEqual(sorted(filterspec.lookup_choices), sorted(expected))
 
         request = self.request_factory.get('/', {'contributors__isnull': 'True'})
         changelist = self.get_changelist(request, Book, modeladmin)
@@ -399,6 +530,46 @@ class ListFiltersTests(TestCase):
         self.assertEqual(choice['selected'], True)
         self.assertEqual(choice['query_string'], '?books_contributed__id__exact=%d' % self.django_book.pk)
 
+    def test_relatedonlyfieldlistfilter_foreignkey(self):
+        modeladmin = BookAdminRelatedOnlyFilter(Book, site)
+
+        request = self.request_factory.get('/')
+        changelist = self.get_changelist(request, Book, modeladmin)
+
+        # Make sure that only actual authors are present in author's list filter
+        filterspec = changelist.get_filters(request)[0][4]
+        expected = [(self.alfred.pk, 'alfred'), (self.bob.pk, 'bob')]
+        self.assertEqual(sorted(filterspec.lookup_choices), sorted(expected))
+
+    def test_relatedonlyfieldlistfilter_manytomany(self):
+        modeladmin = BookAdminRelatedOnlyFilter(Book, site)
+
+        request = self.request_factory.get('/')
+        changelist = self.get_changelist(request, Book, modeladmin)
+
+        # Make sure that only actual contributors are present in contrib's list filter
+        filterspec = changelist.get_filters(request)[0][5]
+        expected = [(self.bob.pk, 'bob'), (self.lisa.pk, 'lisa')]
+        self.assertEqual(sorted(filterspec.lookup_choices), sorted(expected))
+
+    def test_listfilter_genericrelation(self):
+        django_bookmark = Bookmark.objects.create(url='https://www.djangoproject.com/')
+        python_bookmark = Bookmark.objects.create(url='https://www.python.org/')
+        kernel_bookmark = Bookmark.objects.create(url='https://www.kernel.org/')
+
+        TaggedItem.objects.create(content_object=django_bookmark, tag='python')
+        TaggedItem.objects.create(content_object=python_bookmark, tag='python')
+        TaggedItem.objects.create(content_object=kernel_bookmark, tag='linux')
+
+        modeladmin = BookmarkAdminGenericRelation(Bookmark, site)
+
+        request = self.request_factory.get('/', {'tags__tag': 'python'})
+        changelist = self.get_changelist(request, Bookmark, modeladmin)
+        queryset = changelist.get_queryset(request)
+
+        expected = [python_bookmark, django_bookmark]
+        self.assertEqual(list(queryset), expected)
+
     def test_booleanfieldlistfilter(self):
         modeladmin = BookAdmin(Book, site)
         self.verify_booleanfieldlistfilter(modeladmin)
@@ -452,6 +623,23 @@ class ListFiltersTests(TestCase):
         choice = select_by(filterspec.choices(changelist), "display", "Unknown")
         self.assertEqual(choice['selected'], True)
         self.assertEqual(choice['query_string'], '?is_best_seller__isnull=True')
+
+    def test_fieldlistfilter_underscorelookup_tuple(self):
+        """
+        Ensure ('fieldpath', ClassName ) lookups pass lookup_allowed checks
+        when fieldpath contains double underscore in value.
+        Refs #19182
+        """
+        modeladmin = BookAdminWithUnderscoreLookupAndTuple(Book, site)
+        request = self.request_factory.get('/')
+        changelist = self.get_changelist(request, Book, modeladmin)
+
+        request = self.request_factory.get('/', {'author__email': 'alfred@example.com'})
+        changelist = self.get_changelist(request, Book, modeladmin)
+
+        # Make sure the correct queryset is returned
+        queryset = changelist.get_queryset(request)
+        self.assertEqual(list(queryset), [self.bio_book, self.djangonaut_book])
 
     def test_simplelistfilter(self):
         modeladmin = DecadeFilterBookAdmin(Book, site)
@@ -678,7 +866,7 @@ class ListFiltersTests(TestCase):
         """
 
         modeladmin = DepartmentFilterEmployeeAdmin(Employee, site)
-        request = self.request_factory.get('/', {'department': self.john.pk})
+        request = self.request_factory.get('/', {'department': self.john.department.pk})
         changelist = self.get_changelist(request, Employee, modeladmin)
 
         queryset = changelist.get_queryset(request)
@@ -690,7 +878,28 @@ class ListFiltersTests(TestCase):
         choices = list(filterspec.choices(changelist))
         self.assertEqual(choices[1]['display'], 'DEV')
         self.assertEqual(choices[1]['selected'], True)
-        self.assertEqual(choices[1]['query_string'], '?department=%s' % self.john.pk)
+        self.assertEqual(choices[1]['query_string'], '?department=%s' % self.john.department.pk)
+
+    def test_lookup_with_non_string_value_underscored(self):
+        """
+        Ensure SimpleListFilter lookups pass lookup_allowed checks when
+        parameter_name attribute contains double-underscore value.
+        Refs #19182
+        """
+        modeladmin = DepartmentFilterUnderscoredEmployeeAdmin(Employee, site)
+        request = self.request_factory.get('/', {'department__whatever': self.john.department.pk})
+        changelist = self.get_changelist(request, Employee, modeladmin)
+
+        queryset = changelist.get_queryset(request)
+
+        self.assertEqual(list(queryset), [self.john])
+
+        filterspec = changelist.get_filters(request)[0][-1]
+        self.assertEqual(force_text(filterspec.title), 'department')
+        choices = list(filterspec.choices(changelist))
+        self.assertEqual(choices[1]['display'], 'DEV')
+        self.assertEqual(choices[1]['selected'], True)
+        self.assertEqual(choices[1]['query_string'], '?department__whatever=%s' % self.john.department.pk)
 
     def test_fk_with_to_field(self):
         """
@@ -746,3 +955,25 @@ class ListFiltersTests(TestCase):
         self.assertEqual(choices[2]['display'], 'Design')
         self.assertEqual(choices[2]['selected'], False)
         self.assertEqual(choices[2]['query_string'], '?department__code__exact=DSN')
+
+    def test_lookup_with_dynamic_value(self):
+        """
+        Ensure SimpleListFilter can access self.value() inside the lookup.
+        """
+        modeladmin = DepartmentFilterDynamicValueBookAdmin(Book, site)
+
+        def _test_choices(request, expected_displays):
+            changelist = self.get_changelist(request, Book, modeladmin)
+            filterspec = changelist.get_filters(request)[0][0]
+            self.assertEqual(force_text(filterspec.title), 'publication decade')
+            choices = tuple(c['display'] for c in filterspec.choices(changelist))
+            self.assertEqual(choices, expected_displays)
+
+        _test_choices(self.request_factory.get('/', {}),
+                      ("All", "the 1980's", "the 1990's"))
+
+        _test_choices(self.request_factory.get('/', {'publication-decade': 'the 80s'}),
+                      ("All", "the 1990's"))
+
+        _test_choices(self.request_factory.get('/', {'publication-decade': 'the 90s'}),
+                      ("All", "the 1980's"))

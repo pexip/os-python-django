@@ -1,4 +1,4 @@
-from __future__ import absolute_import, unicode_literals
+from __future__ import unicode_literals
 
 import datetime
 import re
@@ -6,17 +6,22 @@ from datetime import date
 from decimal import Decimal
 
 from django import forms
+from django.core.exceptions import ImproperlyConfigured
 from django.db import models
-from django.forms.models import (_get_foreign_key, inlineformset_factory,
-    modelformset_factory, BaseModelFormSet)
+from django.forms.models import (
+    BaseModelFormSet, _get_foreign_key, inlineformset_factory,
+    modelformset_factory,
+)
 from django.test import TestCase, skipUnlessDBFeature
 from django.utils import six
 
-from .models import (Author, BetterAuthor, Book, BookWithCustomPK,
-    BookWithOptionalAltEditor, AlternateBook, AuthorMeeting, CustomPrimaryKey,
-    Place, Owner, Location, OwnerProfile, Restaurant, Product, Price,
-    MexicanRestaurant, ClassyMexicanRestaurant, Repository, Revision,
-    Person, Membership, Team, Player, Poet, Poem, Post)
+from .models import (
+    AlternateBook, Author, AuthorMeeting, BetterAuthor, Book, BookWithCustomPK,
+    BookWithOptionalAltEditor, ClassyMexicanRestaurant, CustomPrimaryKey,
+    Location, Membership, MexicanRestaurant, Owner, OwnerProfile, Person,
+    Place, Player, Poem, Poet, Post, Price, Product, Repository, Restaurant,
+    Revision, Team,
+)
 
 
 class DeletionTests(TestCase):
@@ -32,6 +37,9 @@ class DeletionTests(TestCase):
             'form-0-DELETE': 'on',
         }
         formset = PoetFormSet(data, queryset=Poet.objects.all())
+        formset.save(commit=False)
+        self.assertEqual(Poet.objects.count(), 1)
+
         formset.save()
         self.assertTrue(formset.is_valid())
         self.assertEqual(Poet.objects.count(), 0)
@@ -51,9 +59,9 @@ class DeletionTests(TestCase):
             'form-0-id': six.text_type(poet.id),
             'form-0-name': 'test',
             'form-1-id': '',
-            'form-1-name': 'x' * 1000, # Too long
-            'form-1-id': six.text_type(poet.id), # Violate unique constraint
-            'form-1-name': 'test2',
+            'form-1-name': 'x' * 1000,  # Too long
+            'form-2-id': six.text_type(poet.id),  # Violate unique constraint
+            'form-2-name': 'test2',
         }
         formset = PoetFormSet(data, queryset=Poet.objects.all())
         # Make sure this form doesn't pass validation.
@@ -97,7 +105,46 @@ class DeletionTests(TestCase):
         formset.save()
         self.assertEqual(Poet.objects.count(), 0)
 
+    def test_outdated_deletion(self):
+        poet = Poet.objects.create(name='test')
+        poem = Poem.objects.create(name='Brevity is the soul of wit', poet=poet)
+
+        PoemFormSet = inlineformset_factory(Poet, Poem, fields="__all__", can_delete=True)
+
+        # Simulate deletion of an object that doesn't exist in the database
+        data = {
+            'form-TOTAL_FORMS': '2',
+            'form-INITIAL_FORMS': '2',
+            'form-0-id': str(poem.pk),
+            'form-0-name': 'foo',
+            'form-1-id': str(poem.pk + 1),  # doesn't exist
+            'form-1-name': 'bar',
+            'form-1-DELETE': 'on',
+        }
+        formset = PoemFormSet(data, instance=poet, prefix="form")
+
+        # The formset is valid even though poem.pk + 1 doesn't exist,
+        # because it's marked for deletion anyway
+        self.assertTrue(formset.is_valid())
+
+        formset.save()
+
+        # Make sure the save went through correctly
+        self.assertEqual(Poem.objects.get(pk=poem.pk).name, "foo")
+        self.assertEqual(poet.poem_set.count(), 1)
+        self.assertFalse(Poem.objects.filter(pk=poem.pk + 1).exists())
+
+
 class ModelFormsetTest(TestCase):
+    def test_modelformset_factory_without_fields(self):
+        """ Regression for #19733 """
+        message = (
+            "Calling modelformset_factory without defining 'fields' or 'exclude' "
+            "explicitly is prohibited."
+        )
+        with self.assertRaisesMessage(ImproperlyConfigured, message):
+            modelformset_factory(Author)
+
     def test_simple_save(self):
         qs = Author.objects.all()
         AuthorFormSet = modelformset_factory(Author, fields="__all__", extra=3)
@@ -112,9 +159,9 @@ class ModelFormsetTest(TestCase):
             '<p><label for="id_form-2-name">Name:</label> <input id="id_form-2-name" type="text" name="form-2-name" maxlength="100" /><input type="hidden" name="form-2-id" id="id_form-2-id" /></p>')
 
         data = {
-            'form-TOTAL_FORMS': '3', # the number of forms rendered
-            'form-INITIAL_FORMS': '0', # the number of forms with initial data
-            'form-MAX_NUM_FORMS': '', # the max number of forms
+            'form-TOTAL_FORMS': '3',  # the number of forms rendered
+            'form-INITIAL_FORMS': '0',  # the number of forms with initial data
+            'form-MAX_NUM_FORMS': '',  # the max number of forms
             'form-0-name': 'Charles Baudelaire',
             'form-1-name': 'Arthur Rimbaud',
             'form-2-name': '',
@@ -150,9 +197,9 @@ class ModelFormsetTest(TestCase):
             '<p><label for="id_form-2-name">Name:</label> <input id="id_form-2-name" type="text" name="form-2-name" maxlength="100" /><input type="hidden" name="form-2-id" id="id_form-2-id" /></p>')
 
         data = {
-            'form-TOTAL_FORMS': '3', # the number of forms rendered
-            'form-INITIAL_FORMS': '2', # the number of forms with initial data
-            'form-MAX_NUM_FORMS': '', # the max number of forms
+            'form-TOTAL_FORMS': '3',  # the number of forms rendered
+            'form-INITIAL_FORMS': '2',  # the number of forms with initial data
+            'form-MAX_NUM_FORMS': '',  # the max number of forms
             'form-0-id': str(author2.id),
             'form-0-name': 'Arthur Rimbaud',
             'form-1-id': str(author1.id),
@@ -194,9 +241,9 @@ class ModelFormsetTest(TestCase):
             '<p><label for="id_form-3-DELETE">Delete:</label> <input type="checkbox" name="form-3-DELETE" id="id_form-3-DELETE" /><input type="hidden" name="form-3-id" id="id_form-3-id" /></p>')
 
         data = {
-            'form-TOTAL_FORMS': '4', # the number of forms rendered
-            'form-INITIAL_FORMS': '3', # the number of forms with initial data
-            'form-MAX_NUM_FORMS': '', # the max number of forms
+            'form-TOTAL_FORMS': '4',  # the number of forms rendered
+            'form-INITIAL_FORMS': '3',  # the number of forms with initial data
+            'form-MAX_NUM_FORMS': '',  # the max number of forms
             'form-0-id': str(author2.id),
             'form-0-name': 'Arthur Rimbaud',
             'form-1-id': str(author1.id),
@@ -220,9 +267,9 @@ class ModelFormsetTest(TestCase):
         # Let's edit a record to ensure save only returns that one record.
 
         data = {
-            'form-TOTAL_FORMS': '4', # the number of forms rendered
-            'form-INITIAL_FORMS': '3', # the number of forms with initial data
-            'form-MAX_NUM_FORMS': '', # the max number of forms
+            'form-TOTAL_FORMS': '4',  # the number of forms rendered
+            'form-INITIAL_FORMS': '3',  # the number of forms with initial data
+            'form-MAX_NUM_FORMS': '',  # the max number of forms
             'form-0-id': str(author2.id),
             'form-0-name': 'Walt Whitman',
             'form-1-id': str(author1.id),
@@ -258,9 +305,9 @@ class ModelFormsetTest(TestCase):
 
         AuthorMeetingFormSet = modelformset_factory(AuthorMeeting, fields="__all__", extra=1, can_delete=True)
         data = {
-            'form-TOTAL_FORMS': '2', # the number of forms rendered
-            'form-INITIAL_FORMS': '1', # the number of forms with initial data
-            'form-MAX_NUM_FORMS': '', # the max number of forms
+            'form-TOTAL_FORMS': '2',  # the number of forms rendered
+            'form-INITIAL_FORMS': '1',  # the number of forms with initial data
+            'form-MAX_NUM_FORMS': '',  # the max number of forms
             'form-0-id': str(meeting.id),
             'form-0-name': '2nd Tuesday of the Week Meeting',
             'form-0-authors': [author2.id, author1.id, author3.id, author4.id],
@@ -288,9 +335,9 @@ class ModelFormsetTest(TestCase):
         # all existing related objects/inlines for a given object to be
         # displayed, but not allow the creation of new inlines beyond max_num.
 
-        author1 = Author.objects.create(name='Charles Baudelaire')
-        author2 = Author.objects.create(name='Paul Verlaine')
-        author3 = Author.objects.create(name='Walt Whitman')
+        Author.objects.create(name='Charles Baudelaire')
+        Author.objects.create(name='Paul Verlaine')
+        Author.objects.create(name='Walt Whitman')
 
         qs = Author.objects.order_by('name')
 
@@ -333,6 +380,32 @@ class ModelFormsetTest(TestCase):
             '<Author: Walt Whitman>',
         ])
 
+    def test_min_num(self):
+        # Test the behavior of min_num with model formsets. It should be
+        # added to extra.
+        qs = Author.objects.none()
+
+        AuthorFormSet = modelformset_factory(Author, fields="__all__", extra=0)
+        formset = AuthorFormSet(queryset=qs)
+        self.assertEqual(len(formset.forms), 0)
+
+        AuthorFormSet = modelformset_factory(Author, fields="__all__", min_num=1, extra=0)
+        formset = AuthorFormSet(queryset=qs)
+        self.assertEqual(len(formset.forms), 1)
+
+        AuthorFormSet = modelformset_factory(Author, fields="__all__", min_num=1, extra=1)
+        formset = AuthorFormSet(queryset=qs)
+        self.assertEqual(len(formset.forms), 2)
+
+    def test_min_num_with_existing(self):
+        # Test the behavior of min_num with existing objects.
+        Author.objects.create(name='Charles Baudelaire')
+        qs = Author.objects.all()
+
+        AuthorFormSet = modelformset_factory(Author, fields="__all__", extra=0, min_num=1)
+        formset = AuthorFormSet(queryset=qs)
+        self.assertEqual(len(formset.forms), 1)
+
     def test_custom_save_method(self):
         class PoetForm(forms.ModelForm):
             def save(self, commit=True):
@@ -346,9 +419,9 @@ class ModelFormsetTest(TestCase):
         PoetFormSet = modelformset_factory(Poet, fields="__all__", form=PoetForm)
 
         data = {
-            'form-TOTAL_FORMS': '3', # the number of forms rendered
-            'form-INITIAL_FORMS': '0', # the number of forms with initial data
-            'form-MAX_NUM_FORMS': '', # the max number of forms
+            'form-TOTAL_FORMS': '3',  # the number of forms rendered
+            'form-INITIAL_FORMS': '0',  # the number of forms with initial data
+            'form-MAX_NUM_FORMS': '',  # the max number of forms
             'form-0-name': 'Walt Whitman',
             'form-1-name': 'Charles Baudelaire',
             'form-2-name': '',
@@ -380,19 +453,19 @@ class ModelFormsetTest(TestCase):
 
         PostFormSet = modelformset_factory(Post, form=PostForm1)
         formset = PostFormSet()
-        self.assertFalse("subtitle" in formset.forms[0].fields)
+        self.assertNotIn("subtitle", formset.forms[0].fields)
 
         PostFormSet = modelformset_factory(Post, form=PostForm2)
         formset = PostFormSet()
-        self.assertFalse("subtitle" in formset.forms[0].fields)
+        self.assertNotIn("subtitle", formset.forms[0].fields)
 
     def test_custom_queryset_init(self):
         """
-        Test that a queryset can be overriden in the __init__ method.
+        Test that a queryset can be overridden in the __init__ method.
         https://docs.djangoproject.com/en/dev/topics/forms/modelforms/#changing-the-queryset
         """
-        author1 = Author.objects.create(name='Charles Baudelaire')
-        author2 = Author.objects.create(name='Paul Verlaine')
+        Author.objects.create(name='Charles Baudelaire')
+        Author.objects.create(name='Paul Verlaine')
 
         class BaseAuthorFormSet(BaseModelFormSet):
             def __init__(self, *args, **kwargs):
@@ -412,9 +485,9 @@ class ModelFormsetTest(TestCase):
             '<p><label for="id_form-0-write_speed">Write speed:</label> <input type="number" name="form-0-write_speed" id="id_form-0-write_speed" /><input type="hidden" name="form-0-author_ptr" id="id_form-0-author_ptr" /></p>')
 
         data = {
-            'form-TOTAL_FORMS': '1', # the number of forms rendered
-            'form-INITIAL_FORMS': '0', # the number of forms with initial data
-            'form-MAX_NUM_FORMS': '', # the max number of forms
+            'form-TOTAL_FORMS': '1',  # the number of forms rendered
+            'form-INITIAL_FORMS': '0',  # the number of forms with initial data
+            'form-MAX_NUM_FORMS': '',  # the max number of forms
             'form-0-author_ptr': '',
             'form-0-name': 'Ernest Hemingway',
             'form-0-write_speed': '10',
@@ -438,9 +511,9 @@ class ModelFormsetTest(TestCase):
             '<p><label for="id_form-1-write_speed">Write speed:</label> <input type="number" name="form-1-write_speed" id="id_form-1-write_speed" /><input type="hidden" name="form-1-author_ptr" id="id_form-1-author_ptr" /></p>')
 
         data = {
-            'form-TOTAL_FORMS': '2', # the number of forms rendered
-            'form-INITIAL_FORMS': '1', # the number of forms with initial data
-            'form-MAX_NUM_FORMS': '', # the max number of forms
+            'form-TOTAL_FORMS': '2',  # the number of forms rendered
+            'form-INITIAL_FORMS': '1',  # the number of forms with initial data
+            'form-MAX_NUM_FORMS': '',  # the max number of forms
             'form-0-author_ptr': hemingway_id,
             'form-0-name': 'Ernest Hemingway',
             'form-0-write_speed': '10',
@@ -463,16 +536,16 @@ class ModelFormsetTest(TestCase):
         formset = AuthorBooksFormSet(instance=author)
         self.assertEqual(len(formset.forms), 3)
         self.assertHTMLEqual(formset.forms[0].as_p(),
-            '<p><label for="id_book_set-0-title">Title:</label> <input id="id_book_set-0-title" type="text" name="book_set-0-title" maxlength="100" /><input type="hidden" name="book_set-0-author" value="%d" id="id_book_set-0-author" /><input type="hidden" name="book_set-0-id" id="id_book_set-0-id" /></p>'  % author.id)
+            '<p><label for="id_book_set-0-title">Title:</label> <input id="id_book_set-0-title" type="text" name="book_set-0-title" maxlength="100" /><input type="hidden" name="book_set-0-author" value="%d" id="id_book_set-0-author" /><input type="hidden" name="book_set-0-id" id="id_book_set-0-id" /></p>' % author.id)
         self.assertHTMLEqual(formset.forms[1].as_p(),
             '<p><label for="id_book_set-1-title">Title:</label> <input id="id_book_set-1-title" type="text" name="book_set-1-title" maxlength="100" /><input type="hidden" name="book_set-1-author" value="%d" id="id_book_set-1-author" /><input type="hidden" name="book_set-1-id" id="id_book_set-1-id" /></p>' % author.id)
         self.assertHTMLEqual(formset.forms[2].as_p(),
             '<p><label for="id_book_set-2-title">Title:</label> <input id="id_book_set-2-title" type="text" name="book_set-2-title" maxlength="100" /><input type="hidden" name="book_set-2-author" value="%d" id="id_book_set-2-author" /><input type="hidden" name="book_set-2-id" id="id_book_set-2-id" /></p>' % author.id)
 
         data = {
-            'book_set-TOTAL_FORMS': '3', # the number of forms rendered
-            'book_set-INITIAL_FORMS': '0', # the number of forms with initial data
-            'book_set-MAX_NUM_FORMS': '', # the max number of forms
+            'book_set-TOTAL_FORMS': '3',  # the number of forms rendered
+            'book_set-INITIAL_FORMS': '0',  # the number of forms with initial data
+            'book_set-MAX_NUM_FORMS': '',  # the max number of forms
             'book_set-0-title': 'Les Fleurs du Mal',
             'book_set-1-title': '',
             'book_set-2-title': '',
@@ -504,9 +577,9 @@ class ModelFormsetTest(TestCase):
             '<p><label for="id_book_set-2-title">Title:</label> <input id="id_book_set-2-title" type="text" name="book_set-2-title" maxlength="100" /><input type="hidden" name="book_set-2-author" value="%d" id="id_book_set-2-author" /><input type="hidden" name="book_set-2-id" id="id_book_set-2-id" /></p>' % author.id)
 
         data = {
-            'book_set-TOTAL_FORMS': '3', # the number of forms rendered
-            'book_set-INITIAL_FORMS': '1', # the number of forms with initial data
-            'book_set-MAX_NUM_FORMS': '', # the max number of forms
+            'book_set-TOTAL_FORMS': '3',  # the number of forms rendered
+            'book_set-INITIAL_FORMS': '1',  # the number of forms with initial data
+            'book_set-MAX_NUM_FORMS': '',  # the max number of forms
             'book_set-0-id': str(book1.id),
             'book_set-0-title': 'Les Fleurs du Mal',
             'book_set-1-title': 'Les Paradis Artificiels',
@@ -532,12 +605,12 @@ class ModelFormsetTest(TestCase):
         # The save_as_new parameter lets you re-associate the data to a new
         # instance.  This is used in the admin for save_as functionality.
         AuthorBooksFormSet = inlineformset_factory(Author, Book, can_delete=False, extra=2, fields="__all__")
-        author = Author.objects.create(name='Charles Baudelaire')
+        Author.objects.create(name='Charles Baudelaire')
 
         data = {
-            'book_set-TOTAL_FORMS': '3', # the number of forms rendered
-            'book_set-INITIAL_FORMS': '2', # the number of forms with initial data
-            'book_set-MAX_NUM_FORMS': '', # the max number of forms
+            'book_set-TOTAL_FORMS': '3',  # the number of forms rendered
+            'book_set-INITIAL_FORMS': '2',  # the number of forms with initial data
+            'book_set-MAX_NUM_FORMS': '',  # the max number of forms
             'book_set-0-id': '1',
             'book_set-0-title': 'Les Fleurs du Mal',
             'book_set-1-id': '2',
@@ -580,9 +653,9 @@ class ModelFormsetTest(TestCase):
             '<p><label for="id_bookwithcustompk_set-0-title">Title:</label> <input id="id_bookwithcustompk_set-0-title" type="text" name="bookwithcustompk_set-0-title" maxlength="100" /><input type="hidden" name="bookwithcustompk_set-0-author" value="1" id="id_bookwithcustompk_set-0-author" /></p>')
 
         data = {
-            'bookwithcustompk_set-TOTAL_FORMS': '1', # the number of forms rendered
-            'bookwithcustompk_set-INITIAL_FORMS': '0', # the number of forms with initial data
-            'bookwithcustompk_set-MAX_NUM_FORMS': '', # the max number of forms
+            'bookwithcustompk_set-TOTAL_FORMS': '1',  # the number of forms rendered
+            'bookwithcustompk_set-INITIAL_FORMS': '0',  # the number of forms with initial data
+            'bookwithcustompk_set-MAX_NUM_FORMS': '',  # the max number of forms
             'bookwithcustompk_set-0-my_pk': '77777',
             'bookwithcustompk_set-0-title': 'Les Fleurs du Mal',
         }
@@ -612,9 +685,9 @@ class ModelFormsetTest(TestCase):
             '<p><label for="id_alternatebook_set-0-notes">Notes:</label> <input id="id_alternatebook_set-0-notes" type="text" name="alternatebook_set-0-notes" maxlength="100" /><input type="hidden" name="alternatebook_set-0-author" value="1" id="id_alternatebook_set-0-author" /><input type="hidden" name="alternatebook_set-0-book_ptr" id="id_alternatebook_set-0-book_ptr" /></p>')
 
         data = {
-            'alternatebook_set-TOTAL_FORMS': '1', # the number of forms rendered
-            'alternatebook_set-INITIAL_FORMS': '0', # the number of forms with initial data
-            'alternatebook_set-MAX_NUM_FORMS': '', # the max number of forms
+            'alternatebook_set-TOTAL_FORMS': '1',  # the number of forms rendered
+            'alternatebook_set-INITIAL_FORMS': '0',  # the number of forms with initial data
+            'alternatebook_set-MAX_NUM_FORMS': '',  # the max number of forms
             'alternatebook_set-0-title': 'Flowers of Evil',
             'alternatebook_set-0-notes': 'English translation of Les Fleurs du Mal'
         }
@@ -628,7 +701,7 @@ class ModelFormsetTest(TestCase):
         self.assertEqual(book1.title, 'Flowers of Evil')
         self.assertEqual(book1.notes, 'English translation of Les Fleurs du Mal')
 
-    @skipUnlessDBFeature('ignores_nulls_in_unique_constraints')
+    @skipUnlessDBFeature('supports_partially_nullable_unique_constraints')
     def test_inline_formsets_with_nullable_unique_together(self):
         # Test inline formsets where the inline-edited object has a
         # unique_together constraint with a nullable member
@@ -637,9 +710,9 @@ class ModelFormsetTest(TestCase):
         author = Author.objects.create(pk=1, name='Charles Baudelaire')
 
         data = {
-            'bookwithoptionalalteditor_set-TOTAL_FORMS': '2', # the number of forms rendered
-            'bookwithoptionalalteditor_set-INITIAL_FORMS': '0', # the number of forms with initial data
-            'bookwithoptionalalteditor_set-MAX_NUM_FORMS': '', # the max number of forms
+            'bookwithoptionalalteditor_set-TOTAL_FORMS': '2',  # the number of forms rendered
+            'bookwithoptionalalteditor_set-INITIAL_FORMS': '0',  # the number of forms with initial data
+            'bookwithoptionalalteditor_set-MAX_NUM_FORMS': '',  # the max number of forms
             'bookwithoptionalalteditor_set-0-author': '1',
             'bookwithoptionalalteditor_set-0-title': 'Les Fleurs du Mal',
             'bookwithoptionalalteditor_set-1-author': '1',
@@ -675,9 +748,9 @@ class ModelFormsetTest(TestCase):
         PoemFormSet = inlineformset_factory(Poet, Poem, form=PoemForm, fields="__all__")
 
         data = {
-            'poem_set-TOTAL_FORMS': '3', # the number of forms rendered
-            'poem_set-INITIAL_FORMS': '0', # the number of forms with initial data
-            'poem_set-MAX_NUM_FORMS': '', # the max number of forms
+            'poem_set-TOTAL_FORMS': '3',  # the number of forms rendered
+            'poem_set-INITIAL_FORMS': '0',  # the number of forms with initial data
+            'poem_set-MAX_NUM_FORMS': '',  # the max number of forms
             'poem_set-0-name': 'The Cloud in Trousers',
             'poem_set-1-name': 'I',
             'poem_set-2-name': '',
@@ -710,9 +783,9 @@ class ModelFormsetTest(TestCase):
             '<p><label for="id_book_set-4-title">Title:</label> <input id="id_book_set-4-title" type="text" name="book_set-4-title" maxlength="100" /><input type="hidden" name="book_set-4-author" value="1" id="id_book_set-4-author" /><input type="hidden" name="book_set-4-id" id="id_book_set-4-id" /></p>')
 
         data = {
-            'book_set-TOTAL_FORMS': '5', # the number of forms rendered
-            'book_set-INITIAL_FORMS': '3', # the number of forms with initial data
-            'book_set-MAX_NUM_FORMS': '', # the max number of forms
+            'book_set-TOTAL_FORMS': '5',  # the number of forms rendered
+            'book_set-INITIAL_FORMS': '3',  # the number of forms with initial data
+            'book_set-MAX_NUM_FORMS': '',  # the max number of forms
             'book_set-0-id': str(book1.id),
             'book_set-0-title': 'Les Paradis Artificiels',
             'book_set-1-id': str(book2.id),
@@ -735,9 +808,9 @@ class ModelFormsetTest(TestCase):
             '<p><label for="id_book_set-2-title">Title:</label> <input id="id_book_set-2-title" type="text" name="book_set-2-title" maxlength="100" /><input type="hidden" name="book_set-2-author" value="1" id="id_book_set-2-author" /><input type="hidden" name="book_set-2-id" id="id_book_set-2-id" /></p>')
 
         data = {
-            'book_set-TOTAL_FORMS': '3', # the number of forms rendered
-            'book_set-INITIAL_FORMS': '1', # the number of forms with initial data
-            'book_set-MAX_NUM_FORMS': '', # the max number of forms
+            'book_set-TOTAL_FORMS': '3',  # the number of forms rendered
+            'book_set-INITIAL_FORMS': '1',  # the number of forms with initial data
+            'book_set-MAX_NUM_FORMS': '',  # the max number of forms
             'book_set-0-id': str(book3.id),
             'book_set-0-title': 'Flowers of Evil',
             'book_set-1-title': 'Revue des deux mondes',
@@ -745,6 +818,44 @@ class ModelFormsetTest(TestCase):
         }
         formset = AuthorBooksFormSet(data, instance=author, queryset=custom_qs)
         self.assertTrue(formset.is_valid())
+
+    def test_inline_formsets_with_custom_save_method_related_instance(self):
+        """
+        The ModelForm.save() method should be able to access the related object
+        if it exists in the database (#24395).
+        """
+        class PoemForm2(forms.ModelForm):
+            def save(self, commit=True):
+                poem = super(PoemForm2, self).save(commit=False)
+                poem.name = "%s by %s" % (poem.name, poem.poet.name)
+                if commit:
+                    poem.save()
+                return poem
+
+        PoemFormSet = inlineformset_factory(Poet, Poem, form=PoemForm2, fields="__all__")
+        data = {
+            'poem_set-TOTAL_FORMS': '1',
+            'poem_set-INITIAL_FORMS': '0',
+            'poem_set-MAX_NUM_FORMS': '',
+            'poem_set-0-name': 'Le Lac',
+        }
+        poet = Poet()
+        formset = PoemFormSet(data=data, instance=poet)
+        self.assertTrue(formset.is_valid())
+
+        # The Poet instance is saved after the formset instantiation. This
+        # happens in admin's changeform_view() when adding a new object and
+        # some inlines in the same request.
+        poet.name = 'Lamartine'
+        poet.save()
+        poem = formset.save()[0]
+        self.assertEqual(poem.name, 'Le Lac by Lamartine')
+
+    def test_inline_formsets_with_wrong_fk_name(self):
+        """ Regression for #23451 """
+        message = "fk_name 'title' is not a ForeignKey to 'model_formsets.Author'."
+        with self.assertRaisesMessage(ValueError, message):
+            inlineformset_factory(Author, Book, fields="__all__", fk_name='title')
 
     def test_custom_pk(self):
         # We need to ensure that it is displayed
@@ -925,7 +1036,7 @@ class ModelFormsetTest(TestCase):
         data = {
             'form-TOTAL_FORMS': '2',
             'form-INITIAL_FORMS': '0',
-            'form-MAX_NUM_FORMS': '2', # should be ignored
+            'form-MAX_NUM_FORMS': '2',  # should be ignored
             'form-0-price': '12.00',
             'form-0-quantity': '1',
             'form-1-price': '24.00',
@@ -992,7 +1103,7 @@ class ModelFormsetTest(TestCase):
         self.assertEqual(revision1.repository, repository)
         self.assertEqual(revision1.revision, '146239817507f148d448db38840db7c3cbf47c76')
 
-        # attempt to save the same revision against against the same repo.
+        # attempt to save the same revision against the same repo.
         data = {
             'revision_set-TOTAL_FORMS': '1',
             'revision_set-INITIAL_FORMS': '0',
@@ -1031,11 +1142,11 @@ class ModelFormsetTest(TestCase):
         # default. This is required to ensure the value is tested for change correctly
         # when determine what extra forms have changed to save.
 
-        self.assertEqual(len(formset.forms), 1) # this formset only has one form
+        self.assertEqual(len(formset.forms), 1)  # this formset only has one form
         form = formset.forms[0]
         now = form.fields['date_joined'].initial()
         result = form.as_p()
-        result = re.sub(r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?', '__DATETIME__', result)
+        result = re.sub(r'[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]+)?', '__DATETIME__', result)
         self.assertHTMLEqual(result,
             '<p><label for="id_membership_set-0-date_joined">Date joined:</label> <input type="text" name="membership_set-0-date_joined" value="__DATETIME__" id="id_membership_set-0-date_joined" /><input type="hidden" name="initial-membership_set-0-date_joined" value="__DATETIME__" id="initial-membership_set-0-id_membership_set-0-date_joined" /></p>\n'
             '<p><label for="id_membership_set-0-karma">Karma:</label> <input type="number" name="membership_set-0-karma" id="id_membership_set-0-karma" /><input type="hidden" name="membership_set-0-person" value="%d" id="id_membership_set-0-person" /><input type="hidden" name="membership_set-0-id" id="id_membership_set-0-id" /></p>'
@@ -1072,9 +1183,11 @@ class ModelFormsetTest(TestCase):
 
         class MembershipForm(forms.ModelForm):
             date_joined = forms.SplitDateTimeField(initial=now)
+
             class Meta:
                 model = Membership
                 fields = "__all__"
+
             def __init__(self, **kwargs):
                 super(MembershipForm, self).__init__(**kwargs)
                 self.fields['date_joined'].widget = forms.SplitDateTimeWidget()
@@ -1094,7 +1207,7 @@ class ModelFormsetTest(TestCase):
 
     def test_inlineformset_factory_with_null_fk(self):
         # inlineformset_factory tests with fk having null=True. see #9462.
-        # create some data that will exbit the issue
+        # create some data that will exhibit the issue
         team = Team.objects.create(name="Red Vipers")
         Player(name="Timmy").save()
         Player(name="Bobby", team=team).save()
@@ -1136,7 +1249,7 @@ class ModelFormsetTest(TestCase):
         # has_changed should work with queryset and list of pk's
         # see #18898
         FormSet = modelformset_factory(AuthorMeeting, fields='__all__')
-        author = Author.objects.create(pk=1, name='Charles Baudelaire')
+        Author.objects.create(pk=1, name='Charles Baudelaire')
         data = {
             'form-TOTAL_FORMS': 1,
             'form-INITIAL_FORMS': 0,
@@ -1192,9 +1305,9 @@ class ModelFormsetTest(TestCase):
 
         FormSet = inlineformset_factory(Author, Book, extra=0, fields="__all__")
         author = Author.objects.create(pk=1, name='Charles Baudelaire')
-        book1 = Book.objects.create(pk=1, author=author, title='Les Paradis Artificiels')
-        book2 = Book.objects.create(pk=2, author=author, title='Les Fleurs du Mal')
-        book3 = Book.objects.create(pk=3, author=author, title='Flowers of Evil')
+        Book.objects.create(pk=1, author=author, title='Les Paradis Artificiels')
+        Book.objects.create(pk=2, author=author, title='Les Fleurs du Mal')
+        Book.objects.create(pk=3, author=author, title='Flowers of Evil')
 
         book_ids = author.book_set.order_by('id').values_list('id', flat=True)
         data = {

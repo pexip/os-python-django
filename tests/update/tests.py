@@ -1,8 +1,8 @@
-from __future__ import absolute_import, unicode_literals
+from __future__ import unicode_literals
 
 from django.test import TestCase
 
-from .models import A, B, C, D, DataPoint, RelatedPoint
+from .models import A, B, D, Bar, DataPoint, Foo, RelatedPoint
 
 
 class SimpleTest(TestCase):
@@ -50,6 +50,15 @@ class SimpleTest(TestCase):
         self.assertEqual(num_updated, 0)
         cnt = D.objects.filter(y=100).count()
         self.assertEqual(cnt, 0)
+
+    def test_foreign_key_update_with_id(self):
+        """
+        Test that update works using <field>_id for foreign keys
+        """
+        num_updated = self.a1.d_set.update(a_id=self.a2)
+        self.assertEqual(num_updated, 20)
+        self.assertEqual(self.a2.d_set.count(), 20)
+
 
 class AdvancedTests(TestCase):
 
@@ -115,4 +124,17 @@ class AdvancedTests(TestCase):
         """
         method = DataPoint.objects.all()[:2].update
         self.assertRaises(AssertionError, method,
-            another_value='another thing')
+                          another_value='another thing')
+
+    def test_update_respects_to_field(self):
+        """
+        Update of an FK field which specifies a to_field works.
+        """
+        a_foo = Foo.objects.create(target='aaa')
+        b_foo = Foo.objects.create(target='bbb')
+        bar = Bar.objects.create(foo=a_foo)
+        self.assertEqual(bar.foo_id, a_foo.target)
+        bar_qs = Bar.objects.filter(pk=bar.pk)
+        self.assertEqual(bar_qs[0].foo_id, a_foo.target)
+        bar_qs.update(foo=b_foo)
+        self.assertEqual(bar_qs[0].foo_id, b_foo.target)

@@ -8,23 +8,28 @@ class People(models.Model):
     name = models.CharField(max_length=255)
     parent = models.ForeignKey('self')
 
+
 class Message(models.Model):
     from_field = models.ForeignKey(People, db_column='from_id')
+
 
 class PeopleData(models.Model):
     people_pk = models.ForeignKey(People, primary_key=True)
     ssn = models.CharField(max_length=11)
 
+
 class PeopleMoreData(models.Model):
     people_unique = models.ForeignKey(People, unique=True)
     license = models.CharField(max_length=255)
+
 
 class DigitsInColumnName(models.Model):
     all_digits = models.CharField(max_length=11, db_column='123')
     leading_digit = models.CharField(max_length=11, db_column='4extra')
     leading_digits = models.CharField(max_length=11, db_column='45extra')
 
-class SpecialColumnName(models.Model):
+
+class SpecialName(models.Model):
     field = models.IntegerField(db_column='field')
     # Underscores
     field_field_0 = models.IntegerField(db_column='Field_')
@@ -34,12 +39,17 @@ class SpecialColumnName(models.Model):
     prc_x = models.IntegerField(db_column='prc(%) x')
     non_ascii = models.IntegerField(db_column='tamaño')
 
+    class Meta:
+        db_table = "inspectdb_special.table name"
+
+
 class ColumnTypes(models.Model):
     id = models.AutoField(primary_key=True)
     big_int_field = models.BigIntegerField()
     bool_field = models.BooleanField(default=False)
     null_bool_field = models.NullBooleanField()
     char_field = models.CharField(max_length=10)
+    null_char_field = models.CharField(max_length=10, blank=True, null=True)
     comma_separated_int_field = models.CommaSeparatedIntegerField(max_length=99)
     date_field = models.DateField()
     date_time_field = models.DateTimeField()
@@ -58,3 +68,11 @@ class ColumnTypes(models.Model):
     text_field = models.TextField()
     time_field = models.TimeField()
     url_field = models.URLField()
+
+
+class UniqueTogether(models.Model):
+    field1 = models.IntegerField()
+    field2 = models.CharField(max_length=10)
+
+    class Meta:
+        unique_together = ('field1', 'field2')

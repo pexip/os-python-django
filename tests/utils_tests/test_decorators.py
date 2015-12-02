@@ -1,7 +1,7 @@
 from django.http import HttpResponse
-from django.template import Template, Context
+from django.template import engines
 from django.template.response import TemplateResponse
-from django.test import TestCase, RequestFactory
+from django.test import RequestFactory, TestCase
 from django.utils.decorators import decorator_from_middleware
 
 
@@ -10,6 +10,7 @@ class ProcessViewMiddleware(object):
         pass
 
 process_view_dec = decorator_from_middleware(ProcessViewMiddleware)
+
 
 @process_view_dec
 def process_view(request):
@@ -69,11 +70,11 @@ class DecoratorFromMiddlewareTests(TestCase):
 
         @full_dec
         def normal_view(request):
-            t = Template("Hello world")
-            return HttpResponse(t.render(Context({})))
+            template = engines['django'].from_string("Hello world")
+            return HttpResponse(template.render())
 
         request = self.rf.get('/')
-        response = normal_view(request)
+        normal_view(request)
         self.assertTrue(getattr(request, 'process_request_reached', False))
         self.assertTrue(getattr(request, 'process_view_reached', False))
         # process_template_response must not be called for HttpResponse
@@ -88,8 +89,8 @@ class DecoratorFromMiddlewareTests(TestCase):
 
         @full_dec
         def template_response_view(request):
-            t = Template("Hello world")
-            return TemplateResponse(request, t, {})
+            template = engines['django'].from_string("Hello world")
+            return TemplateResponse(request, template)
 
         request = self.rf.get('/')
         response = template_response_view(request)

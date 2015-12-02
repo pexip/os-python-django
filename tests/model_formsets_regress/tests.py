@@ -1,15 +1,18 @@
-from __future__ import absolute_import, unicode_literals
+from __future__ import unicode_literals
 
 from django import forms
-from django.forms.formsets import BaseFormSet, DELETION_FIELD_NAME
-from django.forms.util import ErrorDict, ErrorList
-from django.forms.models import modelform_factory, inlineformset_factory, modelformset_factory, BaseModelFormSet
+from django.forms.formsets import DELETION_FIELD_NAME, BaseFormSet
+from django.forms.models import (
+    BaseModelFormSet, inlineformset_factory, modelform_factory,
+    modelformset_factory,
+)
+from django.forms.utils import ErrorDict, ErrorList
 from django.test import TestCase
 from django.utils import six
 
 from .models import (
-    User, UserSite, UserProfile, ProfileNetwork, Restaurant, Manager, Network,
-    Host,
+    Host, Manager, Network, ProfileNetwork, Restaurant, User, UserProfile,
+    UserSite,
 )
 
 
@@ -195,15 +198,15 @@ class InlineFormsetTests(TestCase):
 
         # Instantiate the Form and FormSet to prove
         # you can create a formset with an instance of None
-        form = Form(instance=None)
-        formset = FormSet(instance=None)
+        Form(instance=None)
+        FormSet(instance=None)
 
     def test_empty_fields_on_modelformset(self):
         "No fields passed to modelformset_factory should result in no fields on returned forms except for the id. See #14119."
         UserFormSet = modelformset_factory(User, fields=())
         formset = UserFormSet()
         for form in formset.forms:
-            self.assertTrue('id' in form.fields)
+            self.assertIn('id', form.fields)
             self.assertEqual(len(form.fields), 1)
 
     def test_save_as_new_with_new_inlines(self):
@@ -237,7 +240,7 @@ class InlineFormsetTests(TestCase):
         self.assertQuerysetEqual(
             dalnet.host_set.order_by("hostname"),
             ["<Host: matrix.de.eu.dal.net>", "<Host: tranquility.hub.dal.net>"]
-            )
+        )
 
     def test_initial_data(self):
         user = User.objects.create(username="bibi", serial=1)
@@ -247,7 +250,7 @@ class InlineFormsetTests(TestCase):
         formset = FormSet(instance=user, initial=[{'data': 41}, {'data': 42}])
         self.assertEqual(formset.forms[0].initial['data'], 7)
         self.assertEqual(formset.extra_forms[0].initial['data'], 41)
-        self.assertTrue('value="42"' in formset.extra_forms[1].as_p())
+        self.assertIn('value="42"', formset.extra_forms[1].as_p())
 
 
 class FormsetTests(TestCase):
@@ -282,7 +285,7 @@ class FormsetTests(TestCase):
         formset = Formset(initial=[{'username': 'apollo11'}, {'username': 'apollo12'}])
         self.assertEqual(formset.forms[0].initial['username'], "bibi")
         self.assertEqual(formset.extra_forms[0].initial['username'], "apollo11")
-        self.assertTrue('value="apollo12"' in formset.extra_forms[1].as_p())
+        self.assertIn('value="apollo12"', formset.extra_forms[1].as_p())
 
     def test_extraneous_query_is_not_run(self):
         Formset = modelformset_factory(Network, fields="__all__")
@@ -364,6 +367,7 @@ class FormfieldCallbackTests(TestCase):
                              formfield_callback=callback)
         self.assertCallbackCalled(callback)
 
+
 class BaseCustomDeleteFormSet(BaseFormSet):
     """
     A formset mix-in that lets a form decide if it's to be deleted.
@@ -403,25 +407,25 @@ class FormfieldShouldDeleteFormTests(TestCase):
     DeleteFormset = modelformset_factory(User, form=CustomDeleteUserForm, formset=BaseCustomDeleteModelFormSet)
 
     data = {
-            'form-TOTAL_FORMS': '4',
-            'form-INITIAL_FORMS': '0',
-            'form-MAX_NUM_FORMS': '4',
-            'form-0-username': 'John',
-            'form-0-serial': '1',
-            'form-1-username': 'Paul',
-            'form-1-serial': '2',
-            'form-2-username': 'George',
-            'form-2-serial': '3',
-            'form-3-username': 'Ringo',
-            'form-3-serial': '5',
-            }
+        'form-TOTAL_FORMS': '4',
+        'form-INITIAL_FORMS': '0',
+        'form-MAX_NUM_FORMS': '4',
+        'form-0-username': 'John',
+        'form-0-serial': '1',
+        'form-1-username': 'Paul',
+        'form-1-serial': '2',
+        'form-2-username': 'George',
+        'form-2-serial': '3',
+        'form-3-username': 'Ringo',
+        'form-3-serial': '5',
+    }
 
     delete_all_ids = {
-            'form-0-DELETE': '1',
-            'form-1-DELETE': '1',
-            'form-2-DELETE': '1',
-            'form-3-DELETE': '1',
-            }
+        'form-0-DELETE': '1',
+        'form-1-DELETE': '1',
+        'form-2-DELETE': '1',
+        'form-3-DELETE': '1',
+    }
 
     def test_init_database(self):
         """ Add test data to database via formset """
@@ -437,10 +441,10 @@ class FormfieldShouldDeleteFormTests(TestCase):
         # pass standard data dict & see none updated
         data = dict(self.data)
         data['form-INITIAL_FORMS'] = 4
-        data.update(dict(
-            ('form-%d-id' % i, user.pk)
-            for i,user in enumerate(User.objects.all())
-        ))
+        data.update({
+            'form-%d-id' % i: user.pk
+            for i, user in enumerate(User.objects.all())
+        })
         formset = self.NormalFormset(data, queryset=User.objects.all())
         self.assertTrue(formset.is_valid())
         self.assertEqual(len(formset.save()), 0)
@@ -454,10 +458,10 @@ class FormfieldShouldDeleteFormTests(TestCase):
         # create data dict with all fields marked for deletion
         data = dict(self.data)
         data['form-INITIAL_FORMS'] = 4
-        data.update(dict(
-            ('form-%d-id' % i, user.pk)
-            for i,user in enumerate(User.objects.all())
-        ))
+        data.update({
+            'form-%d-id' % i: user.pk
+            for i, user in enumerate(User.objects.all())
+        })
         data.update(self.delete_all_ids)
         formset = self.NormalFormset(data, queryset=User.objects.all())
         self.assertTrue(formset.is_valid())
@@ -473,10 +477,10 @@ class FormfieldShouldDeleteFormTests(TestCase):
         # create data dict with all fields marked for deletion
         data = dict(self.data)
         data['form-INITIAL_FORMS'] = 4
-        data.update(dict(
-            ('form-%d-id' % i, user.pk)
-            for i,user in enumerate(User.objects.all())
-        ))
+        data.update({
+            'form-%d-id' % i: user.pk
+            for i, user in enumerate(User.objects.all())
+        })
         data.update(self.delete_all_ids)
         formset = self.DeleteFormset(data, queryset=User.objects.all())
 
@@ -488,3 +492,52 @@ class FormfieldShouldDeleteFormTests(TestCase):
         # verify no "odd" PKs left
         odd_ids = [user.pk for user in User.objects.all() if user.pk % 2]
         self.assertEqual(len(odd_ids), 0)
+
+
+class RedeleteTests(TestCase):
+    def test_resubmit(self):
+        u = User.objects.create(username='foo', serial=1)
+        us = UserSite.objects.create(user=u, data=7)
+        formset_cls = inlineformset_factory(User, UserSite, fields="__all__")
+        data = {
+            'serial': '1',
+            'username': 'foo',
+            'usersite_set-TOTAL_FORMS': '1',
+            'usersite_set-INITIAL_FORMS': '1',
+            'usersite_set-MAX_NUM_FORMS': '1',
+            'usersite_set-0-id': six.text_type(us.pk),
+            'usersite_set-0-data': '7',
+            'usersite_set-0-user': 'foo',
+            'usersite_set-0-DELETE': '1'
+        }
+        formset = formset_cls(data, instance=u)
+        self.assertTrue(formset.is_valid())
+        formset.save()
+        self.assertEqual(UserSite.objects.count(), 0)
+        formset = formset_cls(data, instance=u)
+        # Even if the "us" object isn't in the DB any more, the form
+        # validates.
+        self.assertTrue(formset.is_valid())
+        formset.save()
+        self.assertEqual(UserSite.objects.count(), 0)
+
+    def test_delete_already_deleted(self):
+        u = User.objects.create(username='foo', serial=1)
+        us = UserSite.objects.create(user=u, data=7)
+        formset_cls = inlineformset_factory(User, UserSite, fields="__all__")
+        data = {
+            'serial': '1',
+            'username': 'foo',
+            'usersite_set-TOTAL_FORMS': '1',
+            'usersite_set-INITIAL_FORMS': '1',
+            'usersite_set-MAX_NUM_FORMS': '1',
+            'usersite_set-0-id': six.text_type(us.pk),
+            'usersite_set-0-data': '7',
+            'usersite_set-0-user': 'foo',
+            'usersite_set-0-DELETE': '1'
+        }
+        formset = formset_cls(data, instance=u)
+        us.delete()
+        self.assertTrue(formset.is_valid())
+        formset.save()
+        self.assertEqual(UserSite.objects.count(), 0)

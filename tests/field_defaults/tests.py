@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 from datetime import datetime
 
 from django.test import TestCase
@@ -16,4 +14,4 @@ class DefaultTests(TestCase):
 
         self.assertIsInstance(a.id, six.integer_types)
         self.assertEqual(a.headline, "Default headline")
-        self.assertTrue((now - a.pub_date).seconds < 5)
+        self.assertLess((now - a.pub_date).seconds, 5)

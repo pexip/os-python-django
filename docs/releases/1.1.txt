@@ -211,7 +211,7 @@ Query expressions
 Queries can now refer to a another field on the query and can traverse
 relationships to refer to fields on related models. This is implemented in the
 new :class:`~django.db.models.F` object; for full details, including examples,
-consult the :ref:`documentation for F expressions <query-expressions>`.
+consult the :class:`F expressions documentation <django.db.models.F>`.
 
 Model improvements
 ------------------
@@ -284,8 +284,6 @@ full description, and some important notes on database support.
 
 Test client improvements
 ------------------------
-
-.. currentmodule:: django.test.client
 
 A couple of small -- but highly useful -- improvements have been made to the
 test client:
@@ -364,18 +362,17 @@ features:
 
 * A new list interface methods for ``GEOSGeometry`` objects.
 
-For more details, see the `GeoDjango documentation`_.
+For more details, see the GeoDjango documentation.
 
 .. _geodjango: http://geodjango.org/
 .. _spatialite: http://www.gaia-gis.it/gaia-sins/
-.. _geodjango documentation: http://geodjango.org/docs/
 
 Other improvements
 ------------------
 
 Other new features and changes introduced since Django 1.0 include:
 
-* The :doc:`CSRF protection middleware </ref/contrib/csrf>` has been split into
+* The :doc:`CSRF protection middleware </ref/csrf>` has been split into
   two classes -- ``CsrfViewMiddleware`` checks incoming requests, and
   ``CsrfResponseMiddleware`` processes outgoing responses. The combined
   ``CsrfMiddleware`` class (which does both) remains for

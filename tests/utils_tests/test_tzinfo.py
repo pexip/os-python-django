@@ -3,13 +3,24 @@ import datetime
 import os
 import pickle
 import time
-from django.utils.tzinfo import FixedOffset, LocalTimezone
-from django.utils import unittest
+import unittest
+import warnings
 
+from django.test import ignore_warnings
+from django.utils.deprecation import RemovedInDjango19Warning
+
+# Swallow the import-time warning to test the deprecated implementation.
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore", category=RemovedInDjango19Warning)
+    from django.utils.tzinfo import FixedOffset, LocalTimezone
+
+
+@ignore_warnings(category=RemovedInDjango19Warning)
 class TzinfoTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        super(TzinfoTests, cls).setUpClass()
         cls.old_TZ = os.environ.get('TZ')
         os.environ['TZ'] = 'US/Eastern'
 
@@ -31,6 +42,7 @@ class TzinfoTests(unittest.TestCase):
         # Cleanup - force re-evaluation of TZ environment variable.
         if cls.tz_tests:
             time.tzset()
+        super(TzinfoTests, cls).tearDownClass()
 
     def test_fixedoffset(self):
         self.assertEqual(repr(FixedOffset(0)), '+0000')
@@ -40,10 +52,10 @@ class TzinfoTests(unittest.TestCase):
         self.assertEqual(repr(FixedOffset(-280)), '-0440')
         self.assertEqual(repr(FixedOffset(-78.4)), '-0118')
         self.assertEqual(repr(FixedOffset(78.4)), '+0118')
-        self.assertEqual(repr(FixedOffset(-5.5*60)), '-0530')
-        self.assertEqual(repr(FixedOffset(5.5*60)), '+0530')
-        self.assertEqual(repr(FixedOffset(-.5*60)), '-0030')
-        self.assertEqual(repr(FixedOffset(.5*60)), '+0030')
+        self.assertEqual(repr(FixedOffset(-5.5 * 60)), '-0530')
+        self.assertEqual(repr(FixedOffset(5.5 * 60)), '+0530')
+        self.assertEqual(repr(FixedOffset(-.5 * 60)), '-0030')
+        self.assertEqual(repr(FixedOffset(.5 * 60)), '+0030')
 
     def test_16899(self):
         if not self.tz_tests:
@@ -54,14 +66,14 @@ class TzinfoTests(unittest.TestCase):
         # US/Eastern -- we force its representation to "EST"
         tz = LocalTimezone(dt + datetime.timedelta(days=1))
         self.assertEqual(
-                repr(datetime.datetime.fromtimestamp(ts - 3600, tz)),
-                'datetime.datetime(2010, 11, 7, 0, 0, tzinfo=EST)')
+            repr(datetime.datetime.fromtimestamp(ts - 3600, tz)),
+            'datetime.datetime(2010, 11, 7, 0, 0, tzinfo=EST)')
         self.assertEqual(
-                repr(datetime.datetime.fromtimestamp(ts, tz)),
-                'datetime.datetime(2010, 11, 7, 1, 0, tzinfo=EST)')
+            repr(datetime.datetime.fromtimestamp(ts, tz)),
+            'datetime.datetime(2010, 11, 7, 1, 0, tzinfo=EST)')
         self.assertEqual(
-                repr(datetime.datetime.fromtimestamp(ts + 3600, tz)),
-                'datetime.datetime(2010, 11, 7, 1, 0, tzinfo=EST)')
+            repr(datetime.datetime.fromtimestamp(ts + 3600, tz)),
+            'datetime.datetime(2010, 11, 7, 1, 0, tzinfo=EST)')
 
     def test_copy(self):
         now = datetime.datetime.now()

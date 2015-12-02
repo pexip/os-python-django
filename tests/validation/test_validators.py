@@ -1,4 +1,4 @@
-from __future__ import absolute_import, unicode_literals
+from __future__ import unicode_literals
 
 from . import ValidationTestCase
 from .models import ModelToValidate
@@ -7,7 +7,7 @@ from .models import ModelToValidate
 class TestModelsWithValidators(ValidationTestCase):
     def test_custom_validator_passes_for_correct_value(self):
         mtv = ModelToValidate(number=10, name='Some Name', f_with_custom_validator=42)
-        self.assertEqual(None, mtv.full_clean())
+        self.assertIsNone(mtv.full_clean())
 
     def test_custom_validator_raises_error_for_incorrect_value(self):
         mtv = ModelToValidate(number=10, name='Some Name', f_with_custom_validator=12)

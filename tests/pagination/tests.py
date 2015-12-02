@@ -1,15 +1,16 @@
-from __future__ import absolute_import, unicode_literals
+from __future__ import unicode_literals
 
+import unittest
 from datetime import datetime
 
-from django.core.paginator import (Paginator, EmptyPage, InvalidPage,
-    PageNotAnInteger)
+from django.core.paginator import (
+    EmptyPage, InvalidPage, PageNotAnInteger, Paginator,
+)
 from django.test import TestCase
 from django.utils import six
-from django.utils import unittest
 
-from .models import Article
 from .custom import ValidAdjacentNumsPaginator
+from .models import Article
 
 
 class PaginationTests(unittest.TestCase):
@@ -213,8 +214,8 @@ class PaginationTests(unittest.TestCase):
         eleven = 'abcdefghijk'
         page2 = Paginator(eleven, per_page=5, orphans=1).page(2)
         self.assertEqual(len(page2), 6)
-        self.assertTrue('k' in page2)
-        self.assertFalse('a' in page2)
+        self.assertIn('k', page2)
+        self.assertNotIn('a', page2)
         self.assertEqual(''.join(page2), 'fghijk')
         self.assertEqual(''.join(reversed(page2)), 'kjihgf')
 
@@ -248,12 +249,12 @@ class ModelPaginationTests(TestCase):
         p = paginator.page(1)
         self.assertEqual("<Page 1 of 2>", six.text_type(p))
         self.assertQuerysetEqual(p.object_list, [
-                "<Article: Article 1>",
-                "<Article: Article 2>",
-                "<Article: Article 3>",
-                "<Article: Article 4>",
-                "<Article: Article 5>"
-            ],
+            "<Article: Article 1>",
+            "<Article: Article 2>",
+            "<Article: Article 3>",
+            "<Article: Article 4>",
+            "<Article: Article 5>"
+        ],
             ordered=False
         )
         self.assertTrue(p.has_next())
@@ -269,11 +270,11 @@ class ModelPaginationTests(TestCase):
         p = paginator.page(2)
         self.assertEqual("<Page 2 of 2>", six.text_type(p))
         self.assertQuerysetEqual(p.object_list, [
-                "<Article: Article 6>",
-                "<Article: Article 7>",
-                "<Article: Article 8>",
-                "<Article: Article 9>"
-            ],
+            "<Article: Article 6>",
+            "<Article: Article 7>",
+            "<Article: Article 8>",
+            "<Article: Article 9>"
+        ],
             ordered=False
         )
         self.assertFalse(p.has_next())
@@ -286,7 +287,7 @@ class ModelPaginationTests(TestCase):
 
     def test_page_getitem(self):
         """
-        Tests proper behaviour of a paginator page __getitem__ (queryset
+        Tests proper behavior of a paginator page __getitem__ (queryset
         evaluation, slicing, exception raised).
         """
         paginator = Paginator(Article.objects.all(), 5)
@@ -302,9 +303,9 @@ class ModelPaginationTests(TestCase):
         # Make sure slicing the Page object with numbers and slice objects work.
         self.assertEqual(p[0], Article.objects.get(headline='Article 1'))
         self.assertQuerysetEqual(p[slice(2)], [
-                "<Article: Article 1>",
-                "<Article: Article 2>",
-            ]
+            "<Article: Article 1>",
+            "<Article: Article 2>",
+        ]
         )
         # After __getitem__ is called, object_list is a list
         self.assertIsInstance(p.object_list, list)
