@@ -1,9 +1,11 @@
 import datetime
 
 from django.db import models
-from django.db.models.fields.related import ReverseSingleRelatedObjectDescriptor
+from django.db.models.fields.related import \
+    ReverseSingleRelatedObjectDescriptor
 from django.utils.encoding import python_2_unicode_compatible
 from django.utils.translation import get_language
+
 
 @python_2_unicode_compatible
 class Country(models.Model):
@@ -12,6 +14,7 @@ class Country(models.Model):
 
     def __str__(self):
         return self.name
+
 
 @python_2_unicode_compatible
 class Person(models.Model):
@@ -29,6 +32,7 @@ class Person(models.Model):
 
     def __str__(self):
         return self.name
+
 
 @python_2_unicode_compatible
 class Group(models.Model):
@@ -96,6 +100,7 @@ class Friendship(models.Model):
         to_fields=['person_country_id', 'id'],
         related_name='to_friend')
 
+
 class ArticleTranslationDescriptor(ReverseSingleRelatedObjectDescriptor):
     """
     The set of articletranslation should not set any local fields.
@@ -107,13 +112,16 @@ class ArticleTranslationDescriptor(ReverseSingleRelatedObjectDescriptor):
         if value is not None and not self.field.rel.multiple:
             setattr(value, self.field.related.get_cache_name(), instance)
 
+
 class ColConstraint(object):
-    # Antyhing with as_sql() method works in get_extra_restriction().
+    # Anything with as_sql() method works in get_extra_restriction().
     def __init__(self, alias, col, value):
         self.alias, self.col, self.value = alias, col, value
 
-    def as_sql(self, qn, connection):
+    def as_sql(self, compiler, connection):
+        qn = compiler.quote_name_unless_alias
         return '%s.%s = %%s' % (qn(self.alias), qn(self.col)), [self.value]
+
 
 class ActiveTranslationField(models.ForeignObject):
     """
@@ -132,6 +140,7 @@ class ActiveTranslationField(models.ForeignObject):
         super(ActiveTranslationField, self).contribute_to_class(cls, name)
         setattr(cls, self.name, ArticleTranslationDescriptor(self))
 
+
 @python_2_unicode_compatible
 class Article(models.Model):
     active_translation = ActiveTranslationField(
@@ -148,8 +157,10 @@ class Article(models.Model):
         except ArticleTranslation.DoesNotExist:
             return '[No translation found]'
 
+
 class NewsArticle(Article):
     pass
+
 
 class ArticleTranslation(models.Model):
     article = models.ForeignKey(Article)
@@ -162,9 +173,11 @@ class ArticleTranslation(models.Model):
         unique_together = ('article', 'lang')
         ordering = ('active_translation__title',)
 
+
 class ArticleTag(models.Model):
     article = models.ForeignKey(Article, related_name="tags", related_query_name="tag")
     name = models.CharField(max_length=255)
+
 
 class ArticleIdea(models.Model):
     articles = models.ManyToManyField(Article, related_name="ideas",

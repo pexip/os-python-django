@@ -1,11 +1,16 @@
-# coding: utf-8
-from __future__ import absolute_import
-
-from django.conf.urls import patterns
+from django.conf.urls import include, url
+from django.contrib import admin
 
 from . import views
 
-urlpatterns = patterns('',
-    (r'^xview/func/$', views.xview_dec(views.xview)),
-    (r'^xview/class/$', views.xview_dec(views.XViewClass.as_view())),
-)
+ns_patterns = [
+    url(r'^xview/func/$', views.xview_dec(views.xview), name='func'),
+]
+
+urlpatterns = [
+    url(r'^admin/', include(admin.site.urls)),
+    url(r'^admindocs/', include('django.contrib.admindocs.urls')),
+    url(r'^', include(ns_patterns, namespace='test')),
+    url(r'^xview/func/$', views.xview_dec(views.xview)),
+    url(r'^xview/class/$', views.xview_dec(views.XViewClass.as_view())),
+]

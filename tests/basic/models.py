@@ -1,6 +1,6 @@
-# coding: utf-8
+# -*- coding: utf-8 -*-
 """
-1. Bare-bones model
+Bare-bones model
 
 This is a basic model with only two non-primary-key fields.
 """
@@ -14,20 +14,25 @@ class Article(models.Model):
     pub_date = models.DateTimeField()
 
     class Meta:
-        ordering = ('pub_date','headline')
+        ordering = ('pub_date', 'headline')
 
     def __str__(self):
         return self.headline
+
 
 class ArticleSelectOnSave(Article):
     class Meta:
         proxy = True
         select_on_save = True
 
+
 @python_2_unicode_compatible
 class SelfRef(models.Model):
     selfref = models.ForeignKey('self', null=True, blank=True,
                                 related_name='+')
+    article = models.ForeignKey(Article, on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
+        # This method intentionally doesn't work for all cases - part
+        # of the test for ticket #20278
         return SelfRef.objects.get(selfref=self).pk

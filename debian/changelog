@@ -1,45 +1,284 @@
-python-django (1.6.11-1pexip3) pexip; urgency=low
+python-django (1.8.7-2pexip1) pexip; urgency=low
 
-  * Backport security fixes from upstream
+  * New upstream release
+
+ -- Colin Bradbury <colin@pexip.com>  Thu, 03 Dec 2015 17:48:31 +0000
+
+python-django (1.8.7-2) unstable; urgency=high
+
+  * Rely on C.UTF-8 to run the tests instead of building our locale ourselves.
+  * Add debian/patches/fix-25761-add-traceback-attribute.patch:
+    new patch to ensure exceptions registered in __cause__ attributes
+    have a __traceback__ attribute. Closes: #802677
+  * Extend lintian overrides to cover more false positives of
+    source-is-missing.
+  * Cleanup debian/copyright for dropped/renamed files.
+  * Run tests for all supported Python versions.
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Wed, 25 Nov 2015 16:16:10 +0100
+
+python-django (1.8.7-1) unstable; urgency=high
+
+  * New upstream security release:
+    https://www.djangoproject.com/weblog/2015/nov/24/security-releases-issued/
+    It fixes:
+    - CVE-2015-8213: settings leak possibility in date template filter
+
+ -- Luke Faraone <lfaraone@debian.org>  Wed, 25 Nov 2015 04:24:27 +0000
+
+python-django (1.8.6-1) unstable; urgency=medium
+
+  * New upstream bugfix release.
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Sun, 15 Nov 2015 18:29:11 +0100
+
+python-django (1.8.5-2) unstable; urgency=medium
+
+  * Upload to unstable.
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Mon, 02 Nov 2015 15:56:10 +0100
+
+python-django (1.8.5-1) experimental; urgency=medium
+
+  * New upstream bugfix release:
+    https://www.djangoproject.com/weblog/2015/oct/03/bugfix-release-issued/
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Tue, 13 Oct 2015 11:37:24 +0200
+
+python-django (1.8.4-1) experimental; urgency=medium
+
+  * New upstream security release:
     https://www.djangoproject.com/weblog/2015/aug/18/security-releases/
-    - Denial-of-service possibility in logout() view by filling session store (CVE-2015-5963, CVE-2015-5964)
+    It fixes:
+    - CVE-2015-5964: possible denial-of-service in logout() view
+  * Update debian/copyright to copyright-format 1.0.
 
- -- John-Mark Bell <jmb@pexip.com>  Wed, 26 Aug 2015 13:09:41 +0100
+ -- Luke Faraone <lfaraone@debian.org>  Wed, 19 Aug 2015 03:55:47 +0000
 
-python-django (1.6.11-1pexip2) pexip; urgency=low
+python-django (1.8.3-1) experimental; urgency=medium
 
-  * Backport security fixes from upstream
+  * New upstream security release:
     https://www.djangoproject.com/weblog/2015/jul/08/security-releases/
-    - Denial-of-service possibility by filling session store (CVE-2015-5143)
-    - Header injection possibility since validators accept newlines in input (CVE-2015-5144)
+    It fixes:
+    - CVE-2015-5143: possible denial-of-service by filling session store
+    - CVE-2015-5144: possible header injection since validators accept
+      newlines in input
+    - CVE-2015-5145: possible denial-of-service in URL validation
+  * Drop fix-assertRaisesMessage.patch and
+    fix-test-extended-length-storage.patch which have been merged upstream.
 
- -- John-Mark Bell <jmb@pexip.com>  Thu, 09 Jul 2015 10:26:47 +0100
+ -- Raphaël Hertzog <hertzog@debian.org>  Thu, 09 Jul 2015 01:53:02 +0200
 
-python-django (1.6.11-1pexip1) pexip; urgency=low
+python-django (1.8.2-1) experimental; urgency=medium
 
-  * New upstream release
+  * New upstream security release:
+    https://www.djangoproject.com/weblog/2015/may/20/security-release/
+  * Install bash completion file into /usr/share/bash-completion/completions/
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Thu, 21 May 2015 15:59:36 +0200
+
+python-django (1.8.1-1) experimental; urgency=medium
+
+  * New major upstream release:
+    https://docs.djangoproject.com/en/1.8/releases/1.8/
+    https://docs.djangoproject.com/en/1.8/releases/1.8.1/
+  * Refresh all patches.
+  * Drop 03_manpage.diff, merged upstream.
+  * Clean up rules since we can use the pristine docs directory, now
+    that they refer to django-admin and not django-admin.py
+  * Add jinja2 and mock as build dependencies required by the test
+    suite.
+  * Add fix-assertRaisesMessage.patch to make the package build with
+    python 2.7.10~rc1 which is affected by
+    https://bugs.python.org/issue24134
+  * Add fix-test-extended-length-storage.patch to make the package build
+    even when AUFS is in use (and when the max length of a filename is
+    shorter than usual).
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Wed, 20 May 2015 09:54:47 +0200
+
+python-django (1.7.10-1) unstable; urgency=medium
+
+  * Fix Python 3.5 HTMLParseError issue. Closes: #800137.
+  * New upstream version. Fixes CVE-2015-5963, CVE-2015-5964. Closes: #796104.
+  * Add numpy 1.9 support. Closes: #801554.
+
+ -- Brian May <bam@debian.org>  Mon, 12 Oct 2015 12:59:43 +1100
+
+python-django (1.7.9-1) unstable; urgency=medium
+
+  * New upstream security release:
+    https://www.djangoproject.com/weblog/2015/jul/08/security-releases/
+    It fixes:
+    - CVE-2015-5143: possible denial-of-service by filling session store
+    - CVE-2015-5144: possible header injection since validators accept
+      newlines in input
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Thu, 09 Jul 2015 01:33:31 +0200
+
+python-django (1.7.7-1) unstable; urgency=high
+
+  * New upstream security and bugfix release:
     https://www.djangoproject.com/weblog/2015/mar/18/security-releases/
-    - Denial-of-service possibility with strip_tags() (CVE-2015-2316)
-    - Mitigated possible XSS attack via user-supplied redirect URLs (CVE-2015-2317)
+    It fixes:
+    - CVE-2015-2317: possible XSS attack via user-supplied redirect URLs
+      Closes: #780873
+    - CVE-2015-2316: Denial-of-service possibility with strip_tags()
+      Closes: #780874
 
- -- John-Mark Bell <jmb@pexip.com>  Mon, 23 Mar 2015 21:32:32 +0000
+ -- Raphaël Hertzog <hertzog@debian.org>  Mon, 23 Mar 2015 20:41:13 +0100
 
-python-django (1.6.10-1pexip1) pexip; urgency=low
+python-django (1.7.6-1) unstable; urgency=high
 
-  * New upstream release
-    https://www.djangoproject.com/weblog/2015/jan/13/security/
+  * New upstream security release:
+    https://www.djangoproject.com/weblog/2015/mar/09/security-releases/
+  * Fixes CVE-2015-2241: XSS attack via properties in
+    ModelAdmin.readonly_fields
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Mon, 09 Mar 2015 21:40:34 +0100
+
+python-django (1.7.5-1) unstable; urgency=medium
+
+  [ Chris Lamb ]
+  * Remove myself from Uploaders.
+
+  [ Raphaël Hertzog ]
+  * New upstream bugfix release:
+    https://docs.djangoproject.com/en/1.7/releases/1.7.5/
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Fri, 06 Mar 2015 21:13:54 +0100
+
+python-django (1.7.4-1) unstable; urgency=medium
+
+  * Release to unstable and hopefully to Jessie too.
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Mon, 09 Feb 2015 10:39:15 +0100
+
+python-django (1.7.4-1~exp1) experimental; urgency=medium
+
+  * New upstream bugfix release.
+  * Drop fix-24193-python34-test-failure.diff, merged upstream.
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Wed, 28 Jan 2015 09:38:24 +0100
+
+python-django (1.7.3-1~exp1) experimental; urgency=high
+
+  [ Luke Faraone ]
+  * New upstream security release.
     - WSGI header spoofing via underscore/dash conflation (CVE-2015-0219)
-    - Mitigated XSS attack via user-supplied redirect URLs (CVE-2015-0220)
-    - Denial-of-service attack against django.views.static.serve (CVE-2015-0221)
-    - Database denial-of-service with ModelMultipleChoiceField (CVE-2015-0222)
+    - Possible XSS attack via user-supplied redirect URLs (CVE-2015-0220)
+    - DoS attack against django.views.static.serve (CVE-2015-0221)
+    - Database DoS with ModelMultipleChoiceField (CVE-2015-0222)
+    Closes: #775375
 
- -- John-Mark Bell <jmb@pexip.com>  Wed, 14 Jan 2015 01:04:12 +0000
+  [ Raphaël Hertzog ]
+  * Add patch fix-24193-python34-test-failure.diff to fix a test failure with
+    Python3.4.
 
-python-django (1.6.6-1pexip1) pexip; urgency=low
+ -- Raphaël Hertzog <hertzog@debian.org>  Wed, 21 Jan 2015 09:56:19 +0100
 
-  * New upstream release
+python-django (1.7.2-1) experimental; urgency=medium
 
- -- John-Mark Bell <jmb@pexip.com>  Tue, 02 Sep 2014 16:23:42 +0100
+  [ Raphaël Hertzog ]
+  * Add geoip-database-extra as an alternative to geoip-database-contrib.
+
+  [ Brian May ]
+  * New upstream version.
+
+ -- Brian May <bam@debian.org>  Mon, 05 Jan 2015 13:57:16 +1100
+
+python-django (1.7.1-1) unstable; urgency=medium
+
+  [ Raphaël Hertzog ]
+  * New upstream bugfix release.
+  * Drop 01_fix_test_loaddata_not_existant_fixture_file.patch, merged
+    upstream.
+  * Update Standards-Version to 3.9.6.
+  * Add lintian overrides for package-contains-timestamped-gzip (false
+    positive).
+
+  [ Brian May ]
+  * Fix django-admin wrapper to not even consider using python 2.6 as
+    that version is unsupported with Django 1.7.
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Mon, 27 Oct 2014 16:37:41 +0100
+
+python-django (1.7-3) unstable; urgency=medium
+
+  * Add 01_fix_test_loaddata_not_existant_fixture_file.patch
+    to fix FTBFS with Python 3.4.2. Closes: #765117
+  * Improve migrate-south script to look for Python files in the current dir.
+    ./manage.py implicitely has the current directory but when we use
+    django-admin it's not the case. Thanks to Uwe Kleine-Koenig for the
+    report.
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Wed, 15 Oct 2014 10:45:27 +0200
+
+python-django (1.7-2) unstable; urgency=medium
+
+  * Release to unstable.
+  * Add a migrate-south sample script to help users apply their South
+    migrations. Thanks to Brian May.
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Wed, 17 Sep 2014 14:15:11 +0200
+
+python-django (1.7-1) experimental; urgency=medium
+
+  * New major upstream release.
+  * Add a NEWS file to document the incompatibility with South.
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Mon, 08 Sep 2014 10:19:12 +0200
+
+python-django (1.7~c3-1) experimental; urgency=medium
+
+  * New upstream release candidate with security fixes:
+    https://www.djangoproject.com/weblog/2014/aug/20/security/
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Fri, 22 Aug 2014 22:50:32 +0200
+
+python-django (1.7~c2-2) experimental; urgency=medium
+
+  * Merge changes from 1.6.5-4:
+    * Don't output stuff to stdout in django-admin. Closes: #757145
+    * Update Vcs-* fields since the packaging repository moved to git.
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Fri, 08 Aug 2014 14:26:47 +0200
+
+python-django (1.7~c2-1) experimental; urgency=medium
+
+  * New upstream release candidate.
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Wed, 30 Jul 2014 20:47:10 +0200
+
+python-django (1.7~c1+20140722-2) experimental; urgency=medium
+
+  * Move django-admin manual page in python-django-common. Bump version
+    constraint in Breaks/Replaces accordingly.
+  * Drop conflicting django-admin in python-django and python3-django that
+    were not removed as usual because upstream stopped installing them as
+    django-admin.py.
+  * Drop extra license files.
+  * Fix shebang lines in python3-django.
+  * Drop empty left-over /usr/bin directories in python-django/python3-django.
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Tue, 22 Jul 2014 23:29:30 +0200
+
+python-django (1.7~c1+20140722-1) experimental; urgency=medium
+
+  * New upstream release candidate. We want this version in jessie so we
+    should prepare now.
+  * Snapshot tarball generated with "python setup.py sdist" after having
+    applied fix submitted in https://code.djangoproject.com/ticket/23072
+  * Added python-sqlparse, python-tz to Recommends
+  * Added other optional dependencies (python-memcache, python-pil,
+    python-bcrypt) to Suggests
+  * Add all those dependencies in Build-Depends for the benefit of the
+    test suite.
+  * Run the test suite for python2 and python3.
+  * Differentiate descriptions of python2 and python3 packages.
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Mon, 21 Jul 2014 21:57:07 +0200
+>>>>>>> debian/1.8.7-2
 
 python-django (1.6.6-1) unstable; urgency=high
 
@@ -114,7 +353,7 @@ python-django (1.6.3-1) unstable; urgency=high
 python-django (1.6.1-2) unstable; urgency=medium
 
   * Team upload.
-  * d/patches/ticket21869.diff: Cherry pick upstream fix for building 
+  * d/patches/ticket21869.diff: Cherry pick upstream fix for building
     documentation against Sphinx 1.2.1.
 
  -- Barry Warsaw <barry@debian.org>  Wed, 29 Jan 2014 18:37:51 +0000
@@ -216,7 +455,7 @@ python-django (1.4.5-1) unstable; urgency=high
 
 python-django (1.4.4-1) unstable; urgency=low
 
-  * New upstream security and maintenance release. Closes: #701186 
+  * New upstream security and maintenance release. Closes: #701186
     https://www.djangoproject.com/weblog/2013/feb/19/security/
     Fixes mulptiple security issues:
     - Further fixes for Host header poisoning. CVE-2012-4520
@@ -382,7 +621,7 @@ python-django (1.2.5-1) unstable; urgency=low
 
   * New upstream release.
   * Do not compress objects.inv used by Sphinx generated documentation.
-    Thanks to Michael Fladischer for the report. Closes: #608769 
+    Thanks to Michael Fladischer for the report. Closes: #608769
 
  -- Raphaël Hertzog <hertzog@debian.org>  Sat, 12 Feb 2011 08:59:33 +0100
 
@@ -475,7 +714,7 @@ python-django (1.2~alpha1-1) experimental; urgency=low
 
      This is the first in a series of preview/development releases leading up
      to the eventual release of Django 1.2, currently scheduled to take place
-     in March 2010. 
+     in March 2010.
 
      <http://docs.djangoproject.com/en/dev//releases/1.2-alpha-1/>
 
@@ -651,8 +890,8 @@ python-django (1.0~beta2+ds-1) unstable; urgency=low
 python-django (1.0~beta2-3) unstable; urgency=low
 
   [ David Spreen ]
-  * Updated the copyright information to include copyright and 
-    licenses for individual contributions. 
+  * Updated the copyright information to include copyright and
+    licenses for individual contributions.
   * Added the documentation to the main python-django package:
   * debian/python-django.install
     - Added installation of html documentation.
@@ -665,20 +904,20 @@ python-django (1.0~beta2-3) unstable; urgency=low
     - Readded code to link to libjs-jquery.
   * debian/NEWS
     - Fixed format.
-    - Added more comprehensive list of changes and references to 
-      local documentation as well as the wiki pages for 
+    - Added more comprehensive list of changes and references to
+      local documentation as well as the wiki pages for
       backwards-incompatible changes.
   * debian/python-django.docs
-    - Removed docs/*.txt since those are templates for the 
+    - Removed docs/*.txt since those are templates for the
       generated docs now included with doc-base.
-  
+
  -- David Spreen <netzwurm@debian.org>  Fri, 29 Aug 2008 09:20:45 -0700
 
 python-django (1.0~beta2-2) unstable; urgency=low
 
   [ David Spreen ]
-  * Removed all -doc related files temporarily to push beta2 into 
-    unstable for extensive testing. The -doc package will be 
+  * Removed all -doc related files temporarily to push beta2 into
+    unstable for extensive testing. The -doc package will be
     readded once this package is in unstable as recommended in
     http://lists.debian.org/debian-release/2008/08/msg01475.html.
   * debian/python-django-doc.install
@@ -701,8 +940,8 @@ python-django (1.0~beta2-1) experimental; urgency=low
 
   [ David Spreen ]
   * The `hooray for the documentation' release!
-  * New upstream beta release. 
-  * debian/control 
+  * New upstream beta release.
+  * debian/control
     - Updated standards version.
     - Added python-sphinx and libjs-jquery.
     - Added python-django-doc package depending on libjs-jquery.
@@ -721,10 +960,10 @@ python-django (1.0~beta2-1) experimental; urgency=low
   * debian/python-django-doc.install:
     - Added install file for sphinx generated documentation.
   * debian/rules:
-    - Added code to generate documentation with sphinx and 
+    - Added code to generate documentation with sphinx and
       replace convenience file of jquery.js with the respective
       symlink to libjs-jquery.
-  
+
  -- David Spreen <netzwurm@debian.org>  Thu, 28 Aug 2008 10:22:29 -0700
 
 python-django (1.0~beta1-1) experimental; urgency=low
@@ -732,18 +971,18 @@ python-django (1.0~beta1-1) experimental; urgency=low
   [ David Spreen ]
   * New upstream beta release. Closes: #492956
   * debian/control: Added myself to Uploaders field.
-  * debian/watch: Added mangling for filename and version. Old watch file would 
-    name the download 'tarball'. Also added mangling to handle alpha and beta 
+  * debian/watch: Added mangling for filename and version. Old watch file would
+    name the download 'tarball'. Also added mangling to handle alpha and beta
     versioning.
   * Drop debian/patches/01_add_shebang.diff as this has been fixed upstream.
   * Drop debian/patches/02_bash_completion.diff as this has been committed
     upstream http://code.djangoproject.com/ticket/7268.
   * debian/control: Added python-flup to the Suggest field. Closes: #488123
   * debian/patches/03_manpage.diff: Adapted patch to new upstream version.
-  
+
   [ Jan Dittberner ]
   * add debian/watch file.
-  
+
  -- David Spreen <netzwurm@debian.org>  Fri, 15 Aug 2008 16:05:07 -0700
 
 python-django (0.97~svn7534-1) experimental; urgency=low

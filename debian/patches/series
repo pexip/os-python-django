@@ -1,7 +1,3 @@
 02_disable-sources-in-sphinxdoc.diff
-03_manpage.diff
 06_use_debian_geoip_database_as_default.diff
-08_fixed_16426_sqlite_delete_params_limit.diff
-CVE-2015-5143.patch
-CVE-2015-5144.patch
-CVE-2015-5963-5964.patch
+fix-25761-add-traceback-attribute.patch

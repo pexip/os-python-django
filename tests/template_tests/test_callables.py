@@ -1,7 +1,9 @@
 from __future__ import unicode_literals
 
+from unittest import TestCase
+
 from django import template
-from django.utils.unittest import TestCase
+
 
 class CallableVariablesTests(TestCase):
 
@@ -11,6 +13,7 @@ class CallableVariablesTests(TestCase):
             def __init__(self, value):
                 self.num_calls = 0
                 self.value = value
+
             def __call__(self):
                 self.num_calls += 1
                 return {"the_value": self.value}
@@ -37,9 +40,11 @@ class CallableVariablesTests(TestCase):
 
         class Doodad(object):
             alters_data = True
+
             def __init__(self, value):
                 self.num_calls = 0
                 self.value = value
+
             def __call__(self):
                 self.num_calls += 1
                 return {"the_value": self.value}
@@ -48,7 +53,7 @@ class CallableVariablesTests(TestCase):
         c = template.Context({"my_doodad": my_doodad})
 
         # Since ``my_doodad.alters_data`` is True, the template system will not
-        # try to call our doodad but will use TEMPLATE_STRING_IF_INVALID
+        # try to call our doodad but will use string_if_invalid
         t = template.Template('{{ my_doodad.value }}')
         self.assertEqual(t.render(c), '')
         t = template.Template('{{ my_doodad.the_value }}')
@@ -62,9 +67,11 @@ class CallableVariablesTests(TestCase):
 
         class Doodad(object):
             do_not_call_in_templates = True
+
             def __init__(self, value):
                 self.num_calls = 0
                 self.value = value
+
             def __call__(self):
                 self.num_calls += 1
                 return {"the_value": self.value}
@@ -93,9 +100,11 @@ class CallableVariablesTests(TestCase):
         class Doodad(object):
             do_not_call_in_templates = True
             alters_data = True
+
             def __init__(self, value):
                 self.num_calls = 0
                 self.value = value
+
             def __call__(self):
                 self.num_calls += 1
                 return {"the_value": self.value}

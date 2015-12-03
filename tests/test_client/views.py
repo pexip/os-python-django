@@ -4,12 +4,16 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.core import mail
 from django.forms import fields
 from django.forms.forms import Form, ValidationError
-from django.forms.formsets import formset_factory, BaseFormSet
-from django.http import HttpResponse, HttpResponseRedirect, HttpResponseNotFound
+from django.forms.formsets import BaseFormSet, formset_factory
+from django.http import (
+    HttpResponse, HttpResponseBadRequest, HttpResponseNotAllowed,
+    HttpResponseNotFound, HttpResponseRedirect,
+)
 from django.shortcuts import render_to_response
 from django.template import Context, Template
 from django.utils.decorators import method_decorator
 from django.utils.six.moves.urllib.parse import urlencode
+
 
 def get_view(request):
     "A simple view that expects a GET request, and returns a rendered template"
@@ -17,6 +21,32 @@ def get_view(request):
     c = Context({'var': request.GET.get('var', 42)})
 
     return HttpResponse(t.render(c))
+
+
+def trace_view(request):
+    """
+    A simple view that expects a TRACE request and echoes its status line.
+
+    TRACE requests should not have an entity; the view will return a 400 status
+    response if it is present.
+    """
+    if request.method.upper() != "TRACE":
+        return HttpResponseNotAllowed("TRACE")
+    elif request.body:
+        return HttpResponseBadRequest("TRACE requests MUST NOT include an entity")
+    else:
+        protocol = request.META["SERVER_PROTOCOL"]
+        t = Template(
+            '{{ method }} {{ uri }} {{ version }}',
+            name="TRACE Template",
+        )
+        c = Context({
+            'method': request.method,
+            'uri': request.path,
+            'version': protocol,
+        })
+        return HttpResponse(t.render(c))
+
 
 def post_view(request):
     """A view that expects a POST, and returns a different template depending
@@ -35,11 +65,13 @@ def post_view(request):
 
     return HttpResponse(t.render(c))
 
+
 def view_with_header(request):
     "A view that has a custom header"
     response = HttpResponse()
     response['X-DJANGO-TEST'] = 'Slartibartfast'
     return response
+
 
 def raw_post_view(request):
     """A view which expects raw XML to be posted and returns content extracted
@@ -56,23 +88,28 @@ def raw_post_view(request):
 
     return HttpResponse(t.render(c))
 
+
 def redirect_view(request):
     "A view that redirects all requests to the GET view"
     if request.GET:
         query = '?' + urlencode(request.GET, True)
     else:
         query = ''
-    return HttpResponseRedirect('/test_client/get_view/' + query)
+    return HttpResponseRedirect('/get_view/' + query)
+
 
 def view_with_secure(request):
     "A view that indicates if the request was secure"
     response = HttpResponse()
     response.test_was_secure_request = request.is_secure()
+    response.test_server_port = request.META.get('SERVER_PORT', 80)
     return response
+
 
 def double_redirect_view(request):
     "A view that redirects all requests to a redirection view"
-    return HttpResponseRedirect('/test_client/permanent_redirect_view/')
+    return HttpResponseRedirect('/permanent_redirect_view/')
+
 
 def bad_view(request):
     "A view that returns a 404 with some error content"
@@ -86,6 +123,7 @@ TestChoices = (
     ('e', 'Fifth Choice')
 )
 
+
 class TestForm(Form):
     text = fields.CharField()
     email = fields.EmailField()
@@ -98,6 +136,7 @@ class TestForm(Form):
         if cleaned_data.get("text") == "Raise non-field error":
             raise ValidationError("Non-field error.")
         return cleaned_data
+
 
 def form_view(request):
     "A view that tests a simple form"
@@ -116,6 +155,7 @@ def form_view(request):
 
     return HttpResponse(t.render(c))
 
+
 def form_view_with_template(request):
     "A view that tests a simple form"
     if request.method == 'POST':
@@ -133,6 +173,7 @@ def form_view_with_template(request):
             'message': message
         }
     )
+
 
 class BaseTestFormSet(BaseFormSet):
     def clean(self):
@@ -153,6 +194,7 @@ class BaseTestFormSet(BaseFormSet):
 
 TestFormSet = formset_factory(TestForm, BaseTestFormSet)
 
+
 def formset_view(request):
     "A view that tests a simple formset"
     if request.method == 'POST':
@@ -171,6 +213,7 @@ def formset_view(request):
         c = Context({'my_formset': formset})
     return HttpResponse(t.render(c))
 
+
 def login_protected_view(request):
     "A simple view that is login protected."
     t = Template('This is a login protected test. Username is {{ user.username }}.', name='Login Template')
@@ -178,6 +221,7 @@ def login_protected_view(request):
 
     return HttpResponse(t.render(c))
 login_protected_view = login_required(login_protected_view)
+
 
 def login_protected_view_changed_redirect(request):
     "A simple view that is login protected with a custom redirect field set"
@@ -187,16 +231,18 @@ def login_protected_view_changed_redirect(request):
     return HttpResponse(t.render(c))
 login_protected_view_changed_redirect = login_required(redirect_field_name="redirect_to")(login_protected_view_changed_redirect)
 
+
 def _permission_protected_view(request):
     "A simple view that is permission protected."
     t = Template('This is a permission protected test. '
                  'Username is {{ user.username }}. '
-                 'Permissions are {{ user.get_all_permissions }}.' ,
+                 'Permissions are {{ user.get_all_permissions }}.',
                  name='Permissions Template')
     c = Context({'user': request.user})
     return HttpResponse(t.render(c))
 permission_protected_view = permission_required('permission_not_granted')(_permission_protected_view)
 permission_protected_view_exception = permission_required('permission_not_granted', raise_exception=True)(_permission_protected_view)
+
 
 class _ViewManager(object):
     @method_decorator(login_required)
@@ -211,7 +257,7 @@ class _ViewManager(object):
     def permission_protected_view(self, request):
         t = Template('This is a permission protected test using a method. '
                      'Username is {{ user.username }}. '
-                     'Permissions are {{ user.get_all_permissions }}.' ,
+                     'Permissions are {{ user.get_all_permissions }}.',
                      name='Permissions Template')
         c = Context({'user': request.user})
         return HttpResponse(t.render(c))
@@ -219,6 +265,7 @@ class _ViewManager(object):
 _view_manager = _ViewManager()
 login_protected_method_view = _view_manager.login_protected_view
 permission_protected_method_view = _view_manager.permission_protected_view
+
 
 def session_view(request):
     "A view that modifies the session"
@@ -229,9 +276,11 @@ def session_view(request):
     c = Context()
     return HttpResponse(t.render(c))
 
+
 def broken_view(request):
     """A view which just raises an exception, simulating a broken view."""
     raise KeyError("Oops! Looks like you wrote some bad code.")
+
 
 def mail_sending_view(request):
     mail.EmailMessage(
@@ -240,6 +289,7 @@ def mail_sending_view(request):
         "from@example.com",
         ['first@example.com', 'second@example.com']).send()
     return HttpResponse("Mail sent")
+
 
 def mass_mail_sending_view(request):
     m1 = mail.EmailMessage(
@@ -254,6 +304,10 @@ def mass_mail_sending_view(request):
         ['second@example.com', 'third@example.com'])
 
     c = mail.get_connection()
-    c.send_messages([m1,m2])
+    c.send_messages([m1, m2])
 
     return HttpResponse("Mail sent")
+
+
+def django_project_redirect(request):
+    return HttpResponseRedirect('https://www.djangoproject.com/')

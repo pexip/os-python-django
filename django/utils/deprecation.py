@@ -1,5 +1,21 @@
+from __future__ import absolute_import
+
 import inspect
 import warnings
+
+
+class RemovedInDjango110Warning(PendingDeprecationWarning):
+    pass
+
+# for backwards compatibility in Django 1.8.3
+RemovedInDjango20Warning = PendingDeprecationWarning
+
+
+class RemovedInDjango19Warning(DeprecationWarning):
+    pass
+
+
+RemovedInNextVersionWarning = RemovedInDjango19Warning
 
 
 class warn_about_renamed_method(object):

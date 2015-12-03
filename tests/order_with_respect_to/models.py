@@ -10,6 +10,7 @@ from django.utils.encoding import python_2_unicode_compatible
 class Question(models.Model):
     text = models.CharField(max_length=200)
 
+
 @python_2_unicode_compatible
 class Answer(models.Model):
     text = models.CharField(max_length=200)
@@ -21,6 +22,7 @@ class Answer(models.Model):
     def __str__(self):
         return six.text_type(self.text)
 
+
 @python_2_unicode_compatible
 class Post(models.Model):
     title = models.CharField(max_length=200)
@@ -31,3 +33,19 @@ class Post(models.Model):
 
     def __str__(self):
         return self.title
+
+
+# order_with_respect_to points to a model with a OneToOneField primary key.
+class Entity(models.Model):
+    pass
+
+
+class Dimension(models.Model):
+    entity = models.OneToOneField('Entity', primary_key=True)
+
+
+class Component(models.Model):
+    dimension = models.ForeignKey('Dimension')
+
+    class Meta:
+        order_with_respect_to = 'dimension'

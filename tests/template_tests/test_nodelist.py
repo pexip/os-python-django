@@ -1,31 +1,29 @@
-from django.template import VariableNode, Context
-from django.template.loader import get_template_from_string
-from django.utils.unittest import TestCase
-from django.test.utils import override_settings
+from unittest import TestCase
+
+from django.template import Context, Template
+from django.template.base import VariableNode
+from django.test import override_settings
+
 
 class NodelistTest(TestCase):
 
     def test_for(self):
-        source = '{% for i in 1 %}{{ a }}{% endfor %}'
-        template = get_template_from_string(source)
+        template = Template('{% for i in 1 %}{{ a }}{% endfor %}')
         vars = template.nodelist.get_nodes_by_type(VariableNode)
         self.assertEqual(len(vars), 1)
 
     def test_if(self):
-        source = '{% if x %}{{ a }}{% endif %}'
-        template = get_template_from_string(source)
+        template = Template('{% if x %}{{ a }}{% endif %}')
         vars = template.nodelist.get_nodes_by_type(VariableNode)
         self.assertEqual(len(vars), 1)
 
     def test_ifequal(self):
-        source = '{% ifequal x y %}{{ a }}{% endifequal %}'
-        template = get_template_from_string(source)
+        template = Template('{% ifequal x y %}{{ a }}{% endifequal %}')
         vars = template.nodelist.get_nodes_by_type(VariableNode)
         self.assertEqual(len(vars), 1)
 
     def test_ifchanged(self):
-        source = '{% ifchanged x %}{{ a }}{% endifchanged %}'
-        template = get_template_from_string(source)
+        template = Template('{% ifchanged x %}{{ a }}{% endifchanged %}')
         vars = template.nodelist.get_nodes_by_type(VariableNode)
         self.assertEqual(len(vars), 1)
 
@@ -35,7 +33,7 @@ class ErrorIndexTest(TestCase):
     Checks whether index of error is calculated correctly in
     template debugger in for loops. Refs ticket #5831
     """
-    @override_settings(DEBUG=True, TEMPLATE_DEBUG = True)
+    @override_settings(DEBUG=True)
     def test_correct_exception_index(self):
         tests = [
             ('{% load bad_tag %}{% for i in range %}{% badsimpletag %}{% endfor %}', (38, 56)),
@@ -49,7 +47,7 @@ class ErrorIndexTest(TestCase):
             'five': 5,
         })
         for source, expected_error_source_index in tests:
-            template = get_template_from_string(source)
+            template = Template(source)
             try:
                 template.render(context)
             except (RuntimeError, TypeError) as e:

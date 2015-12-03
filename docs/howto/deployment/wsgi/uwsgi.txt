@@ -24,13 +24,13 @@ The uWSGI wiki describes several `installation procedures`_. Using pip, the
 Python package manager, you can install any uWSGI version with a single
 command. For example:
 
-.. code-block:: bash
+.. code-block:: console
 
     # Install current stable version.
-    $ sudo pip install uwsgi
+    $ pip install uwsgi
 
     # Or install LTS (long term support).
-    $ sudo pip install http://projects.unbit.it/downloads/uwsgi-lts.tar.gz
+    $ pip install http://projects.unbit.it/downloads/uwsgi-lts.tar.gz
 
 .. _installation procedures: http://uwsgi-docs.readthedocs.org/en/latest/Install.html
 
@@ -78,7 +78,7 @@ Here's an example command to start a uWSGI server::
 
 This assumes you have a top-level project package named ``mysite``, and
 within it a module :file:`mysite/wsgi.py` that contains a WSGI ``application``
-object. This is the layout you'll have if you ran ``django-admin.py
+object. This is the layout you'll have if you ran ``django-admin
 startproject mysite`` (using your own project name in place of ``mysite``) with
 a recent version of Django. If this file doesn't exist, you'll need to create
 it. See the :doc:`/howto/deployment/wsgi/index` documentation for the default
@@ -107,6 +107,17 @@ Example ini configuration file::
 Example ini configuration file usage::
 
     uwsgi --ini uwsgi.ini
+
+.. admonition:: Fixing ``UnicodeEncodeError`` for file uploads
+
+    If you get a ``UnicodeEncodeError`` when uploading files with file names
+    that contain non-ASCII characters, make sure uWSGI is configured to accept
+    non-ASCII file names by adding this to your ``uwsgi.ini``::
+
+        env = LANG='en_US.UTF-8'
+
+    See the :ref:`unicode-files` section of the Unicode reference guide for
+    details.
 
 See the uWSGI docs on `managing the uWSGI process`_ for information on
 starting, stopping and reloading the uWSGI workers.
