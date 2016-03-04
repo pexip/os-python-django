@@ -1,3 +1,15 @@
+python-django (1.8.10-0pexip1) pexip; urgency=low
+
+  * New upstream security release:
+    https://www.djangoproject.com/weblog/2016/mar/01/security-releases/
+    Fixes:
+    - CVE-2016-2512: Malicious redirect and possible XSS attack via 
+      user-supplied redirect URLs containing basic auth
+    - CVE-2016-2513: User enumeration through timing difference on
+      password hasher work factor upgrade
+
+ -- John-Mark Bell <jmb@pexip.com>  Fri, 04 Mar 2016 14:09:26 +0000
+
 python-django (1.8.7-2pexip1) pexip; urgency=low
 
   * New upstream release
