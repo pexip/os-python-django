@@ -1,0 +1,64 @@
+diff --git a/django/http/multipartparser.py b/django/http/multipartparser.py
+index 375584e..67d0fc4 100644
+--- a/django/http/multipartparser.py
++++ b/django/http/multipartparser.py
+@@ -181,10 +181,11 @@ class MultiPartParser(object):
+                 elif item_type == FILE:
+                     # This is a file, use the handler...
+                     file_name = disposition.get('filename')
++                    if file_name:
++                        file_name = force_text(file_name, encoding, errors='replace')
++                        file_name = self.IE_sanitize(unescape_entities(file_name))
+                     if not file_name:
+                         continue
+-                    file_name = force_text(file_name, encoding, errors='replace')
+-                    file_name = self.IE_sanitize(unescape_entities(file_name))
+ 
+                     content_type, content_type_extra = meta_data.get('content-type', ('', {}))
+                     content_type = content_type.strip()
+diff --git a/tests/file_uploads/tests.py b/tests/file_uploads/tests.py
+index 4888ca5..41df6a6 100644
+--- a/tests/file_uploads/tests.py
++++ b/tests/file_uploads/tests.py
+@@ -174,6 +174,41 @@ class FileUploadTests(TestCase):
+         response = self.client.request(**r)
+         self.assertEqual(response.status_code, 200)
+ 
++    def test_blank_filenames(self):
++        """
++        Test receiving file upload when filename is blank (before or after sanitisation) (#26325)
++        """
++        filenames = [
++            "",
++            "C:\\Windows\\",
++        ]
++
++        payload = client.FakePayload()
++        for i, name in enumerate(filenames):
++            payload.write('\r\n'.join([
++                '--' + client.BOUNDARY,
++                'Content-Disposition: form-data; name="file%s"; filename="%s"' % (i, name),
++                'Content-Type: application/octet-stream',
++                '',
++                'You got pwnd.\r\n'
++            ]))
++        payload.write('\r\n--' + client.BOUNDARY + '--\r\n')
++
++        r = {
++            'CONTENT_LENGTH': len(payload),
++            'CONTENT_TYPE': client.MULTIPART_CONTENT,
++            'PATH_INFO': "/echo/",
++            'REQUEST_METHOD': 'POST',
++            'wsgi.input': payload,
++        }
++        response = self.client.request(**r)
++        self.assertEqual(response.status_code, 200)
++
++        # Empty filenames should be ignored
++        received = json.loads(response.content.decode('utf-8'))
++        for i, name in enumerate(filenames):
++            self.assertEqual(received.get('file%s' % i, None), None)
++
+     def test_dangerous_file_names(self):
+         """Uploaded file names should be sanitized before ever reaching the view."""
+         # This test simulates possible directory traversal attacks by a

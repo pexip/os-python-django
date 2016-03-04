@@ -7,6 +7,8 @@ python-django (1.8.10-0pexip1) pexip; urgency=low
       user-supplied redirect URLs containing basic auth
     - CVE-2016-2513: User enumeration through timing difference on
       password hasher work factor upgrade
+  * debian/patches/fix-multipart-file-upload.patch: Add patch to
+    handle bogus filenames in multipart file upload handling.
 
  -- John-Mark Bell <jmb@pexip.com>  Fri, 04 Mar 2016 14:09:26 +0000
 
