@@ -1,3 +1,11 @@
+python-django (1.8.11-0pexip1) pexip; urgency=low
+
+  * New upstream release
+    - Fixes a regression on Python 2 in the 1.8.10 security release 
+      where utils.http.is_safe_url() crashes on bytestring URLs 
+
+ -- John-Mark Bell <jmb@pexip.com>  Mon, 07 Mar 2016 12:36:47 +0000
+
 python-django (1.8.10-0pexip1) pexip; urgency=low
 
   * New upstream security release:
