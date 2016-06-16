@@ -2,3 +2,4 @@
 06_use_debian_geoip_database_as_default.diff
 fix-25761-add-traceback-attribute.patch
 fix-multipart-file-upload.patch
+backport-optimized-migration-plan-handling.diff

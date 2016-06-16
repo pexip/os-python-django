@@ -1,3 +1,11 @@
+python-django (1.8.11-0pexip2) pexip; urgency=low
+
+  * Merge a change from 1.10a1
+    - Backport optimized migration plan handling
+      https://code.djangoproject.com/ticket/24743
+
+ -- John Wright <john.wright@pexip.com>  Tue, 24 May 2016 14:53:45 +0100
+
 python-django (1.8.11-0pexip1) pexip; urgency=low
 
   * New upstream release
