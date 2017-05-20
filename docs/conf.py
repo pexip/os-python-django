@@ -6,7 +6,7 @@
 # This file is execfile()d with the current directory set to its containing dir.
 #
 # The contents of this file are pickled, so don't put values in the namespace
-# that aren't pickleable (module imports are okay, they're removed automatically).
+# that aren't picklable (module imports are okay, they're removed automatically).
 #
 # All configuration values have a default; values that are commented out
 # serve to show the default.
@@ -15,6 +15,15 @@ from __future__ import unicode_literals
 
 import sys
 from os.path import abspath, dirname, join
+
+# Workaround for sphinx-build recursion limit overflow:
+# pickle.dump(doctree, f, pickle.HIGHEST_PROTOCOL)
+#  RuntimeError: maximum recursion depth exceeded while pickling an object
+#
+# Python's default allowed recursion depth is 1000 but this isn't enough for
+# building docs/ref/settings.txt sometimes.
+# https://groups.google.com/d/topic/sphinx-dev/MtRf64eGtv4/discussion
+sys.setrecursionlimit(2000)
 
 # Make sure we get the version of this copy of Django
 sys.path.insert(1, dirname(dirname(abspath(__file__))))
@@ -36,6 +45,7 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.viewcode",
     "ticket_role",
+    "cve_role",
 ]
 
 # Spelling check needs an additional module that is not installed by default.
@@ -136,6 +146,9 @@ intersphinx_mapping = {
 # Python's docs don't change every week.
 intersphinx_cache_limit = 90  # days
 
+# The 'versionadded' and 'versionchanged' directives are overridden.
+suppress_warnings = ['app.add_directive']
+
 # -- Options for HTML output ---------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
@@ -178,9 +191,6 @@ html_last_updated_fmt = '%b %d, %Y'
 # If true, SmartyPants will be used to convert quotes and dashes to
 # typographically correct entities.
 html_use_smartypants = True
-
-# HTML translator class for the builder
-html_translator_class = "djangodocs.DjangoHTMLTranslator"
 
 # Content template for the index page.
 # html_index = ''
@@ -360,5 +370,6 @@ epub_cover = ('', 'epub-cover.html')
 # If false, no index is generated.
 # epub_use_index = True
 
-# -- ticket options ------------------------------------------------------------
+# -- custom extension options --------------------------------------------------
+cve_url = 'https://web.nvd.nist.gov/view/vuln/detail?vulnId=%s'
 ticket_url = 'https://code.djangoproject.com/ticket/%s'

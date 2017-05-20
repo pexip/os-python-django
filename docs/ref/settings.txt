@@ -108,13 +108,17 @@ If the ``Host`` header (or ``X-Forwarded-Host`` if
 list, the :meth:`django.http.HttpRequest.get_host()` method will raise
 :exc:`~django.core.exceptions.SuspiciousOperation`.
 
-When :setting:`DEBUG` is ``True`` or when running tests, host validation is
-disabled; any host will be accepted. Thus it's usually only necessary to set it
-in production.
+When :setting:`DEBUG` is ``True`` and ``ALLOWED_HOSTS`` is empty, the host
+is validated against ``['localhost', '127.0.0.1', '[::1]']``.
 
 This validation only applies via :meth:`~django.http.HttpRequest.get_host()`;
 if your code accesses the ``Host`` header directly from ``request.META`` you
 are bypassing this security protection.
+
+.. versionchanged:: 1.8.16
+
+    In older versions, ``ALLOWED_HOSTS`` wasn't checked if ``DEBUG=True``, but
+    it's now checked to prevent a DNS rebinding attack.
 
 .. setting:: ALLOWED_INCLUDE_ROOTS
 
@@ -773,7 +777,11 @@ Default: ``None``
 This is an Oracle-specific setting.
 
 The password to use when connecting to the Oracle database that will be used
-when running tests. If not provided, Django will use a hardcoded default value.
+when running tests. If not provided, Django will generate a random password.
+
+.. versionchanged:: 1.8.16
+
+    Older versions used a hardcoded default password.
 
 .. setting:: TEST_TBLSPACE
 
@@ -2866,9 +2874,14 @@ The URL where requests are redirected after login when the
 This is used by the :func:`~django.contrib.auth.decorators.login_required`
 decorator, for example.
 
-This setting also accepts view function names and :ref:`named URL patterns
-<naming-url-patterns>` which can be used to reduce configuration duplication
-since you don't have to define the URL in two places (``settings`` and URLconf).
+This setting also accepts :ref:`named URL patterns <naming-url-patterns>` which
+can be used to reduce configuration duplication since you don't have to define
+the URL in two places (``settings`` and URLconf).
+
+.. deprecated:: 1.8
+
+    The setting may also be a dotted Python path to a view function. Support
+    for this will be removed in Django 1.10.
 
 .. setting:: LOGIN_URL
 
@@ -2880,18 +2893,14 @@ Default: ``'/accounts/login/'``
 The URL where requests are redirected for login, especially when using the
 :func:`~django.contrib.auth.decorators.login_required` decorator.
 
-This setting also accepts view function names and :ref:`named URL patterns
-<naming-url-patterns>` which can be used to reduce configuration duplication
-since you don't have to define the URL in two places (``settings`` and URLconf).
+This setting also accepts :ref:`named URL patterns <naming-url-patterns>` which
+can be used to reduce configuration duplication since you don't have to define
+the URL in two places (``settings`` and URLconf).
 
-.. setting:: LOGOUT_URL
+.. deprecated:: 1.8
 
-LOGOUT_URL
-----------
-
-Default: ``'/accounts/logout/'``
-
-LOGIN_URL counterpart.
+    The setting may also be a dotted Python path to a view function. Support
+    for this will be removed in Django 1.10.
 
 .. setting:: PASSWORD_RESET_TIMEOUT_DAYS
 
