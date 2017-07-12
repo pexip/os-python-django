@@ -523,7 +523,7 @@ class SymlinkExtractorTests(ExtractorTests):
             with open(self.PO_FILE, 'r') as fp:
                 po_contents = force_text(fp.read())
                 self.assertMsgId('This literal should be included.', po_contents)
-                self.assertIn('templates_symlinked/test.html', po_contents)
+                self.assertIn(os.path.join('templates_symlinked', 'test.html'), po_contents)
 
 
 class CopyPluralFormsExtractorTests(ExtractorTests):

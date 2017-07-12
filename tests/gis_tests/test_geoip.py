@@ -26,8 +26,8 @@ if HAS_GEOS:
 @skipUnless(HAS_GEOIP and getattr(settings, "GEOIP_PATH", None),
     "GeoIP is required along with the GEOIP_PATH setting.")
 class GeoIPTest(unittest.TestCase):
-    addr = '128.249.1.1'
-    fqdn = 'tmc.edu'
+    addr = '162.242.220.127'
+    fqdn = 'www.djangoproject.com'
 
     def test01_init(self):
         "Testing GeoIP initialization."
@@ -98,22 +98,22 @@ class GeoIPTest(unittest.TestCase):
             # City information dictionary.
             d = g.city(query)
             self.assertEqual('USA', d['country_code3'])
-            self.assertEqual('Houston', d['city'])
+            self.assertEqual('San Antonio', d['city'])
             self.assertEqual('TX', d['region'])
-            self.assertEqual(713, d['area_code'])
+            self.assertEqual(210, d['area_code'])
             geom = g.geos(query)
             self.assertIsInstance(geom, GEOSGeometry)
-            lon, lat = (-95.4010, 29.7079)
+            lon, lat = (-98, 29)
             lat_lon = g.lat_lon(query)
             lat_lon = (lat_lon[1], lat_lon[0])
             for tup in (geom.tuple, g.coords(query), g.lon_lat(query), lat_lon):
-                self.assertAlmostEqual(lon, tup[0], 4)
-                self.assertAlmostEqual(lat, tup[1], 4)
+                self.assertAlmostEqual(lon, tup[0], 0)
+                self.assertAlmostEqual(lat, tup[1], 0)
 
     def test05_unicode_response(self):
         "Testing that GeoIP strings are properly encoded, see #16553."
         g = GeoIP()
-        d = g.city("duesseldorf.de")
+        d = g.city("messe-duesseldorf.com")
         self.assertEqual('Düsseldorf', d['city'])
         d = g.country('200.26.205.1')
         # Some databases have only unaccented countries

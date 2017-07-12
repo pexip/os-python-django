@@ -1630,7 +1630,6 @@ django/contrib/gis/db/models/manager.py
 django/contrib/gis/db/models/proxy.py
 django/contrib/gis/db/models/query.py
 django/contrib/gis/db/models/sql/__init__.py
-django/contrib/gis/db/models/sql/aggregates.py
 django/contrib/gis/db/models/sql/conversion.py
 django/contrib/gis/forms/__init__.py
 django/contrib/gis/forms/fields.py
@@ -3085,6 +3084,7 @@ docs/index.txt
 docs/make.bat
 docs/spelling_wordlist
 docs/_ext/applyxrefs.py
+docs/_ext/cve_role.py
 docs/_ext/djangodocs.py
 docs/_ext/ticket_role.py
 docs/_theme/djangodocs/genindex.html
@@ -3404,6 +3404,13 @@ docs/releases/1.7.txt
 docs/releases/1.8.1.txt
 docs/releases/1.8.10.txt
 docs/releases/1.8.11.txt
+docs/releases/1.8.12.txt
+docs/releases/1.8.13.txt
+docs/releases/1.8.14.txt
+docs/releases/1.8.15.txt
+docs/releases/1.8.16.txt
+docs/releases/1.8.17.txt
+docs/releases/1.8.18.txt
 docs/releases/1.8.2.txt
 docs/releases/1.8.3.txt
 docs/releases/1.8.4.txt
