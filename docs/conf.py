@@ -45,6 +45,7 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.viewcode",
     "ticket_role",
+    "cve_role",
 ]
 
 # Spelling check needs an additional module that is not installed by default.
@@ -145,6 +146,9 @@ intersphinx_mapping = {
 # Python's docs don't change every week.
 intersphinx_cache_limit = 90  # days
 
+# The 'versionadded' and 'versionchanged' directives are overridden.
+suppress_warnings = ['app.add_directive']
+
 # -- Options for HTML output ---------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
@@ -187,9 +191,6 @@ html_last_updated_fmt = '%b %d, %Y'
 # If true, SmartyPants will be used to convert quotes and dashes to
 # typographically correct entities.
 html_use_smartypants = True
-
-# HTML translator class for the builder
-html_translator_class = "djangodocs.DjangoHTMLTranslator"
 
 # Content template for the index page.
 # html_index = ''
@@ -369,5 +370,6 @@ epub_cover = ('', 'epub-cover.html')
 # If false, no index is generated.
 # epub_use_index = True
 
-# -- ticket options ------------------------------------------------------------
+# -- custom extension options --------------------------------------------------
+cve_url = 'https://web.nvd.nist.gov/view/vuln/detail?vulnId=%s'
 ticket_url = 'https://code.djangoproject.com/ticket/%s'
