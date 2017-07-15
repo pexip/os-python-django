@@ -7,15 +7,13 @@ PREFIX3 = debian/python3-django
 PREFIXC = debian/python-django-common
 
 %:
-	dh $@ --with sphinxdoc,python2,python3 --buildsystem=pybuild
+	dh $@ --with python2,python3 --buildsystem=pybuild
 
 override_dh_auto_clean:
 	dh_auto_clean
-	make -C docs clean
 
 override_dh_auto_build:
 	dh_auto_build
-	make -C docs html
 
 override_dh_auto_test:
 ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
@@ -58,7 +56,7 @@ override_dh_auto_install:
 
 override_dh_install:
 	dh_install
-	
+
 	# Fix permissions
 	chmod 644 $(PREFIXC)/usr/share/bash-completion/completions/django_bash_completion
 	chmod 755 $(PREFIXC)/usr/bin/django-admin

@@ -1,3 +1,18 @@
+python-django (1.8.18-1~bpo8+1pexip2) pexip; urgency=low
+
+  * Remove debian/patches/fix-multipart-file-upload.patch which is now
+    fixed upstream
+  * Remove dependency on sphinx.
+    Stop building python-django-docs package.
+
+ -- Colin Bradbury <colin@pexip.com>  Wed, 15 Jul 2017 16:57:37 +0000
+
+python-django (1.8.18-1~bpo8+1pexip1) pexip; urgency=low
+
+  * New upstream release
+
+ -- Colin Bradbury <colin@pexip.com>  Wed, 12 Jul 2017 14:00:52 +0000
+
 python-django (1.8.11-0pexip2) pexip; urgency=low
 
   * Merge a change from 1.10a1
@@ -9,8 +24,8 @@ python-django (1.8.11-0pexip2) pexip; urgency=low
 python-django (1.8.11-0pexip1) pexip; urgency=low
 
   * New upstream release
-    - Fixes a regression on Python 2 in the 1.8.10 security release 
-      where utils.http.is_safe_url() crashes on bytestring URLs 
+    - Fixes a regression on Python 2 in the 1.8.10 security release
+      where utils.http.is_safe_url() crashes on bytestring URLs
 
  -- John-Mark Bell <jmb@pexip.com>  Mon, 07 Mar 2016 12:36:47 +0000
 
@@ -19,7 +34,7 @@ python-django (1.8.10-0pexip1) pexip; urgency=low
   * New upstream security release:
     https://www.djangoproject.com/weblog/2016/mar/01/security-releases/
     Fixes:
-    - CVE-2016-2512: Malicious redirect and possible XSS attack via 
+    - CVE-2016-2512: Malicious redirect and possible XSS attack via
       user-supplied redirect URLs containing basic auth
     - CVE-2016-2513: User enumeration through timing difference on
       password hasher work factor upgrade
