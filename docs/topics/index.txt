@@ -1,10 +1,11 @@
+============
 Using Django
 ============
 
 Introductions to all the key parts of Django you'll need to know:
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
 
    install
    db/index
@@ -21,7 +22,6 @@ Introductions to all the key parts of Django you'll need to know:
    signing
    email
    i18n/index
-   localflavor
    logging
    pagination
    python3
@@ -31,3 +31,4 @@ Introductions to all the key parts of Django you'll need to know:
    settings
    signals
    checks
+   external-packages

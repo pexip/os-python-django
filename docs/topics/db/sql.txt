@@ -185,7 +185,7 @@ of people with their ages calculated by the database::
     Jane is 42.
     ...
 
-__ http://www.postgresql.org/docs/current/static/functions-datetime.html
+__ https://www.postgresql.org/docs/current/static/functions-datetime.html
 
 Passing parameters into ``raw()``
 ---------------------------------
@@ -250,12 +250,10 @@ For example::
     from django.db import connection
 
     def my_custom_sql(self):
-        cursor = connection.cursor()
-
-        cursor.execute("UPDATE bar SET foo = 1 WHERE baz = %s", [self.baz])
-
-        cursor.execute("SELECT foo FROM bar WHERE baz = %s", [self.baz])
-        row = cursor.fetchone()
+        with connection.cursor() as cursor:
+            cursor.execute("UPDATE bar SET foo = 1 WHERE baz = %s", [self.baz])
+            cursor.execute("SELECT foo FROM bar WHERE baz = %s", [self.baz])
+            row = cursor.fetchone()
 
         return row
 
@@ -336,16 +334,6 @@ Also note that Django expects the ``"%s"`` placeholder, *not* the ``"?"``
 placeholder, which is used by the SQLite Python bindings. This is for the sake
 of consistency and sanity.
 
-.. versionchanged:: 1.7
-
-:pep:`249` does not state whether a cursor should be usable as a context
-manager. Prior to Python 2.7, a cursor was usable as a context manager due
-an unexpected behavior in magic method lookups (`Python ticket #9220`_).
-Django 1.7 explicitly added support to allow using a cursor as context
-manager.
-
-.. _`Python ticket #9220`: https://bugs.python.org/issue9220
-
 Using a cursor as a context manager::
 
     with connection.cursor() as c:
@@ -358,3 +346,29 @@ is equivalent to::
         c.execute(...)
     finally:
         c.close()
+
+Calling stored procedures
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. method:: CursorWrapper.callproc(procname, params=None)
+
+    Calls a database stored procedure with the given name and optional sequence
+    of input parameters.
+
+    For example, given this stored procedure in an Oracle database:
+
+    .. code-block:: sql
+
+        CREATE PROCEDURE "TEST_PROCEDURE"(v_i INTEGER, v_text NVARCHAR2(10)) AS
+            p_i INTEGER;
+            p_text NVARCHAR2(10);
+        BEGIN
+            p_i := v_i;
+            p_text := v_text;
+            ...
+        END;
+
+    This will call it::
+
+        with connection.cursor() as cursor:
+            cursor.callproc('test_procedure', [1, 'test'])

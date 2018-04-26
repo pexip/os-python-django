@@ -1,16 +1,15 @@
 from __future__ import unicode_literals
 
 import os
-import sys
 from unittest import skipUnless
 
 from django.apps import AppConfig, apps
 from django.apps.registry import Apps
 from django.contrib.admin.models import LogEntry
-from django.core.exceptions import ImproperlyConfigured
+from django.core.exceptions import AppRegistryNotReady, ImproperlyConfigured
 from django.db import models
-from django.test import TestCase, override_settings
-from django.test.utils import extend_sys_path
+from django.test import SimpleTestCase, override_settings
+from django.test.utils import extend_sys_path, isolate_apps
 from django.utils import six
 from django.utils._os import upath
 
@@ -37,11 +36,11 @@ SOME_INSTALLED_APPS_NAMES = [
 HERE = os.path.dirname(upath(__file__))
 
 
-class AppsTests(TestCase):
+class AppsTests(SimpleTestCase):
 
     def test_singleton_master(self):
         """
-        Ensures that only one master registry can exist.
+        Only one master registry can exist.
         """
         with self.assertRaises(RuntimeError):
             Apps(installed_apps=None)
@@ -79,7 +78,8 @@ class AppsTests(TestCase):
         with self.assertRaises(ImportError):
             with self.settings(INSTALLED_APPS=['there is no such app']):
                 pass
-        with self.assertRaises(ImportError):
+        msg = "Cannot import 'there is no such app'. Check that 'apps.apps.NoSuchApp.name' is correct."
+        with self.assertRaisesMessage(ImproperlyConfigured, msg):
             with self.settings(INSTALLED_APPS=['apps.apps.NoSuchApp']):
                 pass
 
@@ -118,7 +118,11 @@ class AppsTests(TestCase):
         self.assertEqual(app_config.name, 'django.contrib.staticfiles')
 
         with self.assertRaises(LookupError):
-            apps.get_app_config('webdesign')
+            apps.get_app_config('admindocs')
+
+        msg = "No installed app with label 'django.contrib.auth'. Did you mean 'myauth'"
+        with self.assertRaisesMessage(LookupError, msg):
+            apps.get_app_config('django.contrib.auth')
 
     @override_settings(INSTALLED_APPS=SOME_INSTALLED_APPS)
     def test_is_installed(self):
@@ -128,7 +132,7 @@ class AppsTests(TestCase):
         self.assertTrue(apps.is_installed('django.contrib.admin'))
         self.assertTrue(apps.is_installed('django.contrib.auth'))
         self.assertTrue(apps.is_installed('django.contrib.staticfiles'))
-        self.assertFalse(apps.is_installed('django.contrib.webdesign'))
+        self.assertFalse(apps.is_installed('django.contrib.admindocs'))
 
     @override_settings(INSTALLED_APPS=SOME_INSTALLED_APPS)
     def test_get_model(self):
@@ -156,12 +160,12 @@ class AppsTests(TestCase):
         self.assertEqual(apps.get_app_config('relabeled').name, 'apps')
 
     def test_duplicate_labels(self):
-        with six.assertRaisesRegex(self, ImproperlyConfigured, "Application labels aren't unique"):
+        with self.assertRaisesMessage(ImproperlyConfigured, "Application labels aren't unique"):
             with self.settings(INSTALLED_APPS=['apps.apps.PlainAppsConfig', 'apps']):
                 pass
 
     def test_duplicate_names(self):
-        with six.assertRaisesRegex(self, ImproperlyConfigured, "Application names aren't unique"):
+        with self.assertRaisesMessage(ImproperlyConfigured, "Application names aren't unique"):
             with self.settings(INSTALLED_APPS=['apps.apps.RelabeledAppsConfig', 'apps']):
                 pass
 
@@ -169,13 +173,13 @@ class AppsTests(TestCase):
         """
         App discovery should preserve stack traces. Regression test for #22920.
         """
-        with six.assertRaisesRegex(self, ImportError, "Oops"):
+        with self.assertRaisesMessage(ImportError, "Oops"):
             with self.settings(INSTALLED_APPS=['import_error_package']):
                 pass
 
     def test_models_py(self):
         """
-        Tests that the models in the models.py file were loaded correctly.
+        The models in the models.py file were loaded correctly.
         """
         self.assertEqual(apps.get_model("apps", "TotallyNormal"), TotallyNormal)
         with self.assertRaises(LookupError):
@@ -241,9 +245,59 @@ class AppsTests(TestCase):
         body = {}
         body['Meta'] = type(str("Meta"), tuple(), meta_contents)
         body['__module__'] = TotallyNormal.__module__ + '.whatever'
-        with six.assertRaisesRegex(self, RuntimeError,
-                "Conflicting 'southponies' models in application 'apps':.*"):
+        with self.assertRaisesMessage(RuntimeError, "Conflicting 'southponies' models in application 'apps':"):
             type(str("SouthPonies"), (models.Model,), body)
+
+    def test_get_containing_app_config_apps_not_ready(self):
+        """
+        apps.get_containing_app_config() should raise an exception if
+        apps.apps_ready isn't True.
+        """
+        apps.apps_ready = False
+        try:
+            with self.assertRaisesMessage(AppRegistryNotReady, "Apps aren't loaded yet"):
+                apps.get_containing_app_config('foo')
+        finally:
+            apps.apps_ready = True
+
+    @isolate_apps('apps', kwarg_name='apps')
+    def test_lazy_model_operation(self, apps):
+        """
+        Tests apps.lazy_model_operation().
+        """
+        model_classes = []
+        initial_pending = set(apps._pending_operations)
+
+        def test_func(*models):
+            model_classes[:] = models
+
+        class LazyA(models.Model):
+            pass
+
+        # Test models appearing twice, and models appearing consecutively
+        model_keys = [('apps', model_name) for model_name in ['lazya', 'lazyb', 'lazyb', 'lazyc', 'lazya']]
+        apps.lazy_model_operation(test_func, *model_keys)
+
+        # LazyModelA shouldn't be waited on since it's already registered,
+        # and LazyModelC shouldn't be waited on until LazyModelB exists.
+        self.assertSetEqual(set(apps._pending_operations) - initial_pending, {('apps', 'lazyb')})
+
+        # Multiple operations can wait on the same model
+        apps.lazy_model_operation(test_func, ('apps', 'lazyb'))
+
+        class LazyB(models.Model):
+            pass
+
+        self.assertListEqual(model_classes, [LazyB])
+
+        # Now we are just waiting on LazyModelC.
+        self.assertSetEqual(set(apps._pending_operations) - initial_pending, {('apps', 'lazyc')})
+
+        class LazyC(models.Model):
+            pass
+
+        # Everything should be loaded - make sure the callback was executed properly.
+        self.assertListEqual(model_classes, [LazyA, LazyB, LazyB, LazyC, LazyA])
 
 
 class Stub(object):
@@ -251,7 +305,7 @@ class Stub(object):
         self.__dict__.update(kwargs)
 
 
-class AppConfigTests(TestCase):
+class AppConfigTests(SimpleTestCase):
     """Unit tests for AppConfig class."""
     def test_path_set_explicitly(self):
         """If subclass sets path as class attr, no module attributes needed."""
@@ -310,11 +364,17 @@ class AppConfigTests(TestCase):
         with self.assertRaises(ImproperlyConfigured):
             AppConfig('label', Stub(__path__=['a', 'b']))
 
+    def test_duplicate_dunder_path_no_dunder_file(self):
+        """
+        If the __path__ attr contains duplicate paths and there is no
+        __file__, they duplicates should be deduplicated (#25246).
+        """
+        ac = AppConfig('label', Stub(__path__=['a', 'a']))
+        self.assertEqual(ac.path, 'a')
 
-@skipUnless(
-    sys.version_info > (3, 3, 0),
-    "Namespace packages sans __init__.py were added in Python 3.3")
-class NamespacePackageAppTests(TestCase):
+
+@skipUnless(six.PY3, "Namespace packages sans __init__.py were added in Python 3.3")
+class NamespacePackageAppTests(SimpleTestCase):
     # We need nsapp to be top-level so our multiple-paths tests can add another
     # location for it (if its inside a normal package with an __init__.py that
     # isn't possible). In order to avoid cluttering the already-full tests/ dir
@@ -337,8 +397,7 @@ class NamespacePackageAppTests(TestCase):
         A Py3.3+ namespace package with multiple locations cannot be an app.
 
         (Because then we wouldn't know where to load its templates, static
-        assets, etc from.)
-
+        assets, etc. from.)
         """
         # Temporarily add two directories to sys.path that both contain
         # components of the "nsapp" package.

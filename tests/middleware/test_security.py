@@ -1,9 +1,9 @@
 from django.http import HttpResponse
-from django.test import RequestFactory, TestCase
+from django.test import RequestFactory, SimpleTestCase
 from django.test.utils import override_settings
 
 
-class SecurityMiddlewareTest(TestCase):
+class SecurityMiddlewareTest(SimpleTestCase):
     @property
     def middleware(self):
         from django.middleware.security import SecurityMiddleware
@@ -83,13 +83,10 @@ class SecurityMiddlewareTest(TestCase):
         """
         With HSTS_SECONDS non-zero and HSTS_INCLUDE_SUBDOMAINS
         True, the middleware adds a "strict-transport-security" header with the
-        "includeSubDomains" tag to the response.
+        "includeSubDomains" directive to the response.
         """
         response = self.process_response(secure=True)
-        self.assertEqual(
-            response["strict-transport-security"],
-            "max-age=600; includeSubDomains",
-            )
+        self.assertEqual(response["strict-transport-security"], "max-age=600; includeSubDomains")
 
     @override_settings(
         SECURE_HSTS_SECONDS=600, SECURE_HSTS_INCLUDE_SUBDOMAINS=False)
@@ -97,10 +94,41 @@ class SecurityMiddlewareTest(TestCase):
         """
         With HSTS_SECONDS non-zero and HSTS_INCLUDE_SUBDOMAINS
         False, the middleware adds a "strict-transport-security" header without
-        the "includeSubDomains" tag to the response.
+        the "includeSubDomains" directive to the response.
         """
         response = self.process_response(secure=True)
         self.assertEqual(response["strict-transport-security"], "max-age=600")
+
+    @override_settings(SECURE_HSTS_SECONDS=10886400, SECURE_HSTS_PRELOAD=True)
+    def test_sts_preload(self):
+        """
+        With HSTS_SECONDS non-zero and SECURE_HSTS_PRELOAD True, the middleware
+        adds a "strict-transport-security" header with the "preload" directive
+        to the response.
+        """
+        response = self.process_response(secure=True)
+        self.assertEqual(response["strict-transport-security"], "max-age=10886400; preload")
+
+    @override_settings(SECURE_HSTS_SECONDS=10886400, SECURE_HSTS_INCLUDE_SUBDOMAINS=True, SECURE_HSTS_PRELOAD=True)
+    def test_sts_subdomains_and_preload(self):
+        """
+        With HSTS_SECONDS non-zero, SECURE_HSTS_INCLUDE_SUBDOMAINS and
+        SECURE_HSTS_PRELOAD True, the middleware adds a "strict-transport-security"
+        header containing both the "includeSubDomains" and "preload" directives
+        to the response.
+        """
+        response = self.process_response(secure=True)
+        self.assertEqual(response["strict-transport-security"], "max-age=10886400; includeSubDomains; preload")
+
+    @override_settings(SECURE_HSTS_SECONDS=10886400, SECURE_HSTS_PRELOAD=False)
+    def test_sts_no_preload(self):
+        """
+        With HSTS_SECONDS non-zero and SECURE_HSTS_PRELOAD
+        False, the middleware adds a "strict-transport-security" header without
+        the "preload" directive to the response.
+        """
+        response = self.process_response(secure=True)
+        self.assertEqual(response["strict-transport-security"], "max-age=10886400")
 
     @override_settings(SECURE_CONTENT_TYPE_NOSNIFF=True)
     def test_content_type_on(self):
@@ -171,7 +199,7 @@ class SecurityMiddlewareTest(TestCase):
         The middleware does not redirect secure requests.
         """
         ret = self.process_request("get", "/some/url", secure=True)
-        self.assertEqual(ret, None)
+        self.assertIsNone(ret)
 
     @override_settings(
         SECURE_SSL_REDIRECT=True, SECURE_REDIRECT_EXEMPT=["^insecure/"])
@@ -181,7 +209,7 @@ class SecurityMiddlewareTest(TestCase):
         exempt pattern.
         """
         ret = self.process_request("get", "/insecure/page")
-        self.assertEqual(ret, None)
+        self.assertIsNone(ret)
 
     @override_settings(
         SECURE_SSL_REDIRECT=True, SECURE_SSL_HOST="secure.example.com")
@@ -199,4 +227,4 @@ class SecurityMiddlewareTest(TestCase):
         With SSL_REDIRECT False, the middleware does no redirect.
         """
         ret = self.process_request("get", "/some/url")
-        self.assertEqual(ret, None)
+        self.assertIsNone(ret)

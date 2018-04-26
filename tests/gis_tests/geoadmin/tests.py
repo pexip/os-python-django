@@ -1,29 +1,26 @@
 from __future__ import unicode_literals
 
-from django.contrib.gis.geos import HAS_GEOS
-from django.test import TestCase, override_settings, skipUnlessDBFeature
+from django.contrib.gis import admin
+from django.contrib.gis.geos import Point
+from django.test import TestCase, override_settings
+from django.test.utils import patch_logger
 
-if HAS_GEOS:
-    from django.contrib.gis import admin
-    from django.contrib.gis.geos import Point
-
-    from .admin import UnmodifiableAdmin
-    from .models import City
+from .admin import UnmodifiableAdmin
+from .models import City, site
 
 
-@skipUnlessDBFeature("gis_enabled")
 @override_settings(ROOT_URLCONF='django.contrib.gis.tests.geoadmin.urls')
 class GeoAdminTest(TestCase):
 
     def test_ensure_geographic_media(self):
-        geoadmin = admin.site._registry[City]
+        geoadmin = site._registry[City]
         admin_js = geoadmin.media.render_js()
         self.assertTrue(any(geoadmin.openlayers_url in js for js in admin_js))
 
     def test_olmap_OSM_rendering(self):
         delete_all_btn = """<a href="javascript:geodjango_point.clearFeatures()">Delete all Features</a>"""
 
-        original_geoadmin = admin.site._registry[City]
+        original_geoadmin = site._registry[City]
         params = original_geoadmin.get_map_widget(City._meta.get_field('point')).params
         result = original_geoadmin.get_map_widget(City._meta.get_field('point'))(
         ).render('point', Point(-79.460734, 40.18476), params)
@@ -33,21 +30,21 @@ class GeoAdminTest(TestCase):
 
         self.assertIn(delete_all_btn, result)
 
-        admin.site.unregister(City)
-        admin.site.register(City, UnmodifiableAdmin)
+        site.unregister(City)
+        site.register(City, UnmodifiableAdmin)
         try:
-            geoadmin = admin.site._registry[City]
+            geoadmin = site._registry[City]
             params = geoadmin.get_map_widget(City._meta.get_field('point')).params
             result = geoadmin.get_map_widget(City._meta.get_field('point'))(
             ).render('point', Point(-79.460734, 40.18476), params)
 
             self.assertNotIn(delete_all_btn, result)
         finally:
-            admin.site.unregister(City)
-            admin.site.register(City, original_geoadmin.__class__)
+            site.unregister(City)
+            site.register(City, original_geoadmin.__class__)
 
     def test_olmap_WMS_rendering(self):
-        geoadmin = admin.GeoModelAdmin(City, admin.site)
+        geoadmin = admin.GeoModelAdmin(City, site)
         result = geoadmin.get_map_widget(City._meta.get_field('point'))(
         ).render('point', Point(-79.460734, 40.18476))
         self.assertIn(
@@ -57,9 +54,9 @@ class GeoAdminTest(TestCase):
 
     def test_olwidget_has_changed(self):
         """
-        Check that changes are accurately noticed by OpenLayersWidget.
+        Changes are accurately noticed by OpenLayersWidget.
         """
-        geoadmin = admin.site._registry[City]
+        geoadmin = site._registry[City]
         form = geoadmin.get_changelist_form(None)()
         has_changed = form.fields['point'].has_changed
 
@@ -74,3 +71,32 @@ class GeoAdminTest(TestCase):
         self.assertFalse(has_changed(initial, data_same))
         self.assertFalse(has_changed(initial, data_almost_same))
         self.assertTrue(has_changed(initial, data_changed))
+
+    def test_olwidget_empty_string(self):
+        geoadmin = site._registry[City]
+        form = geoadmin.get_changelist_form(None)({'point': ''})
+        with patch_logger('django.contrib.gis', 'error') as logger_calls:
+            output = str(form['point'])
+        self.assertInHTML(
+            '<textarea id="id_point" class="vWKTField required" cols="150"'
+            ' rows="10" name="point"></textarea>',
+            output
+        )
+        self.assertEqual(logger_calls, [])
+
+    def test_olwidget_invalid_string(self):
+        geoadmin = site._registry[City]
+        form = geoadmin.get_changelist_form(None)({'point': 'INVALID()'})
+        with patch_logger('django.contrib.gis', 'error') as logger_calls:
+            output = str(form['point'])
+        self.assertInHTML(
+            '<textarea id="id_point" class="vWKTField required" cols="150"'
+            ' rows="10" name="point"></textarea>',
+            output
+        )
+        self.assertEqual(len(logger_calls), 1)
+        self.assertEqual(
+            logger_calls[0],
+            "Error creating geometry from value 'INVALID()' (String or unicode input "
+            "unrecognized as WKT EWKT, and HEXEWKB.)"
+        )

@@ -9,6 +9,7 @@ from django.utils._os import upath
 
 from .models import (
     ConcreteModel, ConcreteModelSubclass, ConcreteModelSubclassProxy,
+    ProxyModel,
 )
 
 
@@ -23,7 +24,7 @@ class ProxyModelInheritanceTests(TransactionTestCase):
     def test_table_exists(self):
         with extend_sys_path(os.path.dirname(os.path.abspath(upath(__file__)))):
             with self.modify_settings(INSTALLED_APPS={'append': ['app1', 'app2']}):
-                call_command('migrate', verbosity=0)
+                call_command('migrate', verbosity=0, run_syncdb=True)
                 from app1.models import ProxyModel
                 from app2.models import NiceModel
                 self.assertEqual(NiceModel.objects.all().count(), 0)
@@ -43,3 +44,10 @@ class MultiTableInheritanceProxyTest(TestCase):
         self.assertEqual(0, ConcreteModelSubclassProxy.objects.count())
         self.assertEqual(0, ConcreteModelSubclass.objects.count())
         self.assertEqual(0, ConcreteModel.objects.count())
+
+    def test_deletion_through_intermediate_proxy(self):
+        child = ConcreteModelSubclass.objects.create()
+        proxy = ProxyModel.objects.get(pk=child.pk)
+        proxy.delete()
+        self.assertFalse(ConcreteModel.objects.exists())
+        self.assertFalse(ConcreteModelSubclass.objects.exists())

@@ -3,7 +3,7 @@
 ====================================
 
 .. module:: django.contrib.gis.utils.layermapping
-   :synopsis: Spatial data import utility for GeoDjango models.
+    :synopsis: Spatial data import utility for GeoDjango models.
 
 .. currentmodule:: django.contrib.gis.utils
 
@@ -57,7 +57,6 @@ Example
     class TestGeo(models.Model):
         name = models.CharField(max_length=25) # corresponds to the 'str' field
         poly = models.PolygonField(srid=4269) # we want our model in a different SRID
-        objects = models.GeoManager()
 
         def __str__(self):              # __unicode__ on Python 2
             return 'Name: %s' % self.name
@@ -134,7 +133,7 @@ Keyword Arguments
 
 ``unique``             Setting this to the name, or a tuple of names,
                        from the given  model will create models unique
-                       only to the given name(s). Geometries will from
+                       only to the given name(s). Geometries from
                        each feature will be added into the collection
                        associated with the unique model.  Forces
                        the transaction mode to be ``'autocommit'``.

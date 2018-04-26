@@ -1,18 +1,33 @@
+# -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
 import datetime
 
 from django.core.exceptions import ImproperlyConfigured
 from django.test import TestCase, override_settings
+from django.utils import translation
 from django.utils.encoding import force_str
 from django.views.generic.base import View
 
-from .models import Artist, Author, Book
+from .models import Artist, Author, Book, Page
 
 
 @override_settings(ROOT_URLCONF='generic_views.urls')
 class ListViewTests(TestCase):
-    fixtures = ['generic-views-test-data.json']
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.artist1 = Artist.objects.create(name='Rene Magritte')
+        cls.author1 = Author.objects.create(name='Roberto Bolaño', slug='roberto-bolano')
+        cls.author2 = Author.objects.create(name='Scott Rosenberg', slug='scott-rosenberg')
+        cls.book1 = Book.objects.create(name='2066', slug='2066', pages=800, pubdate=datetime.date(2008, 10, 1))
+        cls.book1.authors.add(cls.author1)
+        cls.book2 = Book.objects.create(
+            name='Dreaming in Code', slug='dreaming-in-code', pages=300, pubdate=datetime.date(2006, 5, 1)
+        )
+        cls.page1 = Page.objects.create(
+            content='I was once bitten by a moose.', template='generic_views/page_template.html'
+        )
 
     def test_items(self):
         res = self.client.get('/list/dict/')
@@ -45,7 +60,7 @@ class ListViewTests(TestCase):
         self.assertEqual(list(res.context['author_list'])[-1].name, 'Author 29')
 
     def test_paginated_queryset_shortdata(self):
-        # Test that short datasets ALSO result in a paginated view.
+        # Short datasets also result in a paginated view.
         res = self.client.get('/list/authors/paginated/')
         self.assertEqual(res.status_code, 200)
         self.assertTemplateUsed(res, 'generic_views/author_list.html')
@@ -88,6 +103,13 @@ class ListViewTests(TestCase):
         self._make_authors(100)
         res = self.client.get('/list/authors/paginated/42/')
         self.assertEqual(res.status_code, 404)
+
+    def test_paginated_page_out_of_range_non_ascii_message(self):
+        msg = 'Ung\xfcltige Seite (42): Diese Seite enth\xe4lt keine Ergebnisse'
+        with translation.override('de'):
+            res = self.client.get('/list/authors/paginated/42/')
+            self.assertEqual(res.status_code, 404)
+            self.assertEqual(res.context['exception'], msg)
 
     def test_paginated_invalid_page(self):
         self._make_authors(100)
@@ -190,7 +212,8 @@ class ListViewTests(TestCase):
         self.assertTemplateUsed(res, 'generic_views/author_list.html')
 
     def test_missing_items(self):
-        self.assertRaises(ImproperlyConfigured, self.client.get, '/list/authors/invalid/')
+        with self.assertRaises(ImproperlyConfigured):
+            self.client.get('/list/authors/invalid/')
 
     def test_paginated_list_view_does_not_load_entire_table(self):
         # Regression test for #17535
@@ -223,8 +246,7 @@ class ListViewTests(TestCase):
         self._make_authors(1)
         res = self.client.get('/list/authors/paginated/2/')
         self.assertEqual(res.status_code, 404)
-        self.assertEqual(force_str(res.context.get('reason')),
-                "Invalid page (2): That page contains no results")
+        self.assertEqual(force_str(res.context.get('reason')), "Invalid page (2): That page contains no results")
 
     def _make_authors(self, n):
         Author.objects.all().delete()

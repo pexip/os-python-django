@@ -9,25 +9,36 @@ import os
 
 from django.contrib.auth.models import User
 from django.contrib.auth.signals import user_logged_in, user_logged_out
-from django.core.urlresolvers import NoReverseMatch, reverse
 from django.http import HttpResponse
-from django.template import Context, TemplateSyntaxError, engines
+from django.template import (
+    Context, RequestContext, TemplateSyntaxError, engines,
+)
 from django.template.response import SimpleTemplateResponse
-from django.test import Client, TestCase, ignore_warnings, override_settings
+from django.test import (
+    Client, SimpleTestCase, TestCase, ignore_warnings, modify_settings,
+    override_settings,
+)
 from django.test.client import RedirectCycleError, RequestFactory, encode_file
 from django.test.utils import ContextList, str_prefix
+from django.urls import NoReverseMatch, reverse
 from django.utils._os import upath
-from django.utils.deprecation import (
-    RemovedInDjango19Warning, RemovedInDjango110Warning,
-)
+from django.utils.deprecation import RemovedInDjango20Warning
 from django.utils.translation import ugettext_lazy
 
 from .models import CustomUser
 from .views import CustomTestException
 
 
+class TestDataMixin(object):
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.u1 = User.objects.create_user(username='testclient', password='password')
+        cls.staff = User.objects.create_user(username='staff', password='password', is_staff=True)
+
+
 @override_settings(ROOT_URLCONF='test_client_regress.urls')
-class AssertContainsTests(TestCase):
+class AssertContainsTests(SimpleTestCase):
 
     def test_contains(self):
         "Responses can be inspected for content, including counting repeated substrings"
@@ -156,16 +167,15 @@ class AssertContainsTests(TestCase):
         self.assertNotContains(r, ugettext_lazy('never'))
 
     def test_assert_contains_renders_template_response(self):
-        """ Test that we can pass in an unrendered SimpleTemplateReponse
-            without throwing an error.
-            Refs #15826.
+        """
+        An unrendered SimpleTemplateResponse may be used in assertContains().
         """
         template = engines['django'].from_string('Hello')
         response = SimpleTemplateResponse(template)
         self.assertContains(response, 'Hello')
 
     def test_assert_contains_using_non_template_response(self):
-        """ Test that auto-rendering does not affect responses that aren't
+        """ auto-rendering does not affect responses that aren't
             instances (or subclasses) of SimpleTemplateResponse.
             Refs #15826.
         """
@@ -173,33 +183,30 @@ class AssertContainsTests(TestCase):
         self.assertContains(response, 'Hello')
 
     def test_assert_not_contains_renders_template_response(self):
-        """ Test that we can pass in an unrendered SimpleTemplateReponse
-            without throwing an error.
-            Refs #15826.
+        """
+        An unrendered SimpleTemplateResponse may be used in assertNotContains().
         """
         template = engines['django'].from_string('Hello')
         response = SimpleTemplateResponse(template)
         self.assertNotContains(response, 'Bye')
 
     def test_assert_not_contains_using_non_template_response(self):
-        """ Test that auto-rendering does not affect responses that aren't
-            instances (or subclasses) of SimpleTemplateResponse.
-            Refs #15826.
+        """
+        auto-rendering does not affect responses that aren't instances (or
+        subclasses) of SimpleTemplateResponse.
         """
         response = HttpResponse('Hello')
         self.assertNotContains(response, 'Bye')
 
 
-@override_settings(PASSWORD_HASHERS=('django.contrib.auth.hashers.SHA1PasswordHasher',),
-                   ROOT_URLCONF='test_client_regress.urls',)
-class AssertTemplateUsedTests(TestCase):
-    fixtures = ['testdata.json']
+@override_settings(ROOT_URLCONF='test_client_regress.urls')
+class AssertTemplateUsedTests(TestDataMixin, TestCase):
 
     def test_no_context(self):
         "Template usage assertions work then templates aren't in use"
         response = self.client.get('/no_template_view/')
 
-        # Check that the no template case doesn't mess with the template assertions
+        # The no template case doesn't mess with the template assertions
         self.assertTemplateNotUsed(response, 'GET Template')
 
         try:
@@ -235,12 +242,20 @@ class AssertTemplateUsedTests(TestCase):
         try:
             self.assertTemplateUsed(response, 'Empty POST Template')
         except AssertionError as e:
-            self.assertIn("Template 'Empty POST Template' was not a template used to render the response. Actual template(s) used: Empty GET Template", str(e))
+            self.assertIn(
+                "Template 'Empty POST Template' was not a template used to "
+                "render the response. Actual template(s) used: Empty GET Template",
+                str(e)
+            )
 
         try:
             self.assertTemplateUsed(response, 'Empty POST Template', msg_prefix='abc')
         except AssertionError as e:
-            self.assertIn("abc: Template 'Empty POST Template' was not a template used to render the response. Actual template(s) used: Empty GET Template", str(e))
+            self.assertIn(
+                "abc: Template 'Empty POST Template' was not a template used "
+                "to render the response. Actual template(s) used: Empty GET Template",
+                str(e)
+            )
 
         with self.assertRaises(AssertionError) as context:
             self.assertTemplateUsed(response, 'Empty GET Template', count=2)
@@ -281,7 +296,11 @@ class AssertTemplateUsedTests(TestCase):
         try:
             self.assertTemplateUsed(response, "Valid POST Template")
         except AssertionError as e:
-            self.assertIn("Template 'Valid POST Template' was not a template used to render the response. Actual template(s) used: form_view.html, base.html", str(e))
+            self.assertIn(
+                "Template 'Valid POST Template' was not a template used to "
+                "render the response. Actual template(s) used: form_view.html, base.html",
+                str(e)
+            )
 
         with self.assertRaises(AssertionError) as context:
             self.assertTemplateUsed(response, 'base.html', count=2)
@@ -298,7 +317,7 @@ class AssertTemplateUsedTests(TestCase):
 
 
 @override_settings(ROOT_URLCONF='test_client_regress.urls')
-class AssertRedirectsTests(TestCase):
+class AssertRedirectsTests(SimpleTestCase):
 
     def test_redirect_page(self):
         "An assertion is raised if the original page couldn't be retrieved as expected"
@@ -320,12 +339,12 @@ class AssertRedirectsTests(TestCase):
         try:
             self.assertRedirects(response, '/get_view/')
         except AssertionError as e:
-            self.assertIn("Response redirected to 'http://testserver/get_view/?var=value', expected 'http://testserver/get_view/'", str(e))
+            self.assertIn("Response redirected to '/get_view/?var=value', expected '/get_view/'", str(e))
 
         try:
             self.assertRedirects(response, '/get_view/', msg_prefix='abc')
         except AssertionError as e:
-            self.assertIn("abc: Response redirected to 'http://testserver/get_view/?var=value', expected 'http://testserver/get_view/'", str(e))
+            self.assertIn("abc: Response redirected to '/get_view/?var=value', expected '/get_view/'", str(e))
 
     def test_incorrect_target(self):
         "An assertion is raised if the response redirects to another target"
@@ -343,39 +362,44 @@ class AssertRedirectsTests(TestCase):
             # The redirect target responds with a 301 code, not 200
             self.assertRedirects(response, 'http://testserver/permanent_redirect_view/')
         except AssertionError as e:
-            self.assertIn("Couldn't retrieve redirection page '/permanent_redirect_view/': response code was 301 (expected 200)", str(e))
+            self.assertIn(
+                "Couldn't retrieve redirection page '/permanent_redirect_view/': "
+                "response code was 301 (expected 200)",
+                str(e)
+            )
 
         try:
             # The redirect target responds with a 301 code, not 200
             self.assertRedirects(response, 'http://testserver/permanent_redirect_view/', msg_prefix='abc')
         except AssertionError as e:
-            self.assertIn("abc: Couldn't retrieve redirection page '/permanent_redirect_view/': response code was 301 (expected 200)", str(e))
+            self.assertIn(
+                "abc: Couldn't retrieve redirection page '/permanent_redirect_view/': "
+                "response code was 301 (expected 200)",
+                str(e)
+            )
 
     def test_redirect_chain(self):
         "You can follow a redirect chain of multiple redirects"
         response = self.client.get('/redirects/further/more/', {}, follow=True)
-        self.assertRedirects(response, '/no_template_view/',
-            status_code=301, target_status_code=200)
+        self.assertRedirects(response, '/no_template_view/', status_code=302, target_status_code=200)
 
         self.assertEqual(len(response.redirect_chain), 1)
-        self.assertEqual(response.redirect_chain[0], ('http://testserver/no_template_view/', 301))
+        self.assertEqual(response.redirect_chain[0], ('/no_template_view/', 302))
 
     def test_multiple_redirect_chain(self):
         "You can follow a redirect chain of multiple redirects"
         response = self.client.get('/redirects/', {}, follow=True)
-        self.assertRedirects(response, '/no_template_view/',
-            status_code=301, target_status_code=200)
+        self.assertRedirects(response, '/no_template_view/', status_code=302, target_status_code=200)
 
         self.assertEqual(len(response.redirect_chain), 3)
-        self.assertEqual(response.redirect_chain[0], ('http://testserver/redirects/further/', 301))
-        self.assertEqual(response.redirect_chain[1], ('http://testserver/redirects/further/more/', 301))
-        self.assertEqual(response.redirect_chain[2], ('http://testserver/no_template_view/', 301))
+        self.assertEqual(response.redirect_chain[0], ('/redirects/further/', 302))
+        self.assertEqual(response.redirect_chain[1], ('/redirects/further/more/', 302))
+        self.assertEqual(response.redirect_chain[2], ('/no_template_view/', 302))
 
     def test_redirect_chain_to_non_existent(self):
         "You can follow a chain to a non-existent view"
         response = self.client.get('/redirect_to_non_existent_view2/', {}, follow=True)
-        self.assertRedirects(response, '/non_existent_view/',
-            status_code=301, target_status_code=404)
+        self.assertRedirects(response, '/non_existent_view/', status_code=302, target_status_code=404)
 
     def test_redirect_chain_to_self(self):
         "Redirections to self are caught and escaped"
@@ -383,8 +407,7 @@ class AssertRedirectsTests(TestCase):
             self.client.get('/redirect_to_self/', {}, follow=True)
         response = context.exception.last_response
         # The chain of redirects stops once the cycle is detected.
-        self.assertRedirects(response, '/redirect_to_self/',
-            status_code=301, target_status_code=301)
+        self.assertRedirects(response, '/redirect_to_self/', status_code=302, target_status_code=302)
         self.assertEqual(len(response.redirect_chain), 2)
 
     def test_redirect_to_self_with_changing_query(self):
@@ -398,61 +421,58 @@ class AssertRedirectsTests(TestCase):
             self.client.get('/circular_redirect_1/', {}, follow=True)
         response = context.exception.last_response
         # The chain of redirects will get back to the starting point, but stop there.
-        self.assertRedirects(response, '/circular_redirect_2/',
-            status_code=301, target_status_code=301)
+        self.assertRedirects(response, '/circular_redirect_2/', status_code=302, target_status_code=302)
         self.assertEqual(len(response.redirect_chain), 4)
 
     def test_redirect_chain_post(self):
         "A redirect chain will be followed from an initial POST post"
-        response = self.client.post('/redirects/',
-            {'nothing': 'to_send'}, follow=True)
-        self.assertRedirects(response,
-            '/no_template_view/', 301, 200)
+        response = self.client.post('/redirects/', {'nothing': 'to_send'}, follow=True)
+        self.assertRedirects(response, '/no_template_view/', 302, 200)
         self.assertEqual(len(response.redirect_chain), 3)
 
     def test_redirect_chain_head(self):
         "A redirect chain will be followed from an initial HEAD request"
-        response = self.client.head('/redirects/',
-            {'nothing': 'to_send'}, follow=True)
-        self.assertRedirects(response,
-            '/no_template_view/', 301, 200)
+        response = self.client.head('/redirects/', {'nothing': 'to_send'}, follow=True)
+        self.assertRedirects(response, '/no_template_view/', 302, 200)
         self.assertEqual(len(response.redirect_chain), 3)
 
     def test_redirect_chain_options(self):
         "A redirect chain will be followed from an initial OPTIONS request"
-        response = self.client.options('/redirects/',
-            follow=True)
-        self.assertRedirects(response,
-            '/no_template_view/', 301, 200)
+        response = self.client.options('/redirects/', follow=True)
+        self.assertRedirects(response, '/no_template_view/', 302, 200)
         self.assertEqual(len(response.redirect_chain), 3)
 
     def test_redirect_chain_put(self):
         "A redirect chain will be followed from an initial PUT request"
-        response = self.client.put('/redirects/',
-            follow=True)
-        self.assertRedirects(response,
-            '/no_template_view/', 301, 200)
+        response = self.client.put('/redirects/', follow=True)
+        self.assertRedirects(response, '/no_template_view/', 302, 200)
         self.assertEqual(len(response.redirect_chain), 3)
 
     def test_redirect_chain_delete(self):
         "A redirect chain will be followed from an initial DELETE request"
-        response = self.client.delete('/redirects/',
-            follow=True)
-        self.assertRedirects(response,
-            '/no_template_view/', 301, 200)
+        response = self.client.delete('/redirects/', follow=True)
+        self.assertRedirects(response, '/no_template_view/', 302, 200)
         self.assertEqual(len(response.redirect_chain), 3)
 
+    @modify_settings(ALLOWED_HOSTS={'append': 'otherserver'})
     def test_redirect_to_different_host(self):
         "The test client will preserve scheme, host and port changes"
         response = self.client.get('/redirect_other_host/', follow=True)
-        self.assertRedirects(response,
-            'https://otherserver:8443/no_template_view/',
-            status_code=301, target_status_code=200)
+        self.assertRedirects(
+            response, 'https://otherserver:8443/no_template_view/',
+            status_code=302, target_status_code=200
+        )
         # We can't use is_secure() or get_host()
         # because response.request is a dictionary, not an HttpRequest
         self.assertEqual(response.request.get('wsgi.url_scheme'), 'https')
         self.assertEqual(response.request.get('SERVER_NAME'), 'otherserver')
         self.assertEqual(response.request.get('SERVER_PORT'), '8443')
+        # assertRedirects() can follow redirect to 'otherserver' too.
+        response = self.client.get('/redirect_other_host/', follow=False)
+        self.assertRedirects(
+            response, 'https://otherserver:8443/no_template_view/',
+            status_code=302, target_status_code=200
+        )
 
     def test_redirect_chain_on_non_redirect_page(self):
         "An assertion is raised if the original page couldn't be retrieved as expected"
@@ -485,24 +505,27 @@ class AssertRedirectsTests(TestCase):
     def test_redirect_scheme(self):
         "An assertion is raised if the response doesn't have the scheme specified in expected_url"
 
-        # Assure that original request scheme is preserved if no scheme specified in the redirect location
-        response = self.client.get('/redirect_view/', secure=True)
-        self.assertRedirects(response, 'https://testserver/get_view/')
-
         # For all possible True/False combinations of follow and secure
         for follow, secure in itertools.product([True, False], repeat=2):
             # always redirects to https
             response = self.client.get('/https_redirect_view/', follow=follow, secure=secure)
-            # no scheme to compare too, always succeeds
-            self.assertRedirects(response, '/secure_view/', status_code=301)
             # the goal scheme is https
-            self.assertRedirects(response, 'https://testserver/secure_view/', status_code=301)
+            self.assertRedirects(response, 'https://testserver/secure_view/', status_code=302)
             with self.assertRaises(AssertionError):
-                self.assertRedirects(response, 'http://testserver/secure_view/', status_code=301)
+                self.assertRedirects(response, 'http://testserver/secure_view/', status_code=302)
+
+    @ignore_warnings(category=RemovedInDjango20Warning)
+    def test_full_path_in_expected_urls(self):
+        """
+        Specifying a full URL as assertRedirects expected_url still
+        work as backwards compatible behavior until Django 2.0.
+        """
+        response = self.client.get('/redirect_view/')
+        self.assertRedirects(response, 'http://testserver/get_view/')
 
 
 @override_settings(ROOT_URLCONF='test_client_regress.urls')
-class AssertFormErrorTests(TestCase):
+class AssertFormErrorTests(SimpleTestCase):
 
     def test_unknown_form(self):
         "An assertion is raised if the form name is unknown"
@@ -586,16 +609,28 @@ class AssertFormErrorTests(TestCase):
         try:
             self.assertFormError(response, 'form', 'email', 'Some error.')
         except AssertionError as e:
-            self.assertIn(str_prefix("The field 'email' on form 'form' in context 0 does not contain the error 'Some error.' (actual errors: [%(_)s'Enter a valid email address.'])"), str(e))
+            self.assertIn(
+                str_prefix(
+                    "The field 'email' on form 'form' in context 0 does not "
+                    "contain the error 'Some error.' (actual errors: "
+                    "[%(_)s'Enter a valid email address.'])"
+                ), str(e)
+            )
         try:
             self.assertFormError(response, 'form', 'email', 'Some error.', msg_prefix='abc')
         except AssertionError as e:
-            self.assertIn(str_prefix("abc: The field 'email' on form 'form' in context 0 does not contain the error 'Some error.' (actual errors: [%(_)s'Enter a valid email address.'])"), str(e))
+            self.assertIn(
+                str_prefix(
+                    "abc: The field 'email' on form 'form' in context 0 does "
+                    "not contain the error 'Some error.' (actual errors: "
+                    "[%(_)s'Enter a valid email address.'])",
+                ), str(e)
+            )
 
     def test_unknown_nonfield_error(self):
         """
-        Checks that an assertion is raised if the form's non field errors
-        doesn't contain the provided error.
+        An assertion is raised if the form's non field errors doesn't contain
+        the provided error.
         """
         post_data = {
             'text': 'Hello World',
@@ -611,15 +646,23 @@ class AssertFormErrorTests(TestCase):
         try:
             self.assertFormError(response, 'form', None, 'Some error.')
         except AssertionError as e:
-            self.assertIn("The form 'form' in context 0 does not contain the non-field error 'Some error.' (actual errors: )", str(e))
+            self.assertIn(
+                "The form 'form' in context 0 does not contain the non-field "
+                "error 'Some error.' (actual errors: )",
+                str(e)
+            )
         try:
             self.assertFormError(response, 'form', None, 'Some error.', msg_prefix='abc')
         except AssertionError as e:
-            self.assertIn("abc: The form 'form' in context 0 does not contain the non-field error 'Some error.' (actual errors: )", str(e))
+            self.assertIn(
+                "abc: The form 'form' in context 0 does not contain the "
+                "non-field error 'Some error.' (actual errors: )",
+                str(e)
+            )
 
 
 @override_settings(ROOT_URLCONF='test_client_regress.urls')
-class AssertFormsetErrorTests(TestCase):
+class AssertFormsetErrorTests(SimpleTestCase):
     msg_prefixes = [("", {}), ("abc: ", {"msg_prefix": "abc"})]
 
     def setUp(self):
@@ -664,161 +707,104 @@ class AssertFormsetErrorTests(TestCase):
     def test_unknown_formset(self):
         "An assertion is raised if the formset name is unknown"
         for prefix, kwargs in self.msg_prefixes:
-            with self.assertRaises(AssertionError) as cm:
-                self.assertFormsetError(self.response_form_errors,
-                                        'wrong_formset',
-                                        0,
-                                        'Some_field',
-                                        'Some error.',
-                                        **kwargs)
-            self.assertIn(prefix + "The formset 'wrong_formset' was not "
-                                   "used to render the response",
-                          str(cm.exception))
+            msg = prefix + "The formset 'wrong_formset' was not used to render the response"
+            with self.assertRaisesMessage(AssertionError, msg):
+                self.assertFormsetError(
+                    self.response_form_errors,
+                    'wrong_formset', 0, 'Some_field', 'Some error.', **kwargs
+                )
 
     def test_unknown_field(self):
         "An assertion is raised if the field name is unknown"
         for prefix, kwargs in self.msg_prefixes:
-            with self.assertRaises(AssertionError) as cm:
-                self.assertFormsetError(self.response_form_errors,
-                                        'my_formset',
-                                        0,
-                                        'Some_field',
-                                        'Some error.',
-                                        **kwargs)
-            self.assertIn(prefix + "The formset 'my_formset', "
-                                   "form 0 in context 0 "
-                                   "does not contain the field 'Some_field'",
-                          str(cm.exception))
+            msg = prefix + "The formset 'my_formset', form 0 in context 0 does not contain the field 'Some_field'"
+            with self.assertRaisesMessage(AssertionError, msg):
+                self.assertFormsetError(
+                    self.response_form_errors,
+                    'my_formset', 0, 'Some_field', 'Some error.', **kwargs
+                )
 
     def test_no_error_field(self):
         "An assertion is raised if the field doesn't have any errors"
         for prefix, kwargs in self.msg_prefixes:
-            with self.assertRaises(AssertionError) as cm:
-                self.assertFormsetError(self.response_form_errors,
-                                        'my_formset',
-                                        1,
-                                        'value',
-                                        'Some error.',
-                                        **kwargs)
-            self.assertIn(prefix + "The field 'value' "
-                                   "on formset 'my_formset', form 1 "
-                                   "in context 0 contains no errors",
-                          str(cm.exception))
+            msg = prefix + "The field 'value' on formset 'my_formset', form 1 in context 0 contains no errors"
+            with self.assertRaisesMessage(AssertionError, msg):
+                self.assertFormsetError(self.response_form_errors, 'my_formset', 1, 'value', 'Some error.', **kwargs)
 
     def test_unknown_error(self):
         "An assertion is raised if the field doesn't contain the specified error"
         for prefix, kwargs in self.msg_prefixes:
-            with self.assertRaises(AssertionError) as cm:
-                self.assertFormsetError(self.response_form_errors,
-                                        'my_formset',
-                                        0,
-                                        'email',
-                                        'Some error.',
-                                        **kwargs)
-            self.assertIn(str_prefix(prefix + "The field 'email' "
-                "on formset 'my_formset', form 0 in context 0 does not "
-                "contain the error 'Some error.' (actual errors: "
-                "[%(_)s'Enter a valid email address.'])"),
-                str(cm.exception))
+            msg = str_prefix(
+                prefix + "The field 'email' on formset 'my_formset', form 0 "
+                "in context 0 does not contain the error 'Some error.' "
+                "(actual errors: [%(_)s'Enter a valid email address.'])"
+            )
+            with self.assertRaisesMessage(AssertionError, msg):
+                self.assertFormsetError(self.response_form_errors, 'my_formset', 0, 'email', 'Some error.', **kwargs)
 
     def test_field_error(self):
         "No assertion is raised if the field contains the provided error"
+        error_msg = ['Enter a valid email address.']
         for prefix, kwargs in self.msg_prefixes:
-            self.assertFormsetError(self.response_form_errors,
-                                    'my_formset',
-                                    0,
-                                    'email',
-                                    ['Enter a valid email address.'],
-                                    **kwargs)
+            self.assertFormsetError(self.response_form_errors, 'my_formset', 0, 'email', error_msg, **kwargs)
 
     def test_no_nonfield_error(self):
         "An assertion is raised if the formsets non-field errors doesn't contain any errors."
         for prefix, kwargs in self.msg_prefixes:
-            with self.assertRaises(AssertionError) as cm:
-                self.assertFormsetError(self.response_form_errors,
-                                        'my_formset',
-                                        1,
-                                        None,
-                                        'Some error.',
-                                        **kwargs)
-            self.assertIn(prefix + "The formset 'my_formset', form 1 in "
-                                   "context 0 does not contain any "
-                                   "non-field errors.",
-                          str(cm.exception))
+            msg = prefix + "The formset 'my_formset', form 1 in context 0 does not contain any non-field errors."
+            with self.assertRaisesMessage(AssertionError, msg):
+                self.assertFormsetError(self.response_form_errors, 'my_formset', 1, None, 'Some error.', **kwargs)
 
     def test_unknown_nonfield_error(self):
         "An assertion is raised if the formsets non-field errors doesn't contain the provided error."
         for prefix, kwargs in self.msg_prefixes:
-            with self.assertRaises(AssertionError) as cm:
-                self.assertFormsetError(self.response_form_errors,
-                                        'my_formset',
-                                        0,
-                                        None,
-                                        'Some error.',
-                                        **kwargs)
-            self.assertIn(str_prefix(prefix +
-                "The formset 'my_formset', form 0 in context 0 does not "
+            msg = str_prefix(
+                prefix + "The formset 'my_formset', form 0 in context 0 does not "
                 "contain the non-field error 'Some error.' (actual errors: "
-                "[%(_)s'Non-field error.'])"), str(cm.exception))
+                "[%(_)s'Non-field error.'])"
+            )
+            with self.assertRaisesMessage(AssertionError, msg):
+                self.assertFormsetError(self.response_form_errors, 'my_formset', 0, None, 'Some error.', **kwargs)
 
     def test_nonfield_error(self):
         "No assertion is raised if the formsets non-field errors contains the provided error."
         for prefix, kwargs in self.msg_prefixes:
-            self.assertFormsetError(self.response_form_errors,
-                                    'my_formset',
-                                    0,
-                                    None,
-                                    'Non-field error.',
-                                    **kwargs)
+            self.assertFormsetError(self.response_form_errors, 'my_formset', 0, None, 'Non-field error.', **kwargs)
 
     def test_no_nonform_error(self):
         "An assertion is raised if the formsets non-form errors doesn't contain any errors."
         for prefix, kwargs in self.msg_prefixes:
-            with self.assertRaises(AssertionError) as cm:
-                self.assertFormsetError(self.response_form_errors,
-                                        'my_formset',
-                                        None,
-                                        None,
-                                        'Some error.',
-                                        **kwargs)
-            self.assertIn(prefix + "The formset 'my_formset' in context 0 "
-                                   "does not contain any non-form errors.",
-                          str(cm.exception))
+            msg = prefix + "The formset 'my_formset' in context 0 does not contain any non-form errors."
+            with self.assertRaisesMessage(AssertionError, msg):
+                self.assertFormsetError(self.response_form_errors, 'my_formset', None, None, 'Some error.', **kwargs)
 
     def test_unknown_nonform_error(self):
         "An assertion is raised if the formsets non-form errors doesn't contain the provided error."
         for prefix, kwargs in self.msg_prefixes:
-            with self.assertRaises(AssertionError) as cm:
-                self.assertFormsetError(self.response_nonform_errors,
-                                        'my_formset',
-                                        None,
-                                        None,
-                                        'Some error.',
-                                        **kwargs)
-            self.assertIn(str_prefix(prefix +
+            msg = str_prefix(
+                prefix +
                 "The formset 'my_formset' in context 0 does not contain the "
                 "non-form error 'Some error.' (actual errors: [%(_)s'Forms "
-                "in a set must have distinct email addresses.'])"), str(cm.exception))
+                "in a set must have distinct email addresses.'])"
+            )
+            with self.assertRaisesMessage(AssertionError, msg):
+                self.assertFormsetError(
+                    self.response_nonform_errors,
+                    'my_formset', None, None, 'Some error.', **kwargs
+                )
 
     def test_nonform_error(self):
         "No assertion is raised if the formsets non-form errors contains the provided error."
+        msg = 'Forms in a set must have distinct email addresses.'
         for prefix, kwargs in self.msg_prefixes:
-            self.assertFormsetError(self.response_nonform_errors,
-                                    'my_formset',
-                                    None,
-                                    None,
-                                    'Forms in a set must have distinct email '
-                                    'addresses.',
-                                    **kwargs)
+            self.assertFormsetError(self.response_nonform_errors, 'my_formset', None, None, msg, **kwargs)
 
 
-@override_settings(PASSWORD_HASHERS=('django.contrib.auth.hashers.SHA1PasswordHasher',),
-                   ROOT_URLCONF='test_client_regress.urls',)
-class LoginTests(TestCase):
-    fixtures = ['testdata']
+@override_settings(ROOT_URLCONF='test_client_regress.urls')
+class LoginTests(TestDataMixin, TestCase):
 
     def test_login_different_client(self):
-        "Check that using a different test client doesn't violate authentication"
+        "Using a different test client doesn't violate authentication"
 
         # Create a second client, and log in.
         c = Client()
@@ -829,18 +815,15 @@ class LoginTests(TestCase):
         response = c.get("/login_protected_redirect_view/")
 
         # At this points, the self.client isn't logged in.
-        # Check that assertRedirects uses the original client, not the
-        # default client.
-        self.assertRedirects(response, "http://testserver/get_view/")
+        # assertRedirects uses the original client, not the default client.
+        self.assertRedirects(response, "/get_view/")
 
 
 @override_settings(
-    PASSWORD_HASHERS=('django.contrib.auth.hashers.SHA1PasswordHasher',),
     SESSION_ENGINE='test_client_regress.session',
     ROOT_URLCONF='test_client_regress.urls',
 )
-class SessionEngineTests(TestCase):
-    fixtures = ['testdata']
+class SessionEngineTests(TestDataMixin, TestCase):
 
     def test_login(self):
         "A session engine that modifies the session key can be used to log in"
@@ -854,7 +837,7 @@ class SessionEngineTests(TestCase):
 
 
 @override_settings(ROOT_URLCONF='test_client_regress.urls',)
-class URLEscapingTests(TestCase):
+class URLEscapingTests(SimpleTestCase):
 
     def test_simple_argument_get(self):
         "Get a view that has a simple string argument"
@@ -881,35 +864,27 @@ class URLEscapingTests(TestCase):
         self.assertEqual(response.content, b'Hi, Arthur')
 
 
-@override_settings(PASSWORD_HASHERS=('django.contrib.auth.hashers.SHA1PasswordHasher',),
-                   ROOT_URLCONF='test_client_regress.urls',)
-class ExceptionTests(TestCase):
-    fixtures = ['testdata.json']
+@override_settings(ROOT_URLCONF='test_client_regress.urls')
+class ExceptionTests(TestDataMixin, TestCase):
 
     def test_exception_cleared(self):
         "#5836 - A stale user exception isn't re-raised by the test client."
 
         login = self.client.login(username='testclient', password='password')
         self.assertTrue(login, 'Could not log in')
-        try:
+        with self.assertRaises(CustomTestException):
             self.client.get("/staff_only/")
-            self.fail("General users should not be able to visit this page")
-        except CustomTestException:
-            pass
 
         # At this point, an exception has been raised, and should be cleared.
 
         # This next operation should be successful; if it isn't we have a problem.
         login = self.client.login(username='staff', password='password')
         self.assertTrue(login, 'Could not log in')
-        try:
-            self.client.get("/staff_only/")
-        except CustomTestException:
-            self.fail("Staff should be able to visit this page")
+        self.client.get("/staff_only/")
 
 
 @override_settings(ROOT_URLCONF='test_client_regress.urls')
-class TemplateExceptionTests(TestCase):
+class TemplateExceptionTests(SimpleTestCase):
 
     @override_settings(TEMPLATES=[{
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -917,19 +892,15 @@ class TemplateExceptionTests(TestCase):
     }])
     def test_bad_404_template(self):
         "Errors found when rendering 404 error templates are re-raised"
-        try:
+        with self.assertRaises(TemplateSyntaxError):
             self.client.get("/no_such_view/")
-        except TemplateSyntaxError:
-            pass
-        else:
-            self.fail("Should get error about syntax error in template")
 
 
 # We need two different tests to check URLconf substitution -  one to check
 # it was changed, and another one (without self.urls) to check it was reverted on
 # teardown. This pair of tests relies upon the alphabetical ordering of test execution.
 @override_settings(ROOT_URLCONF='test_client_regress.urls')
-class UrlconfSubstitutionTests(TestCase):
+class UrlconfSubstitutionTests(SimpleTestCase):
 
     def test_urlconf_was_changed(self):
         "TestCase can enforce a custom URLconf on a per-test basis"
@@ -939,7 +910,7 @@ class UrlconfSubstitutionTests(TestCase):
 
 # This test needs to run *after* UrlconfSubstitutionTests; the zz prefix in the
 # name is to ensure alphabetical ordering.
-class zzUrlconfSubstitutionTests(TestCase):
+class zzUrlconfSubstitutionTests(SimpleTestCase):
 
     def test_urlconf_was_reverted(self):
         """URLconf is reverted to original value after modification in a TestCase
@@ -950,28 +921,20 @@ class zzUrlconfSubstitutionTests(TestCase):
             reverse('arg_view', args=['somename'])
 
 
-@override_settings(PASSWORD_HASHERS=('django.contrib.auth.hashers.SHA1PasswordHasher',),
-                   ROOT_URLCONF='test_client_regress.urls',)
-class ContextTests(TestCase):
-    fixtures = ['testdata']
+@override_settings(ROOT_URLCONF='test_client_regress.urls')
+class ContextTests(TestDataMixin, TestCase):
 
-    @ignore_warnings(category=RemovedInDjango19Warning)  # `request.REQUEST` is deprecated
     def test_single_context(self):
         "Context variables can be retrieved from a single context"
         response = self.client.get("/request_data/", data={'foo': 'whiz'})
-        self.assertEqual(response.context.__class__, Context)
+        self.assertIsInstance(response.context, RequestContext)
         self.assertIn('get-foo', response.context)
         self.assertEqual(response.context['get-foo'], 'whiz')
-        self.assertEqual(response.context['request-foo'], 'whiz')
         self.assertEqual(response.context['data'], 'sausage')
 
-        try:
+        with self.assertRaisesMessage(KeyError, 'does-not-exist'):
             response.context['does-not-exist']
-            self.fail('Should not be able to retrieve non-existent key')
-        except KeyError as e:
-            self.assertEqual(e.args[0], 'does-not-exist')
 
-    @ignore_warnings(category=RemovedInDjango19Warning)  # `request.REQUEST` is deprecated
     def test_inherited_context(self):
         "Context variables can be retrieved from a list of contexts"
         response = self.client.get("/request_data_extended/", data={'foo': 'whiz'})
@@ -979,14 +942,11 @@ class ContextTests(TestCase):
         self.assertEqual(len(response.context), 2)
         self.assertIn('get-foo', response.context)
         self.assertEqual(response.context['get-foo'], 'whiz')
-        self.assertEqual(response.context['request-foo'], 'whiz')
         self.assertEqual(response.context['data'], 'bacon')
 
-        try:
+        with self.assertRaises(KeyError) as cm:
             response.context['does-not-exist']
-            self.fail('Should not be able to retrieve non-existent key')
-        except KeyError as e:
-            self.assertEqual(e.args[0], 'does-not-exist')
+        self.assertEqual(cm.exception.args[0], 'does-not-exist')
 
     def test_contextlist_keys(self):
         c1 = Context()
@@ -996,14 +956,20 @@ class ContextTests(TestCase):
         c2.update({'goodbye': 'world', 'python': 'rocks'})
         c2.update({'goodbye': 'dolly'})
 
-        l = ContextList([c1, c2])
+        k = ContextList([c1, c2])
         # None, True and False are builtins of BaseContext, and present
         # in every Context without needing to be added.
-        self.assertEqual({'None', 'True', 'False', 'hello', 'goodbye',
-                          'python', 'dolly'},
-                         l.keys())
+        self.assertEqual({'None', 'True', 'False', 'hello', 'goodbye', 'python', 'dolly'}, k.keys())
 
-    @ignore_warnings(category=RemovedInDjango110Warning)
+    def test_contextlist_get(self):
+        c1 = Context({'hello': 'world', 'goodbye': 'john'})
+        c2 = Context({'goodbye': 'world', 'python': 'rocks'})
+        k = ContextList([c1, c2])
+        self.assertEqual(k.get('hello'), 'world')
+        self.assertEqual(k.get('goodbye'), 'john')
+        self.assertEqual(k.get('python'), 'rocks')
+        self.assertEqual(k.get('nonexistent', 'default'), 'default')
+
     def test_15368(self):
         # Need to insert a context processor that assumes certain things about
         # the request instance. This triggers a bug caused by some ways of
@@ -1025,14 +991,12 @@ class ContextTests(TestCase):
         response.context is not lost when view call another view.
         """
         response = self.client.get("/nested_view/")
-        self.assertEqual(response.context.__class__, Context)
+        self.assertIsInstance(response.context, RequestContext)
         self.assertEqual(response.context['nested'], 'yes')
 
 
-@override_settings(PASSWORD_HASHERS=('django.contrib.auth.hashers.SHA1PasswordHasher',),
-                   ROOT_URLCONF='test_client_regress.urls',)
-class SessionTests(TestCase):
-    fixtures = ['testdata.json']
+@override_settings(ROOT_URLCONF='test_client_regress.urls')
+class SessionTests(TestDataMixin, TestCase):
 
     def test_session(self):
         "The session isn't lost if a user logs in"
@@ -1046,7 +1010,7 @@ class SessionTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.content, b'set_session')
 
-        # Check that the session has been modified
+        # The session has been modified
         response = self.client.get('/check_session/')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.content, b'YES')
@@ -1166,7 +1130,7 @@ class SessionTests(TestCase):
 
 
 @override_settings(ROOT_URLCONF='test_client_regress.urls')
-class RequestMethodTests(TestCase):
+class RequestMethodTests(SimpleTestCase):
 
     def test_get(self):
         "Request a view via request method GET"
@@ -1214,7 +1178,7 @@ class RequestMethodTests(TestCase):
 
 
 @override_settings(ROOT_URLCONF='test_client_regress.urls')
-class RequestMethodStringDataTests(TestCase):
+class RequestMethodStringDataTests(SimpleTestCase):
 
     def test_post(self):
         "Request a view with string data via request method POST"
@@ -1250,98 +1214,107 @@ class RequestMethodStringDataTests(TestCase):
         response = self.client.head('/body/', data='', content_type='application/json')
         self.assertEqual(response.content, b'')
 
+    def test_json(self):
+        response = self.client.get('/json_response/')
+        self.assertEqual(response.json(), {'key': 'value'})
+
+    def test_json_vendor(self):
+        valid_types = (
+            'application/vnd.api+json',
+            'application/vnd.api.foo+json',
+            'application/json; charset=utf-8',
+        )
+        for content_type in valid_types:
+            response = self.client.get('/json_response/', {'content_type': content_type})
+            self.assertEqual(response['Content-Type'], content_type)
+            self.assertEqual(response.json(), {'key': 'value'})
+
+    def test_json_multiple_access(self):
+        response = self.client.get('/json_response/')
+        self.assertIs(response.json(), response.json())
+
+    def test_json_wrong_header(self):
+        response = self.client.get('/body/')
+        msg = 'Content-Type header is "text/html; charset=utf-8", not "application/json"'
+        with self.assertRaisesMessage(ValueError, msg):
+            self.assertEqual(response.json(), {'key': 'value'})
+
 
 @override_settings(ROOT_URLCONF='test_client_regress.urls',)
-class QueryStringTests(TestCase):
+class QueryStringTests(SimpleTestCase):
 
-    @ignore_warnings(category=RemovedInDjango19Warning)  # `request.REQUEST` is deprecated
     def test_get_like_requests(self):
-        # See: https://code.djangoproject.com/ticket/10571.
         for method_name in ('get', 'head'):
-            # A GET-like request can pass a query string as data
+            # A GET-like request can pass a query string as data (#10571)
             method = getattr(self.client, method_name)
             response = method("/request_data/", data={'foo': 'whiz'})
             self.assertEqual(response.context['get-foo'], 'whiz')
-            self.assertEqual(response.context['request-foo'], 'whiz')
 
             # A GET-like request can pass a query string as part of the URL
             response = method("/request_data/?foo=whiz")
             self.assertEqual(response.context['get-foo'], 'whiz')
-            self.assertEqual(response.context['request-foo'], 'whiz')
 
             # Data provided in the URL to a GET-like request is overridden by actual form data
             response = method("/request_data/?foo=whiz", data={'foo': 'bang'})
             self.assertEqual(response.context['get-foo'], 'bang')
-            self.assertEqual(response.context['request-foo'], 'bang')
 
             response = method("/request_data/?foo=whiz", data={'bar': 'bang'})
-            self.assertEqual(response.context['get-foo'], None)
+            self.assertIsNone(response.context['get-foo'])
             self.assertEqual(response.context['get-bar'], 'bang')
-            self.assertEqual(response.context['request-foo'], None)
-            self.assertEqual(response.context['request-bar'], 'bang')
 
-    @ignore_warnings(category=RemovedInDjango19Warning)  # `request.REQUEST` is deprecated
     def test_post_like_requests(self):
         # A POST-like request can pass a query string as data
         response = self.client.post("/request_data/", data={'foo': 'whiz'})
-        self.assertEqual(response.context['get-foo'], None)
+        self.assertIsNone(response.context['get-foo'])
         self.assertEqual(response.context['post-foo'], 'whiz')
 
         # A POST-like request can pass a query string as part of the URL
         response = self.client.post("/request_data/?foo=whiz")
         self.assertEqual(response.context['get-foo'], 'whiz')
-        self.assertEqual(response.context['post-foo'], None)
-        self.assertEqual(response.context['request-foo'], 'whiz')
+        self.assertIsNone(response.context['post-foo'])
 
         # POST data provided in the URL augments actual form data
         response = self.client.post("/request_data/?foo=whiz", data={'foo': 'bang'})
         self.assertEqual(response.context['get-foo'], 'whiz')
         self.assertEqual(response.context['post-foo'], 'bang')
-        self.assertEqual(response.context['request-foo'], 'bang')
 
         response = self.client.post("/request_data/?foo=whiz", data={'bar': 'bang'})
         self.assertEqual(response.context['get-foo'], 'whiz')
-        self.assertEqual(response.context['get-bar'], None)
-        self.assertEqual(response.context['post-foo'], None)
+        self.assertIsNone(response.context['get-bar'])
+        self.assertIsNone(response.context['post-foo'])
         self.assertEqual(response.context['post-bar'], 'bang')
-        self.assertEqual(response.context['request-foo'], 'whiz')
-        self.assertEqual(response.context['request-bar'], 'bang')
 
 
 @override_settings(ROOT_URLCONF='test_client_regress.urls')
-class UnicodePayloadTests(TestCase):
+class UnicodePayloadTests(SimpleTestCase):
 
     def test_simple_unicode_payload(self):
         "A simple ASCII-only unicode JSON document can be POSTed"
         # Regression test for #10571
-        json = '{"english": "mountain pass"}'
-        response = self.client.post("/parse_unicode_json/", json,
-                                    content_type="application/json")
-        self.assertEqual(response.content, json.encode())
+        json_str = '{"english": "mountain pass"}'
+        response = self.client.post("/parse_unicode_json/", json_str, content_type="application/json")
+        self.assertEqual(response.content, json_str.encode())
 
     def test_unicode_payload_utf8(self):
         "A non-ASCII unicode data encoded as UTF-8 can be POSTed"
         # Regression test for #10571
-        json = '{"dog": "собака"}'
-        response = self.client.post("/parse_unicode_json/", json,
-                                    content_type="application/json; charset=utf-8")
-        self.assertEqual(response.content, json.encode('utf-8'))
+        json_str = '{"dog": "собака"}'
+        response = self.client.post("/parse_unicode_json/", json_str, content_type="application/json; charset=utf-8")
+        self.assertEqual(response.content, json_str.encode('utf-8'))
 
     def test_unicode_payload_utf16(self):
         "A non-ASCII unicode data encoded as UTF-16 can be POSTed"
         # Regression test for #10571
-        json = '{"dog": "собака"}'
-        response = self.client.post("/parse_unicode_json/", json,
-                                    content_type="application/json; charset=utf-16")
-        self.assertEqual(response.content, json.encode('utf-16'))
+        json_str = '{"dog": "собака"}'
+        response = self.client.post("/parse_unicode_json/", json_str, content_type="application/json; charset=utf-16")
+        self.assertEqual(response.content, json_str.encode('utf-16'))
 
     def test_unicode_payload_non_utf(self):
         "A non-ASCII unicode data as a non-UTF based encoding can be POSTed"
         # Regression test for #10571
-        json = '{"dog": "собака"}'
-        response = self.client.post("/parse_unicode_json/", json,
-                                    content_type="application/json; charset=koi8-r")
-        self.assertEqual(response.content, json.encode('koi8-r'))
+        json_str = '{"dog": "собака"}'
+        response = self.client.post("/parse_unicode_json/", json_str, content_type="application/json; charset=koi8-r")
+        self.assertEqual(response.content, json_str.encode('koi8-r'))
 
 
 class DummyFile(object):
@@ -1352,7 +1325,7 @@ class DummyFile(object):
         return b'TEST_FILE_CONTENT'
 
 
-class UploadedFileEncodingTest(TestCase):
+class UploadedFileEncodingTest(SimpleTestCase):
     def test_file_encoding(self):
         encoded_file = encode_file('TEST_BOUNDARY', 'TEST_KEY', DummyFile('test_name.bin'))
         self.assertEqual(b'--TEST_BOUNDARY', encoded_file[0])
@@ -1374,7 +1347,7 @@ class UploadedFileEncodingTest(TestCase):
 
 
 @override_settings(ROOT_URLCONF='test_client_regress.urls',)
-class RequestHeadersTest(TestCase):
+class RequestHeadersTest(SimpleTestCase):
     def test_client_headers(self):
         "A test client can receive custom headers"
         response = self.client.get("/check_headers/", HTTP_X_ARG_CHECK='Testing 123')
@@ -1385,15 +1358,14 @@ class RequestHeadersTest(TestCase):
         "Test client headers are preserved through redirects"
         response = self.client.get("/check_headers_redirect/", follow=True, HTTP_X_ARG_CHECK='Testing 123')
         self.assertEqual(response.content, b"HTTP_X_ARG_CHECK: Testing 123")
-        self.assertRedirects(response, '/check_headers/',
-            status_code=301, target_status_code=200)
+        self.assertRedirects(response, '/check_headers/', status_code=302, target_status_code=200)
 
 
 @override_settings(ROOT_URLCONF='test_client_regress.urls')
-class ReadLimitedStreamTest(TestCase):
+class ReadLimitedStreamTest(SimpleTestCase):
     """
-    Tests that ensure that HttpRequest.body, HttpRequest.read() and
-    HttpRequest.read(BUFFER) have proper LimitedStream behavior.
+    HttpRequest.body, HttpRequest.read(), and HttpRequest.read(BUFFER) have
+    proper LimitedStream behavior.
 
     Refs #14753, #15785
     """
@@ -1417,23 +1389,17 @@ class ReadLimitedStreamTest(TestCase):
         """HttpRequest.read() on a test client PUT request with some payload
         should return that payload."""
         payload = b'foobar'
-        self.assertEqual(self.client.put(
-            "/read_all/",
-            data=payload,
-            content_type='text/plain').content, payload)
+        self.assertEqual(self.client.put("/read_all/", data=payload, content_type='text/plain').content, payload)
 
     def test_read_numbytes_from_nonempty_request(self):
         """HttpRequest.read(LARGE_BUFFER) on a test client PUT request with
         some payload should return that payload."""
         payload = b'foobar'
-        self.assertEqual(
-            self.client.put("/read_buffer/",
-            data=payload,
-            content_type='text/plain').content, payload)
+        self.assertEqual(self.client.put("/read_buffer/", data=payload, content_type='text/plain').content, payload)
 
 
 @override_settings(ROOT_URLCONF='test_client_regress.urls')
-class RequestFactoryStateTest(TestCase):
+class RequestFactoryStateTest(SimpleTestCase):
     """Regression tests for #15929."""
     # These tests are checking that certain middleware don't change certain
     # global state. Alternatively, from the point of view of a test, they are
@@ -1460,7 +1426,7 @@ class RequestFactoryStateTest(TestCase):
 
 
 @override_settings(ROOT_URLCONF='test_client_regress.urls')
-class RequestFactoryEnvironmentTests(TestCase):
+class RequestFactoryEnvironmentTests(SimpleTestCase):
     """
     Regression tests for #8551 and #17067: ensure that environment variables
     are set correctly in RequestFactory.
@@ -1473,5 +1439,4 @@ class RequestFactoryEnvironmentTests(TestCase):
         self.assertEqual(request.META.get('SERVER_NAME'), 'testserver')
         self.assertEqual(request.META.get('SERVER_PORT'), '80')
         self.assertEqual(request.META.get('SERVER_PROTOCOL'), 'HTTP/1.1')
-        self.assertEqual(request.META.get('SCRIPT_NAME') +
-                         request.META.get('PATH_INFO'), '/path/')
+        self.assertEqual(request.META.get('SCRIPT_NAME') + request.META.get('PATH_INFO'), '/path/')
