@@ -3,6 +3,8 @@ from __future__ import unicode_literals
 
 from django.template.defaultfilters import urlize
 from django.test import SimpleTestCase
+from django.utils import six
+from django.utils.functional import lazy
 from django.utils.safestring import mark_safe
 
 from ..utils import setup
@@ -104,6 +106,26 @@ class FunctionTests(SimpleTestCase):
         self.assertEqual(
             urlize('djangoproject.org/'),
             '<a href="http://djangoproject.org/" rel="nofollow">djangoproject.org/</a>',
+        )
+
+    def test_url_split_chars(self):
+        # Quotes (single and double) and angle brackets shouldn't be considered
+        # part of URLs.
+        self.assertEqual(
+            urlize('www.server.com"abc'),
+            '<a href="http://www.server.com" rel="nofollow">www.server.com</a>&quot;abc',
+        )
+        self.assertEqual(
+            urlize('www.server.com\'abc'),
+            '<a href="http://www.server.com" rel="nofollow">www.server.com</a>&#39;abc',
+        )
+        self.assertEqual(
+            urlize('www.server.com<abc'),
+            '<a href="http://www.server.com" rel="nofollow">www.server.com</a>&lt;abc',
+        )
+        self.assertEqual(
+            urlize('www.server.com>abc'),
+            '<a href="http://www.server.com" rel="nofollow">www.server.com</a>&gt;abc',
         )
 
     def test_email(self):
@@ -224,6 +246,24 @@ class FunctionTests(SimpleTestCase):
             '(Go to <a href="http://www.example.com/foo" rel="nofollow">http://www.example.com/foo</a>.)',
         )
 
+    def test_trailing_multiple_punctuation(self):
+        self.assertEqual(
+            urlize('A test http://testing.com/example..'),
+            'A test <a href="http://testing.com/example" rel="nofollow">http://testing.com/example</a>..'
+        )
+        self.assertEqual(
+            urlize('A test http://testing.com/example!!'),
+            'A test <a href="http://testing.com/example" rel="nofollow">http://testing.com/example</a>!!'
+        )
+        self.assertEqual(
+            urlize('A test http://testing.com/example!!!'),
+            'A test <a href="http://testing.com/example" rel="nofollow">http://testing.com/example</a>!!!'
+        )
+        self.assertEqual(
+            urlize('A test http://testing.com/example.,:;)"!'),
+            'A test <a href="http://testing.com/example" rel="nofollow">http://testing.com/example</a>.,:;)&quot;!'
+        )
+
     def test_brackets(self):
         """
         #19070 - Check urlize handles brackets properly
@@ -320,11 +360,18 @@ class FunctionTests(SimpleTestCase):
     def test_autoescape(self):
         self.assertEqual(
             urlize('foo<a href=" google.com ">bar</a>buz'),
-            'foo&lt;a href=&quot; <a href="http://google.com" rel="nofollow">google.com</a> &quot;&gt;bar&lt;/a&gt;buz',
+            'foo&lt;a href=&quot; <a href="http://google.com" rel="nofollow">google.com</a> &quot;&gt;bar&lt;/a&gt;buz'
         )
 
     def test_autoescape_off(self):
         self.assertEqual(
             urlize('foo<a href=" google.com ">bar</a>buz', autoescape=False),
             'foo<a href=" <a href="http://google.com" rel="nofollow">google.com</a> ">bar</a>buz',
+        )
+
+    def test_lazystring(self):
+        prepend_www = lazy(lambda url: 'www.' + url, six.text_type)
+        self.assertEqual(
+            urlize(prepend_www('google.com')),
+            '<a href="http://www.google.com" rel="nofollow">www.google.com</a>',
         )

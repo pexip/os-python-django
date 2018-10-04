@@ -12,6 +12,7 @@ new_apps = Apps()
 class Author(models.Model):
     name = models.CharField(max_length=255)
     height = models.PositiveIntegerField(null=True, blank=True)
+    weight = models.IntegerField(null=True, blank=True)
 
     class Meta:
         apps = new_apps
@@ -33,8 +34,15 @@ class AuthorWithEvenLongerName(models.Model):
         apps = new_apps
 
 
+class AuthorWithIndexedName(models.Model):
+    name = models.CharField(max_length=255, db_index=True)
+
+    class Meta:
+        apps = new_apps
+
+
 class Book(models.Model):
-    author = models.ForeignKey(Author)
+    author = models.ForeignKey(Author, models.CASCADE)
     title = models.CharField(max_length=100, db_index=True)
     pub_date = models.DateTimeField()
     # tags = models.ManyToManyField("Tag", related_name="books")
@@ -44,7 +52,7 @@ class Book(models.Model):
 
 
 class BookWeak(models.Model):
-    author = models.ForeignKey(Author, db_constraint=False)
+    author = models.ForeignKey(Author, models.CASCADE, db_constraint=False)
     title = models.CharField(max_length=100, db_index=True)
     pub_date = models.DateTimeField()
 
@@ -53,14 +61,17 @@ class BookWeak(models.Model):
 
 
 class BookWithLongName(models.Model):
-    author_foreign_key_with_really_long_field_name = models.ForeignKey(AuthorWithEvenLongerName)
+    author_foreign_key_with_really_long_field_name = models.ForeignKey(
+        AuthorWithEvenLongerName,
+        models.CASCADE,
+    )
 
     class Meta:
         apps = new_apps
 
 
 class BookWithO2O(models.Model):
-    author = models.OneToOneField(Author)
+    author = models.OneToOneField(Author, models.CASCADE)
     title = models.CharField(max_length=100, db_index=True)
     pub_date = models.DateTimeField()
 
@@ -70,7 +81,7 @@ class BookWithO2O(models.Model):
 
 
 class BookWithSlug(models.Model):
-    author = models.ForeignKey(Author)
+    author = models.ForeignKey(Author, models.CASCADE)
     title = models.CharField(max_length=100, db_index=True)
     pub_date = models.DateTimeField()
     slug = models.CharField(max_length=20, unique=True)
@@ -87,6 +98,14 @@ class BookWithoutAuthor(models.Model):
     class Meta:
         apps = new_apps
         db_table = "schema_book"
+
+
+class BookForeignObj(models.Model):
+    title = models.CharField(max_length=100, db_index=True)
+    author_id = models.IntegerField()
+
+    class Meta:
+        apps = new_apps
 
 
 class IntegerPK(models.Model):
@@ -166,3 +185,11 @@ class UniqueTest(models.Model):
     class Meta:
         apps = new_apps
         unique_together = ["year", "slug"]
+
+
+class Node(models.Model):
+    node_id = models.AutoField(primary_key=True)
+    parent = models.ForeignKey('self', models.CASCADE, null=True, blank=True)
+
+    class Meta:
+        apps = new_apps

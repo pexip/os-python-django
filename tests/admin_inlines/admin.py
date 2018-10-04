@@ -5,10 +5,10 @@ from .models import (
     Author, BinaryTree, CapoFamiglia, Chapter, ChildModel1, ChildModel2,
     Consigliere, EditablePKBook, ExtraTerrestrial, Fashionista, Holder,
     Holder2, Holder3, Holder4, Inner, Inner2, Inner3, Inner4Stacked,
-    Inner4Tabular, NonAutoPKBook, Novel, ParentModelWithCustomPk, Poll,
-    Profile, ProfileCollection, Question, ReadOnlyInline, ShoppingWeakness,
-    Sighting, SomeChildModel, SomeParentModel, SottoCapo, Title,
-    TitleCollection,
+    Inner4Tabular, NonAutoPKBook, NonAutoPKBookChild, Novel,
+    ParentModelWithCustomPk, Poll, Profile, ProfileCollection, Question,
+    ReadOnlyInline, ShoppingWeakness, Sighting, SomeChildModel,
+    SomeParentModel, SottoCapo, Title, TitleCollection,
 )
 
 site = admin.AdminSite(name="admin")
@@ -20,10 +20,17 @@ class BookInline(admin.TabularInline):
 
 class NonAutoPKBookTabularInline(admin.TabularInline):
     model = NonAutoPKBook
+    classes = ('collapse',)
+
+
+class NonAutoPKBookChildTabularInline(admin.TabularInline):
+    model = NonAutoPKBookChild
+    classes = ('collapse',)
 
 
 class NonAutoPKBookStackedInline(admin.StackedInline):
     model = NonAutoPKBook
+    classes = ('collapse',)
 
 
 class EditablePKBookTabularInline(admin.TabularInline):
@@ -35,9 +42,11 @@ class EditablePKBookStackedInline(admin.StackedInline):
 
 
 class AuthorAdmin(admin.ModelAdmin):
-    inlines = [BookInline,
-        NonAutoPKBookTabularInline, NonAutoPKBookStackedInline,
-        EditablePKBookTabularInline, EditablePKBookStackedInline]
+    inlines = [
+        BookInline, NonAutoPKBookTabularInline, NonAutoPKBookStackedInline,
+        EditablePKBookTabularInline, EditablePKBookStackedInline,
+        NonAutoPKBookChildTabularInline,
+    ]
 
 
 class InnerInline(admin.StackedInline):
@@ -72,6 +81,7 @@ class InnerInline3(admin.StackedInline):
 
 
 class TitleForm(forms.ModelForm):
+    title1 = forms.CharField(max_length=100)
 
     def clean(self):
         cleaned_data = self.cleaned_data
@@ -187,6 +197,10 @@ class SomeChildModelForm(forms.ModelForm):
         widgets = {
             'position': forms.HiddenInput,
         }
+
+    def __init__(self, *args, **kwargs):
+        super(SomeChildModelForm, self).__init__(*args, **kwargs)
+        self.fields['name'].label = 'new label'
 
 
 class SomeChildModelInline(admin.TabularInline):

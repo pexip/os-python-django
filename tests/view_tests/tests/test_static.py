@@ -56,8 +56,10 @@ class StaticTests(SimpleTestCase):
 
     def test_is_modified_since(self):
         file_name = 'file.txt'
-        response = self.client.get('/%s/%s' % (self.prefix, file_name),
-            HTTP_IF_MODIFIED_SINCE='Thu, 1 Jan 1970 00:00:00 GMT')
+        response = self.client.get(
+            '/%s/%s' % (self.prefix, file_name),
+            HTTP_IF_MODIFIED_SINCE='Thu, 1 Jan 1970 00:00:00 GMT'
+        )
         response_content = b''.join(response)
         with open(path.join(media_dir, file_name), 'rb') as fp:
             self.assertEqual(fp.read(), response_content)
@@ -106,6 +108,24 @@ class StaticTests(SimpleTestCase):
         response = self.client.get('/%s/non_existing_resource' % self.prefix)
         self.assertEqual(404, response.status_code)
 
+    def test_index(self):
+        response = self.client.get('/%s/' % self.prefix)
+        self.assertContains(response, 'Index of ./')
+
+    @override_settings(TEMPLATES=[{
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'OPTIONS': {
+            'loaders': [
+                ('django.template.loaders.locmem.Loader', {
+                    'static/directory_index.html': 'Test index',
+                }),
+            ],
+        },
+    }])
+    def test_index_custom_template(self):
+        response = self.client.get('/%s/' % self.prefix)
+        self.assertEqual(response.content, b'Test index')
+
 
 class StaticHelperTest(StaticTests):
     """
@@ -124,8 +144,7 @@ class StaticHelperTest(StaticTests):
 class StaticUtilsTests(unittest.TestCase):
     def test_was_modified_since_fp(self):
         """
-        Test that a floating point mtime does not disturb was_modified_since.
-        (#18675)
+        A floating point mtime does not disturb was_modified_since (#18675).
         """
         mtime = 1343416141.107817
         header = http_date(mtime)

@@ -10,7 +10,7 @@ Install Python
 Being a Python Web framework, Django requires Python. See
 :ref:`faq-python-version-support` for details.
 
-Get the latest version of Python at https://www.python.org/download/ or with
+Get the latest version of Python at https://www.python.org/downloads/ or with
 your operating system's package manager.
 
 .. admonition:: Django on Jython
@@ -25,8 +25,8 @@ your operating system's package manager.
     If you are just starting with Django and using Windows, you may find
     :doc:`/howto/windows` useful.
 
-Install Apache and mod_wsgi
-=============================
+Install Apache and ``mod_wsgi``
+===============================
 
 If you just want to experiment with Django, skip ahead to the next
 section; Django includes a lightweight web server you can use for
@@ -58,7 +58,7 @@ deployment options. One is :doc:`uWSGI </howto/deployment/wsgi/uwsgi>`; it works
 very well with `nginx`_. Additionally, Django follows the WSGI spec
 (:pep:`3333`), which allows it to run on a variety of server platforms.
 
-.. _Apache: http://httpd.apache.org/
+.. _Apache: https://httpd.apache.org/
 .. _nginx: http://nginx.org/
 .. _mod_wsgi: http://www.modwsgi.org/
 
@@ -115,12 +115,12 @@ see :setting:`DATABASES` for details.
 If you're using Django's :doc:`testing framework</topics/testing/index>` to test
 database queries, Django will need permission to create a test database.
 
-.. _PostgreSQL: http://www.postgresql.org/
-.. _MySQL: http://www.mysql.com/
+.. _PostgreSQL: https://www.postgresql.org/
+.. _MySQL: https://www.mysql.com/
 .. _psycopg2: http://initd.org/psycopg/
-.. _SQLite: http://www.sqlite.org/
-.. _cx_Oracle: http://cx-oracle.sourceforge.net/
-.. _Oracle: http://www.oracle.com/
+.. _SQLite: https://www.sqlite.org/
+.. _cx_Oracle: https://oracle.github.io/python-cx_Oracle/
+.. _Oracle: https://www.oracle.com/
 
 .. _removing-old-versions-of-django:
 
@@ -142,7 +142,7 @@ following at your shell prompt (not the interactive Python prompt):
 
 .. code-block:: console
 
-    $ python -c "import sys; sys.path = sys.path[1:]; import django; print(django.__path__)"
+    $ python -c "import django; print(django.__path__)"
 
 .. _install-django-code:
 
@@ -158,14 +158,14 @@ It's easy, no matter which way you choose.
 .. _installing-official-release:
 
 Installing an official release with ``pip``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-------------------------------------------
 
 This is the recommended way to install Django.
 
 1. Install pip_. The easiest is to use the `standalone pip installer`_. If your
    distribution already has ``pip`` installed, you might need to update it if
-   it's outdated. (If it's outdated, you'll know because installation won't
-   work.)
+   it's outdated. If it's outdated, you'll know because installation won't
+   work.
 
 2. Take a look at virtualenv_ and virtualenvwrapper_. These tools provide
    isolated Python environments, which are more practical than installing
@@ -176,13 +176,15 @@ This is the recommended way to install Django.
 3. After you've created and activated a virtual environment, enter the command
    ``pip install Django`` at the shell prompt.
 
-.. _pip: http://www.pip-installer.org/
-.. _virtualenv: http://www.virtualenv.org/
-.. _virtualenvwrapper: http://virtualenvwrapper.readthedocs.org/en/latest/
-.. _standalone pip installer: http://www.pip-installer.org/en/latest/installing.html#install-pip
+.. _pip: https://pip.pypa.io/
+.. _virtualenv: https://virtualenv.pypa.io/
+.. _virtualenvwrapper: https://virtualenvwrapper.readthedocs.io/en/latest/
+.. _standalone pip installer: https://pip.pypa.io/en/latest/installing/#installing-with-get-pip-py
+
+.. _installing-distribution-package:
 
 Installing a distribution-specific package
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+------------------------------------------
 
 Check the :doc:`distribution specific notes </misc/distributions>` to see if
 your platform/distribution provides official Django packages/installers.
@@ -193,7 +195,7 @@ contain the latest release of Django.
 .. _installing-development-version:
 
 Installing the development version
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+----------------------------------
 
 .. admonition:: Tracking Django development
 
@@ -241,4 +243,4 @@ When you want to update your copy of the Django source code, just run the
 command ``git pull`` from within the ``django`` directory. When you do this,
 Git will automatically download any changes.
 
-.. _Git: http://git-scm.com/
+.. _Git: https://git-scm.com/

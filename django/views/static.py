@@ -73,9 +73,9 @@ DEFAULT_DIRECTORY_INDEX_TEMPLATE = """
   <body>
     <h1>{% blocktrans %}Index of {{ directory }}{% endblocktrans %}</h1>
     <ul>
-      {% ifnotequal directory "/" %}
+      {% if directory != "/" %}
       <li><a href="../">../</a></li>
-      {% endifnotequal %}
+      {% endif %}
       {% for f in file_list %}
       <li><a href="{{ f|urlencode }}">{{ f }}</a></li>
       {% endfor %}
@@ -93,14 +93,17 @@ def directory_index(path, fullpath):
             'static/directory_index',
         ])
     except TemplateDoesNotExist:
-        t = Engine().from_string(DEFAULT_DIRECTORY_INDEX_TEMPLATE)
+        t = Engine(libraries={'i18n': 'django.templatetags.i18n'}).from_string(DEFAULT_DIRECTORY_INDEX_TEMPLATE)
+        c = Context()
+    else:
+        c = {}
     files = []
     for f in os.listdir(fullpath):
         if not f.startswith('.'):
             if os.path.isdir(os.path.join(fullpath, f)):
                 f += '/'
             files.append(f)
-    c = Context({
+    c.update({
         'directory': path + '/',
         'file_list': files,
     })

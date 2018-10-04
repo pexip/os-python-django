@@ -1,33 +1,62 @@
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.flatpages.models import FlatPage
+from django.contrib.sites.models import Site
 from django.test import TestCase, modify_settings, override_settings
 
 from .settings import FLATPAGES_TEMPLATES
 
 
+class TestDataMixin(object):
+
+    @classmethod
+    def setUpTestData(cls):
+        # don't use the manager because we want to ensure the site exists
+        # with pk=1, regardless of whether or not it already exists.
+        cls.site1 = Site(pk=1, domain='example.com', name='example.com')
+        cls.site1.save()
+        cls.fp1 = FlatPage.objects.create(
+            url='/flatpage/', title='A Flatpage', content="Isn't it flat!",
+            enable_comments=False, template_name='', registration_required=False
+        )
+        cls.fp2 = FlatPage.objects.create(
+            url='/location/flatpage/', title='A Nested Flatpage', content="Isn't it flat and deep!",
+            enable_comments=False, template_name='', registration_required=False
+        )
+        cls.fp3 = FlatPage.objects.create(
+            url='/sekrit/', title='Sekrit Flatpage', content="Isn't it sekrit!",
+            enable_comments=False, template_name='', registration_required=True
+        )
+        cls.fp4 = FlatPage.objects.create(
+            url='/location/sekrit/', title='Sekrit Nested Flatpage', content="Isn't it sekrit and deep!",
+            enable_comments=False, template_name='', registration_required=True
+        )
+        cls.fp1.sites.add(cls.site1)
+        cls.fp2.sites.add(cls.site1)
+        cls.fp3.sites.add(cls.site1)
+        cls.fp4.sites.add(cls.site1)
+
+
 @modify_settings(INSTALLED_APPS={'append': 'django.contrib.flatpages'})
 @override_settings(
     LOGIN_URL='/accounts/login/',
-    MIDDLEWARE_CLASSES=(
+    MIDDLEWARE=[
         'django.middleware.common.CommonMiddleware',
         'django.contrib.sessions.middleware.SessionMiddleware',
         'django.middleware.csrf.CsrfViewMiddleware',
         'django.contrib.auth.middleware.AuthenticationMiddleware',
         'django.contrib.messages.middleware.MessageMiddleware',
         # no 'django.contrib.flatpages.middleware.FlatpageFallbackMiddleware'
-    ),
+    ],
     ROOT_URLCONF='flatpages_tests.urls',
     TEMPLATES=FLATPAGES_TEMPLATES,
     SITE_ID=1,
 )
-class FlatpageViewTests(TestCase):
-    fixtures = ['sample_flatpages', 'example_site']
+class FlatpageViewTests(TestDataMixin, TestCase):
 
     def test_view_flatpage(self):
         "A flatpage can be served through a view"
         response = self.client.get('/flatpage_root/flatpage/')
-        self.assertEqual(response.status_code, 200)
         self.assertContains(response, "<p>Isn't it flat!</p>")
 
     def test_view_non_existent_flatpage(self):
@@ -39,10 +68,9 @@ class FlatpageViewTests(TestCase):
         "A flatpage served through a view can require authentication"
         response = self.client.get('/flatpage_root/sekrit/')
         self.assertRedirects(response, '/accounts/login/?next=/flatpage_root/sekrit/')
-        User.objects.create_user('testuser', 'test@example.com', 's3krit')
-        self.client.login(username='testuser', password='s3krit')
+        user = User.objects.create_user('testuser', 'test@example.com', 's3krit')
+        self.client.force_login(user)
         response = self.client.get('/flatpage_root/sekrit/')
-        self.assertEqual(response.status_code, 200)
         self.assertContains(response, "<p>Isn't it sekrit!</p>")
 
     def test_fallback_flatpage(self):
@@ -67,7 +95,6 @@ class FlatpageViewTests(TestCase):
         fp.sites.add(settings.SITE_ID)
 
         response = self.client.get('/flatpage_root/some.very_special~chars-here/')
-        self.assertEqual(response.status_code, 200)
         self.assertContains(response, "<p>Isn't it special!</p>")
 
 
@@ -75,20 +102,19 @@ class FlatpageViewTests(TestCase):
 @override_settings(
     APPEND_SLASH=True,
     LOGIN_URL='/accounts/login/',
-    MIDDLEWARE_CLASSES=(
+    MIDDLEWARE=[
         'django.middleware.common.CommonMiddleware',
         'django.contrib.sessions.middleware.SessionMiddleware',
         'django.middleware.csrf.CsrfViewMiddleware',
         'django.contrib.auth.middleware.AuthenticationMiddleware',
         'django.contrib.messages.middleware.MessageMiddleware',
         # no 'django.contrib.flatpages.middleware.FlatpageFallbackMiddleware'
-    ),
+    ],
     ROOT_URLCONF='flatpages_tests.urls',
     TEMPLATES=FLATPAGES_TEMPLATES,
     SITE_ID=1,
 )
-class FlatpageViewAppendSlashTests(TestCase):
-    fixtures = ['sample_flatpages', 'example_site']
+class FlatpageViewAppendSlashTests(TestDataMixin, TestCase):
 
     def test_redirect_view_flatpage(self):
         "A flatpage can be served through a view and should add a slash"

@@ -1,18 +1,29 @@
+# -*- coding: utf-8 -*-
+from __future__ import unicode_literals
+
 import json
 
-from django.contrib.postgres import forms
-from django.contrib.postgres.fields import HStoreField
-from django.contrib.postgres.validators import KeysValidator
 from django.core import exceptions, serializers
 from django.forms import Form
-from django.test import TestCase
+from django.test.utils import modify_settings
 
+from . import PostgreSQLTestCase
 from .models import HStoreModel
 
+try:
+    from django.contrib.postgres import forms
+    from django.contrib.postgres.fields import HStoreField
+    from django.contrib.postgres.validators import KeysValidator
+except ImportError:
+    pass
 
-class SimpleTests(TestCase):
-    apps = ['django.contrib.postgres']
 
+@modify_settings(INSTALLED_APPS={'append': 'django.contrib.postgres'})
+class HStoreTestCase(PostgreSQLTestCase):
+    pass
+
+
+class SimpleTests(HStoreTestCase):
     def test_save_load_success(self):
         value = {'a': 'b'}
         instance = HStoreModel(field=value)
@@ -24,7 +35,7 @@ class SimpleTests(TestCase):
         instance = HStoreModel(field=None)
         instance.save()
         reloaded = HStoreModel.objects.get()
-        self.assertEqual(reloaded.field, None)
+        self.assertIsNone(reloaded.field)
 
     def test_value_null(self):
         value = {'a': None}
@@ -33,8 +44,22 @@ class SimpleTests(TestCase):
         reloaded = HStoreModel.objects.get()
         self.assertEqual(reloaded.field, value)
 
+    def test_key_val_cast_to_string(self):
+        value = {'a': 1, 'b': 'B', 2: 'c', 'ï': 'ê', b'x': b'test'}
+        expected_value = {'a': '1', 'b': 'B', '2': 'c', 'ï': 'ê', 'x': 'test'}
 
-class TestQuerying(TestCase):
+        instance = HStoreModel.objects.create(field=value)
+        instance = HStoreModel.objects.get()
+        self.assertDictEqual(instance.field, expected_value)
+
+        instance = HStoreModel.objects.get(field__a=1)
+        self.assertDictEqual(instance.field, expected_value)
+
+        instance = HStoreModel.objects.get(field__has_keys=[2, 'a', 'ï'])
+        self.assertDictEqual(instance.field, expected_value)
+
+
+class TestQuerying(HStoreTestCase):
 
     def setUp(self):
         self.objs = [
@@ -63,6 +88,14 @@ class TestQuerying(TestCase):
             self.objs[:2]
         )
 
+    def test_in_generator(self):
+        def search():
+            yield {'a': 'b'}
+        self.assertSequenceEqual(
+            HStoreModel.objects.filter(field__in=search()),
+            self.objs[:1]
+        )
+
     def test_has_key(self):
         self.assertSequenceEqual(
             HStoreModel.objects.filter(field__has_key='c'),
@@ -73,6 +106,12 @@ class TestQuerying(TestCase):
         self.assertSequenceEqual(
             HStoreModel.objects.filter(field__has_keys=['a', 'c']),
             self.objs[1:2]
+        )
+
+    def test_has_any_keys(self):
+        self.assertSequenceEqual(
+            HStoreModel.objects.filter(field__has_any_keys=['a', 'c']),
+            self.objs[:3]
         )
 
     def test_key_transform(self):
@@ -129,7 +168,7 @@ class TestQuerying(TestCase):
         )
 
 
-class TestSerialization(TestCase):
+class TestSerialization(HStoreTestCase):
     test_data = ('[{"fields": {"field": "{\\"a\\": \\"b\\"}"}, '
                  '"model": "postgres_tests.hstoremodel", "pk": null}]')
 
@@ -149,17 +188,21 @@ class TestSerialization(TestCase):
         self.assertEqual(instance.field, new_instance.field)
 
 
-class TestValidation(TestCase):
+class TestValidation(HStoreTestCase):
 
     def test_not_a_string(self):
         field = HStoreField()
         with self.assertRaises(exceptions.ValidationError) as cm:
             field.clean({'a': 1}, None)
         self.assertEqual(cm.exception.code, 'not_a_string')
-        self.assertEqual(cm.exception.message % cm.exception.params, 'The value of "a" is not a string.')
+        self.assertEqual(cm.exception.message % cm.exception.params, 'The value of "a" is not a string or null.')
+
+    def test_none_allowed_as_value(self):
+        field = HStoreField()
+        self.assertEqual(field.clean({'a': None}, None), {'a': None})
 
 
-class TestFormField(TestCase):
+class TestFormField(HStoreTestCase):
 
     def test_valid(self):
         field = forms.HStoreField()
@@ -173,10 +216,22 @@ class TestFormField(TestCase):
         self.assertEqual(cm.exception.messages[0], 'Could not load JSON data.')
         self.assertEqual(cm.exception.code, 'invalid_json')
 
+    def test_non_dict_json(self):
+        field = forms.HStoreField()
+        msg = 'Input must be a JSON dictionary.'
+        with self.assertRaisesMessage(exceptions.ValidationError, msg) as cm:
+            field.clean('["a", "b", 1]')
+        self.assertEqual(cm.exception.code, 'invalid_format')
+
     def test_not_string_values(self):
         field = forms.HStoreField()
         value = field.clean('{"a": 1}')
         self.assertEqual(value, {'a': '1'})
+
+    def test_none_value(self):
+        field = forms.HStoreField()
+        value = field.clean('{"a": null}')
+        self.assertEqual(value, {'a': None})
 
     def test_empty(self):
         field = forms.HStoreField(required=False)
@@ -210,7 +265,7 @@ class TestFormField(TestCase):
         self.assertTrue(form_w_hstore.has_changed())
 
 
-class TestValidator(TestCase):
+class TestValidator(HStoreTestCase):
 
     def test_simple_valid(self):
         validator = KeysValidator(keys=['a', 'b'])

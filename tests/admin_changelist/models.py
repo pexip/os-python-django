@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 from django.utils.encoding import python_2_unicode_compatible
 
@@ -12,7 +14,7 @@ class Parent(models.Model):
 
 
 class Child(models.Model):
-    parent = models.ForeignKey(Parent, editable=False, null=True)
+    parent = models.ForeignKey(Parent, models.SET_NULL, editable=False, null=True)
     name = models.CharField(max_length=30, blank=True)
     age = models.IntegerField(null=True, blank=True)
 
@@ -44,9 +46,14 @@ class Group(models.Model):
         return self.name
 
 
+class Concert(models.Model):
+    name = models.CharField(max_length=30)
+    group = models.ForeignKey(Group, models.CASCADE)
+
+
 class Membership(models.Model):
-    music = models.ForeignKey(Musician)
-    group = models.ForeignKey(Group)
+    music = models.ForeignKey(Musician, models.CASCADE)
+    group = models.ForeignKey(Group, models.CASCADE)
     role = models.CharField(max_length=15)
 
 
@@ -64,12 +71,13 @@ class ChordsBand(models.Model):
 
 
 class Invitation(models.Model):
-    player = models.ForeignKey(ChordsMusician)
-    band = models.ForeignKey(ChordsBand)
+    player = models.ForeignKey(ChordsMusician, models.CASCADE)
+    band = models.ForeignKey(ChordsBand, models.CASCADE)
     instrument = models.CharField(max_length=15)
 
 
 class Swallow(models.Model):
+    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4)
     origin = models.CharField(max_length=255)
     load = models.FloatField()
     speed = models.FloatField()
@@ -79,7 +87,7 @@ class Swallow(models.Model):
 
 
 class SwallowOneToOne(models.Model):
-    swallow = models.OneToOneField(Swallow)
+    swallow = models.OneToOneField(Swallow, models.CASCADE)
 
 
 class UnorderedObject(models.Model):
