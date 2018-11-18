@@ -1,5 +1,6 @@
-from django.core.checks.compatibility.django_1_8_0 import \
-    check_duplicate_template_settings
+from django.core.checks.compatibility.django_1_8_0 import (
+    check_duplicate_template_settings,
+)
 from django.test import SimpleTestCase
 from django.test.utils import override_settings
 
@@ -25,5 +26,5 @@ class CheckDuplicateTemplateSettingsTest(SimpleTestCase):
     def test_multiple_duplicate_settings(self):
         result = check_duplicate_template_settings(None)
         self.assertEqual(len(result), 1)
-        self.assertTrue('TEMPLATE_DIRS' in result[0].msg)
-        self.assertTrue('TEMPLATE_DEBUG' in result[0].msg)
+        self.assertIn('TEMPLATE_DIRS', result[0].msg)
+        self.assertIn('TEMPLATE_DEBUG', result[0].msg)

@@ -6,13 +6,17 @@ import os
 import re
 
 from docutils import nodes
-from docutils.parsers.rst import directives
-from sphinx import __version__ as sphinx_ver, addnodes
+from docutils.parsers.rst import Directive, directives
+from sphinx import addnodes
 from sphinx.builders.html import StandaloneHTMLBuilder
-from sphinx.util.compat import Directive
+from sphinx.domains.std import Cmdoption
 from sphinx.util.console import bold
 from sphinx.util.nodes import set_source_info
-from sphinx.writers.html import SmartyPantsHTMLTranslator
+
+try:
+    from sphinx.writers.html import SmartyPantsHTMLTranslator as HTMLTranslator
+except ImportError:  # Sphinx 1.6+
+    from sphinx.writers.html import HTMLTranslator
 
 # RE for option descriptions without a '--' prefix
 simple_option_desc_re = re.compile(
@@ -46,12 +50,7 @@ def setup(app):
         indextemplate="pair: %s; django-admin command",
         parse_node=parse_django_admin_node,
     )
-    app.add_description_unit(
-        directivename="django-admin-option",
-        rolename="djadminopt",
-        indextemplate="pair: %s; django-admin command-line option",
-        parse_node=parse_django_adminopt_node,
-    )
+    app.add_directive('django-admin-option', Cmdoption)
     app.add_config_value('django_next_version', '0.0', True)
     app.add_directive('versionadded', VersionDirective)
     app.add_directive('versionchanged', VersionDirective)
@@ -116,7 +115,7 @@ def visit_snippet(self, node):
                                                    linenos=linenos,
                                                    **highlight_args)
     starttag = self.starttag(node, 'div', suffix='',
-                             CLASS='highlight-%s' % lang)
+                             CLASS='highlight-%s snippet' % lang)
     self.body.append(starttag)
     self.body.append('<div class="snippet-filename">%s</div>\n''' % (fname,))
     self.body.append(highlighted)
@@ -230,7 +229,7 @@ class VersionDirective(Directive):
         return ret
 
 
-class DjangoHTMLTranslator(SmartyPantsHTMLTranslator):
+class DjangoHTMLTranslator(HTMLTranslator):
     """
     Django-specific reST to HTML tweaks.
     """
@@ -256,18 +255,6 @@ class DjangoHTMLTranslator(SmartyPantsHTMLTranslator):
 
     def depart_desc_parameterlist(self, node):
         self.body.append(')')
-
-    if sphinx_ver < '1.0.8':
-        #
-        # Don't apply smartypants to literal blocks
-        #
-        def visit_literal_block(self, node):
-            self.no_smarty += 1
-            SmartyPantsHTMLTranslator.visit_literal_block(self, node)
-
-        def depart_literal_block(self, node):
-            SmartyPantsHTMLTranslator.depart_literal_block(self, node)
-            self.no_smarty -= 1
 
     #
     # Turn the "new in version" stuff (versionadded/versionchanged) into a
@@ -303,45 +290,16 @@ class DjangoHTMLTranslator(SmartyPantsHTMLTranslator):
         old_ids = node.get('ids', [])
         node['ids'] = ['s-' + i for i in old_ids]
         node['ids'].extend(old_ids)
-        SmartyPantsHTMLTranslator.visit_section(self, node)
+        HTMLTranslator.visit_section(self, node)
         node['ids'] = old_ids
 
 
 def parse_django_admin_node(env, sig, signode):
     command = sig.split(' ')[0]
-    env._django_curr_admin_command = command
+    env.ref_context['std:program'] = command
     title = "django-admin %s" % sig
     signode += addnodes.desc_name(title, title)
-    return sig
-
-
-def parse_django_adminopt_node(env, sig, signode):
-    """A copy of sphinx.directives.CmdoptionDesc.parse_signature()"""
-    from sphinx.domains.std import option_desc_re
-    count = 0
-    firstname = ''
-    for m in option_desc_re.finditer(sig):
-        optname, args = m.groups()
-        if count:
-            signode += addnodes.desc_addname(', ', ', ')
-        signode += addnodes.desc_name(optname, optname)
-        signode += addnodes.desc_addname(args, args)
-        if not count:
-            firstname = optname
-        count += 1
-    if not count:
-        for m in simple_option_desc_re.finditer(sig):
-            optname, args = m.groups()
-            if count:
-                signode += addnodes.desc_addname(', ', ', ')
-            signode += addnodes.desc_name(optname, optname)
-            signode += addnodes.desc_addname(args, args)
-            if not count:
-                firstname = optname
-            count += 1
-    if not firstname:
-        raise ValueError
-    return firstname
+    return command
 
 
 class DjangoStandaloneHTMLBuilder(StandaloneHTMLBuilder):
@@ -356,10 +314,14 @@ class DjangoStandaloneHTMLBuilder(StandaloneHTMLBuilder):
         self.info(bold("writing templatebuiltins.js..."))
         xrefs = self.env.domaindata["std"]["objects"]
         templatebuiltins = {
-            "ttags": [n for ((t, n), (l, a)) in xrefs.items()
-                      if t == "templatetag" and l == "ref/templates/builtins"],
-            "tfilters": [n for ((t, n), (l, a)) in xrefs.items()
-                         if t == "templatefilter" and l == "ref/templates/builtins"],
+            "ttags": [
+                n for ((t, n), (k, a)) in xrefs.items()
+                if t == "templatetag" and k == "ref/templates/builtins"
+            ],
+            "tfilters": [
+                n for ((t, n), (k, a)) in xrefs.items()
+                if t == "templatefilter" and k == "ref/templates/builtins"
+            ],
         }
         outfilename = os.path.join(self.outdir, "templatebuiltins.js")
         with open(outfilename, 'w') as fp:

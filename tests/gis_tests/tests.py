@@ -40,14 +40,16 @@ if HAS_POSTGRES:
                     raise ProgrammingError
                 else:
                     return self.version
+            elif func == 'version':
+                pass
             else:
                 raise NotImplementedError('This function was not expected to be called')
 
 
 @unittest.skipUnless(HAS_POSTGRES, "The psycopg2 driver is needed for these tests")
-class TestPostgisVersionCheck(unittest.TestCase):
+class TestPostGISVersionCheck(unittest.TestCase):
     """
-    Tests that the postgis version check parses correctly the version numbers
+    The PostGIS version check parses correctly the version numbers
     """
 
     def test_get_version(self):
@@ -85,8 +87,28 @@ class TestPostgisVersionCheck(unittest.TestCase):
 
         for version in versions:
             ops = FakePostGISOperations(version)
-            self.assertRaises(Exception, lambda: ops.spatial_version)
+            with self.assertRaises(Exception):
+                ops.spatial_version
 
     def test_no_version_number(self):
         ops = FakePostGISOperations()
-        self.assertRaises(ImproperlyConfigured, lambda: ops.spatial_version)
+        with self.assertRaises(ImproperlyConfigured):
+            ops.spatial_version
+
+    def test_version_dependent_funcs(self):
+        """
+        Resolve names of functions renamed and deprecated in PostGIS 2.2.0
+        depending on PostGIS version.
+        Remove when dropping support for PostGIS 2.1.
+        """
+        ops = FakePostGISOperations('2.2.0')
+        self.assertEqual(ops.spatial_function_name('DistanceSphere'), 'ST_DistanceSphere')
+        self.assertEqual(ops.spatial_function_name('DistanceSpheroid'), 'ST_DistanceSpheroid')
+        self.assertEqual(ops.spatial_function_name('LengthSpheroid'), 'ST_LengthSpheroid')
+        self.assertEqual(ops.spatial_function_name('MemSize'), 'ST_MemSize')
+
+        ops = FakePostGISOperations('2.1.0')
+        self.assertEqual(ops.spatial_function_name('DistanceSphere'), 'ST_distance_sphere')
+        self.assertEqual(ops.spatial_function_name('DistanceSpheroid'), 'ST_distance_spheroid')
+        self.assertEqual(ops.spatial_function_name('LengthSpheroid'), 'ST_length_spheroid')
+        self.assertEqual(ops.spatial_function_name('MemSize'), 'ST_mem_size')

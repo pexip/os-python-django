@@ -11,6 +11,7 @@ from __future__ import unicode_literals
 import datetime
 import os
 import tempfile
+import uuid
 
 from django.core import validators
 from django.core.exceptions import ValidationError
@@ -71,7 +72,7 @@ class Article(models.Model):
     slug = models.SlugField()
     pub_date = models.DateField()
     created = models.DateField(editable=False)
-    writer = models.ForeignKey(Writer)
+    writer = models.ForeignKey(Writer, models.CASCADE)
     article = models.TextField()
     categories = models.ManyToManyField(Category, blank=True)
     status = models.PositiveIntegerField(choices=ARTICLE_STATUS, blank=True, null=True)
@@ -86,11 +87,11 @@ class Article(models.Model):
 
 
 class ImprovedArticle(models.Model):
-    article = models.OneToOneField(Article)
+    article = models.OneToOneField(Article, models.CASCADE)
 
 
 class ImprovedArticleWithParentLink(models.Model):
-    article = models.OneToOneField(Article, parent_link=True)
+    article = models.OneToOneField(Article, models.CASCADE, parent_link=True)
 
 
 class BetterWriter(Writer):
@@ -106,19 +107,39 @@ class Publication(models.Model):
         return self.title
 
 
+def default_mode():
+    return 'di'
+
+
+def default_category():
+    return 3
+
+
+class PublicationDefaults(models.Model):
+    MODE_CHOICES = (('di', 'direct'), ('de', 'delayed'))
+    CATEGORY_CHOICES = ((1, 'Games'), (2, 'Comics'), (3, 'Novel'))
+    title = models.CharField(max_length=30)
+    date_published = models.DateField(default=datetime.date.today)
+    datetime_published = models.DateTimeField(default=datetime.datetime(2000, 1, 1))
+    mode = models.CharField(max_length=2, choices=MODE_CHOICES, default=default_mode)
+    category = models.IntegerField(choices=CATEGORY_CHOICES, default=default_category)
+    active = models.BooleanField(default=True)
+    file = models.FileField(default='default.txt')
+
+
 class Author(models.Model):
-    publication = models.OneToOneField(Publication, null=True, blank=True)
+    publication = models.OneToOneField(Publication, models.SET_NULL, null=True, blank=True)
     full_name = models.CharField(max_length=255)
 
 
 class Author1(models.Model):
-    publication = models.OneToOneField(Publication, null=False)
+    publication = models.OneToOneField(Publication, models.CASCADE, null=False)
     full_name = models.CharField(max_length=255)
 
 
 @python_2_unicode_compatible
 class WriterProfile(models.Model):
-    writer = models.OneToOneField(Writer, primary_key=True)
+    writer = models.OneToOneField(Writer, models.CASCADE, primary_key=True)
     age = models.PositiveIntegerField()
 
     def __str__(self):
@@ -150,7 +171,7 @@ class CustomFF(models.Model):
 
 
 class FilePathModel(models.Model):
-    path = models.FilePathField(path=os.path.dirname(upath(__file__)), match=".*\.py$", blank=True)
+    path = models.FilePathField(path=os.path.dirname(upath(__file__)), match=r".*\.py$", blank=True)
 
 
 try:
@@ -193,6 +214,17 @@ try:
 
         def __str__(self):
             return self.description
+
+    class NoExtensionImageFile(models.Model):
+        def upload_to(self, filename):
+            return 'tests/no_extension'
+
+        description = models.CharField(max_length=20)
+        image = models.ImageField(storage=temp_storage, upload_to=upload_to)
+
+        def __str__(self):
+            return self.description
+
 except ImportError:
     test_images = False
 
@@ -245,7 +277,7 @@ class ArticleStatus(models.Model):
 @python_2_unicode_compatible
 class Inventory(models.Model):
     barcode = models.PositiveIntegerField(unique=True)
-    parent = models.ForeignKey('self', to_field='barcode', blank=True, null=True)
+    parent = models.ForeignKey('self', models.SET_NULL, to_field='barcode', blank=True, null=True)
     name = models.CharField(blank=False, max_length=20)
 
     class Meta:
@@ -260,7 +292,7 @@ class Inventory(models.Model):
 
 class Book(models.Model):
     title = models.CharField(max_length=40)
-    author = models.ForeignKey(Writer, blank=True, null=True)
+    author = models.ForeignKey(Writer, models.SET_NULL, blank=True, null=True)
     special_id = models.IntegerField(blank=True, null=True, unique=True)
 
     class Meta:
@@ -370,13 +402,16 @@ class ColourfulItem(models.Model):
 
 
 class CustomErrorMessage(models.Model):
-    name1 = models.CharField(max_length=50,
+    name1 = models.CharField(
+        max_length=50,
         validators=[validators.validate_slug],
-        error_messages={'invalid': 'Model custom error message.'})
-
-    name2 = models.CharField(max_length=50,
+        error_messages={'invalid': 'Model custom error message.'},
+    )
+    name2 = models.CharField(
+        max_length=50,
         validators=[validators.validate_slug],
-        error_messages={'invalid': 'Model custom error message.'})
+        error_messages={'invalid': 'Model custom error message.'},
+    )
 
     def clean(self):
         if self.name1 == 'FORBIDDEN_VALUE':
@@ -401,13 +436,18 @@ class Character(models.Model):
 
 
 class StumpJoke(models.Model):
-    most_recently_fooled = models.ForeignKey(Character, limit_choices_to=today_callable_dict, related_name="+")
+    most_recently_fooled = models.ForeignKey(
+        Character,
+        models.CASCADE,
+        limit_choices_to=today_callable_dict,
+        related_name="+",
+    )
     has_fooled_today = models.ManyToManyField(Character, limit_choices_to=today_callable_q, related_name="+")
 
 
 # Model for #13776
 class Student(models.Model):
-    character = models.ForeignKey(Character)
+    character = models.ForeignKey(Character, models.CASCADE)
     study = models.CharField(max_length=30)
 
 
@@ -425,3 +465,39 @@ class Photo(models.Model):
     def save(self, force_insert=False, force_update=False):
         super(Photo, self).save(force_insert, force_update)
         self._savecount += 1
+
+
+class UUIDPK(models.Model):
+    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=30)
+
+
+# Models for #24706
+class StrictAssignmentFieldSpecific(models.Model):
+    title = models.CharField(max_length=30)
+    _should_error = False
+
+    def __setattr__(self, key, value):
+        if self._should_error is True:
+            raise ValidationError(message={key: "Cannot set attribute"}, code='invalid')
+        super(StrictAssignmentFieldSpecific, self).__setattr__(key, value)
+
+
+class StrictAssignmentAll(models.Model):
+    title = models.CharField(max_length=30)
+    _should_error = False
+
+    def __setattr__(self, key, value):
+        if self._should_error is True:
+            raise ValidationError(message="Cannot set attribute", code='invalid')
+        super(StrictAssignmentAll, self).__setattr__(key, value)
+
+
+# A model with ForeignKey(blank=False, null=True)
+class Award(models.Model):
+    name = models.CharField(max_length=30)
+    character = models.ForeignKey(Character, models.SET_NULL, blank=False, null=True)
+
+
+class NullableUniqueCharFieldModel(models.Model):
+    codename = models.CharField(max_length=50, blank=True, null=True, unique=True)

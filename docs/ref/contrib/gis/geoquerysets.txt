@@ -11,25 +11,71 @@ GeoQuerySet API Reference
 Spatial Lookups
 ===============
 
-Just like when using the :ref:`queryset-api`, interaction
-with ``GeoQuerySet`` by :ref:`chaining filters <chaining-filters>`.
-Instead of the regular Django :ref:`field-lookups`, the
-spatial lookups in this section are available for :class:`GeometryField`.
+The spatial lookups in this section are available for :class:`GeometryField`
+and :class:`RasterField`.
 
 For an introduction, see the :ref:`spatial lookups introduction
 <spatial-lookups-intro>`.  For an overview of what lookups are
 compatible with a particular spatial backend, refer to the
 :ref:`spatial lookup compatibility table <spatial-lookup-compatibility>`.
 
+.. versionchanged:: 1.10
+
+    Spatial lookups now support raster input.
+
+Lookups with rasters
+--------------------
+
+All examples in the reference below are given for geometry fields and inputs,
+but the lookups can be used the same way with rasters on both sides. Whenever
+a lookup doesn't support raster input, the input is automatically
+converted to a geometry where necessary using the `ST_Polygon
+<https://postgis.net/docs/RT_ST_Polygon.html>`_ function. See also the
+:ref:`introduction to raster lookups <spatial-lookup-raster>`.
+
+The database operators used by the lookups can be divided into three categories:
+
+- Native raster support ``N``: the operator accepts rasters natively on both
+  sides of the lookup, and raster input can be mixed with geometry inputs.
+
+- Bilateral raster support ``B``: the operator supports rasters only if both
+  sides of the lookup receive raster inputs. Raster data is automatically
+  converted to geometries for mixed lookups.
+
+- Geometry conversion support ``C``. The lookup does not have native raster
+  support, all raster data is automatically converted to geometries.
+
+The examples below show the SQL equivalent for the lookups in the different
+types of raster support. The same pattern applies to all spatial lookups.
+
+==== ============================== =======================================================
+Case Lookup                         SQL Equivalent
+==== ============================== =======================================================
+N, B ``rast__contains=rst``         ``ST_Contains(rast, rst)``
+N, B ``rast__1__contains=(rst, 2)`` ``ST_Contains(rast, 1, rst, 2)``
+B, C ``rast__contains=geom``        ``ST_Contains(ST_Polygon(rast), geom)``
+B, C ``rast__1__contains=geom``     ``ST_Contains(ST_Polygon(rast, 1), geom)``
+B, C ``poly__contains=rst``         ``ST_Contains(poly, ST_Polygon(rst))``
+B, C ``poly__contains=(rst, 1)``    ``ST_Contains(poly, ST_Polygon(rst, 1))``
+C    ``rast__crosses=rst``          ``ST_Crosses(ST_Polygon(rast), ST_Polygon(rst))``
+C    ``rast__1__crosses=(rst, 2)``  ``ST_Crosses(ST_Polygon(rast, 1), ST_Polygon(rst, 2))``
+C    ``rast__crosses=geom``         ``ST_Crosses(ST_Polygon(rast), geom)``
+C    ``poly__crosses=rst``          ``ST_Crosses(poly, ST_Polygon(rst))``
+==== ============================== =======================================================
+
+Spatial lookups with rasters are only supported for PostGIS backends
+(denominated as PGRaster in this section).
+
 .. fieldlookup:: bbcontains
 
-bbcontains
-----------
+``bbcontains``
+--------------
 
-*Availability*: PostGIS, MySQL, SpatiaLite
+*Availability*: `PostGIS <https://postgis.net/docs/ST_Geometry_Contain.html>`__,
+MySQL, SpatiaLite, PGRaster (Native)
 
-Tests if the geometry field's bounding box completely contains the lookup
-geometry's bounding box.
+Tests if the geometry or raster field's bounding box completely contains the
+lookup geometry's bounding box.
 
 Example::
 
@@ -45,10 +91,11 @@ SpatiaLite  ``MbrContains(poly, geom)``
 
 .. fieldlookup:: bboverlaps
 
-bboverlaps
-----------
+``bboverlaps``
+--------------
 
-*Availability*: PostGIS, MySQL, SpatiaLite
+*Availability*: `PostGIS <https://postgis.net/docs/geometry_overlaps.html>`__,
+MySQL, SpatiaLite, PGRaster (Native)
 
 Tests if the geometry field's bounding box overlaps the lookup geometry's
 bounding box.
@@ -67,10 +114,11 @@ SpatiaLite  ``MbrOverlaps(poly, geom)``
 
 .. fieldlookup:: contained
 
-contained
----------
+``contained``
+-------------
 
-*Availability*: PostGIS, MySQL, SpatiaLite
+*Availability*: `PostGIS <https://postgis.net/docs/ST_Geometry_Contained.html>`__,
+MySQL, SpatiaLite, PGRaster (Native)
 
 Tests if the geometry field's bounding box is completely contained by the
 lookup geometry's bounding box.
@@ -89,10 +137,11 @@ SpatiaLite  ``MbrWithin(poly, geom)``
 
 .. fieldlookup:: gis-contains
 
-contains
---------
+``contains``
+------------
 
-*Availability*: PostGIS, Oracle, MySQL, SpatiaLite
+*Availability*: `PostGIS <https://postgis.net/docs/ST_Contains.html>`__,
+Oracle, MySQL, SpatiaLite, PGRaster (Bilateral)
 
 Tests if the geometry field spatially contains the lookup geometry.
 
@@ -111,13 +160,14 @@ SpatiaLite  ``Contains(poly, geom)``
 
 .. fieldlookup:: contains_properly
 
-contains_properly
------------------
+``contains_properly``
+---------------------
 
-*Availability*: PostGIS
+*Availability*: `PostGIS <https://postgis.net/docs/ST_ContainsProperly.html>`__,
+PGRaster (Bilateral)
 
 Returns true if the lookup geometry intersects the interior of the
-geometry field, but not the boundary (or exterior). [#fncontainsproperly]_
+geometry field, but not the boundary (or exterior).
 
 Example::
 
@@ -131,10 +181,11 @@ PostGIS     ``ST_ContainsProperly(poly, geom)``
 
 .. fieldlookup:: coveredby
 
-coveredby
----------
+``coveredby``
+-------------
 
-*Availability*: PostGIS, Oracle
+*Availability*: `PostGIS <https://postgis.net/docs/ST_CoveredBy.html>`__,
+Oracle, PGRaster (Bilateral)
 
 Tests if no point in the geometry field is outside the lookup geometry.
 [#fncovers]_
@@ -152,10 +203,11 @@ Oracle      ``SDO_COVEREDBY(poly, geom)``
 
 .. fieldlookup:: covers
 
-covers
-------
+``covers``
+----------
 
-*Availability*: PostGIS, Oracle
+*Availability*: `PostGIS <https://postgis.net/docs/ST_Covers.html>`__,
+Oracle, PGRaster (Bilateral)
 
 Tests if no point in the lookup geometry is outside the geometry field.
 [#fncovers]_
@@ -173,10 +225,11 @@ Oracle      ``SDO_COVERS(poly, geom)``
 
 .. fieldlookup:: crosses
 
-crosses
--------
+``crosses``
+-----------
 
-*Availability*: PostGIS, SpatiaLite
+*Availability*: `PostGIS <https://postgis.net/docs/ST_Crosses.html>`__,
+SpatiaLite, PGRaster (Conversion)
 
 Tests if the geometry field spatially crosses the lookup geometry.
 
@@ -193,10 +246,11 @@ SpatiaLite  ``Crosses(poly, geom)``
 
 .. fieldlookup:: disjoint
 
-disjoint
---------
+``disjoint``
+------------
 
-*Availability*: PostGIS, Oracle, MySQL, SpatiaLite
+*Availability*: `PostGIS <https://postgis.net/docs/ST_Disjoint.html>`__,
+Oracle, MySQL, SpatiaLite, PGRaster (Bilateral)
 
 Tests if the geometry field is spatially disjoint from the lookup geometry.
 
@@ -215,25 +269,28 @@ SpatiaLite  ``Disjoint(poly, geom)``
 
 .. fieldlookup:: equals
 
-equals
-------
+``equals``
+----------
 
-*Availability*: PostGIS, Oracle, MySQL, SpatiaLite
+*Availability*: `PostGIS <https://postgis.net/docs/ST_Equals.html>`__,
+Oracle, MySQL, SpatiaLite, PGRaster (Conversion)
 
 .. fieldlookup:: exact
 .. fieldlookup:: same_as
 
-exact, same_as
---------------
+``exact``, ``same_as``
+----------------------
 
-*Availability*: PostGIS, Oracle, MySQL, SpatiaLite
+*Availability*: `PostGIS <https://postgis.net/docs/ST_Geometry_Same.html>`__,
+Oracle, MySQL, SpatiaLite, PGRaster (Bilateral)
 
 .. fieldlookup:: intersects
 
-intersects
-----------
+``intersects``
+--------------
 
-*Availability*: PostGIS, Oracle, MySQL, SpatiaLite
+*Availability*: `PostGIS <https://postgis.net/docs/ST_Intersects.html>`__,
+Oracle, MySQL, SpatiaLite, PGRaster (Bilateral)
 
 Tests if the geometry field spatially intersects the lookup geometry.
 
@@ -250,19 +307,48 @@ MySQL       ``MBRIntersects(poly, geom)``
 SpatiaLite  ``Intersects(poly, geom)``
 ==========  =================================================
 
+.. fieldlookup:: isvalid
+
+``isvalid``
+-----------
+
+.. versionadded:: 1.10
+
+*Availability*: `PostGIS <https://postgis.net/docs/ST_IsValid.html>`__,
+Oracle, SpatiaLite
+
+Tests if the geometry is valid.
+
+Example::
+
+    Zipcode.objects.filter(poly__isvalid=True)
+
+===================  ================================================================
+Backend              SQL Equivalent
+===================  ================================================================
+PostGIS, SpatiaLite  ``ST_IsValid(poly)``
+Oracle               ``SDO_GEOM.VALIDATE_GEOMETRY_WITH_CONTEXT(poly, 0.05) = 'TRUE'``
+===================  ================================================================
+
+.. versionchanged:: 1.11
+
+    Oracle and SpatiaLite support was added.
+
 .. fieldlookup:: overlaps
 
-overlaps
---------
+``overlaps``
+------------
 
-*Availability*: PostGIS, Oracle, MySQL, SpatiaLite
+*Availability*: `PostGIS <https://postgis.net/docs/ST_Overlaps.html>`__,
+Oracle, MySQL, SpatiaLite, PGRaster (Bilateral)
 
 .. fieldlookup:: relate
 
-relate
-------
+``relate``
+----------
 
-*Availability*: PostGIS, Oracle, SpatiaLite
+*Availability*: `PostGIS <https://postgis.net/docs/ST_Relate.html>`__,
+Oracle, SpatiaLite, PGRaster (Conversion)
 
 Tests if the geometry field is spatially related to the lookup geometry by
 the values given in the given pattern.  This lookup requires a tuple parameter,
@@ -277,7 +363,7 @@ The intersection pattern matrix may only use the following characters:
 ``1``, ``2``, ``T``, ``F``, or ``*``.  This lookup type allows users to "fine tune"
 a specific geometric relationship consistent with the DE-9IM model. [#fnde9im]_
 
-Example::
+Geometry example::
 
     # A tuple lookup parameter is used to specify the geometry and
     # the intersection pattern (the pattern here is for 'contains').
@@ -291,10 +377,20 @@ SpatiaLite SQL equivalent::
 
     SELECT ... WHERE Relate(poly, geom, 'T*T***FF*')
 
+Raster example::
+
+    Zipcode.objects.filter(poly__relate=(rast, 1, 'T*T***FF*'))
+    Zipcode.objects.filter(rast__2__relate=(rast, 1, 'T*T***FF*'))
+
+PostGIS SQL equivalent::
+
+    SELECT ... WHERE ST_Relate(poly, ST_Polygon(rast, 1), 'T*T***FF*')
+    SELECT ... WHERE ST_Relate(ST_Polygon(rast, 2), ST_Polygon(rast, 1), 'T*T***FF*')
+
 Oracle
 ~~~~~~
 
-Here the relation pattern is comprised at least one of the nine relation
+Here the relation pattern is comprised of at least one of the nine relation
 strings: ``TOUCH``, ``OVERLAPBDYDISJOINT``, ``OVERLAPBDYINTERSECT``,
 ``EQUAL``, ``INSIDE``, ``COVEREDBY``, ``CONTAINS``, ``COVERS``, ``ON``, and
 ``ANYINTERACT``.   Multiple strings may be combined with the logical Boolean
@@ -311,10 +407,11 @@ Oracle SQL equivalent::
 
 .. fieldlookup:: touches
 
-touches
--------
+``touches``
+-----------
 
-*Availability*: PostGIS, Oracle, MySQL, SpatiaLite
+*Availability*: `PostGIS <https://postgis.net/docs/ST_Touches.html>`__,
+Oracle, MySQL, SpatiaLite
 
 Tests if the geometry field spatially touches the lookup geometry.
 
@@ -333,10 +430,11 @@ SpatiaLite  ``Touches(poly, geom)``
 
 .. fieldlookup:: within
 
-within
-------
+``within``
+----------
 
-*Availability*: PostGIS, Oracle, MySQL, SpatiaLite
+*Availability*: `PostGIS <https://postgis.net/docs/ST_Within.html>`__,
+Oracle, MySQL, SpatiaLite, PGRaster (Bilateral)
 
 Tests if the geometry field is spatially within the lookup geometry.
 
@@ -355,10 +453,11 @@ SpatiaLite  ``Within(poly, geom)``
 
 .. fieldlookup:: left
 
-left
-----
+``left``
+--------
 
-*Availability*: PostGIS
+*Availability*: `PostGIS <https://postgis.net/docs/ST_Geometry_Left.html>`__,
+PGRaster (Conversion)
 
 Tests if the geometry field's bounding box is strictly to the left of the
 lookup geometry's bounding box.
@@ -373,10 +472,11 @@ PostGIS equivalent::
 
 .. fieldlookup:: right
 
-right
------
+``right``
+---------
 
-*Availability*: PostGIS
+*Availability*: `PostGIS <https://postgis.net/docs/ST_Geometry_Right.html>`__,
+PGRaster (Conversion)
 
 Tests if the geometry field's bounding box is strictly to the right of the
 lookup geometry's bounding box.
@@ -391,10 +491,11 @@ PostGIS equivalent::
 
 .. fieldlookup:: overlaps_left
 
-overlaps_left
--------------
+``overlaps_left``
+-----------------
 
-*Availability*: PostGIS
+*Availability*: `PostGIS <https://postgis.net/docs/ST_Geometry_Overleft.html>`__,
+PGRaster (Bilateral)
 
 Tests if the geometry field's bounding box overlaps or is to the left of the lookup
 geometry's bounding box.
@@ -410,10 +511,11 @@ PostGIS equivalent::
 
 .. fieldlookup:: overlaps_right
 
-overlaps_right
---------------
+``overlaps_right``
+------------------
 
-*Availability*: PostGIS
+*Availability*: `PostGIS <https://postgis.net/docs/ST_Geometry_Overright.html>`__,
+PGRaster (Bilateral)
 
 Tests if the geometry field's bounding box overlaps or is to the right of the lookup
 geometry's bounding box.
@@ -428,10 +530,11 @@ PostGIS equivalent::
 
 .. fieldlookup:: overlaps_above
 
-overlaps_above
---------------
+``overlaps_above``
+------------------
 
-*Availability*: PostGIS
+*Availability*: `PostGIS <https://postgis.net/docs/ST_Geometry_Overabove.html>`__,
+PGRaster (Conversion)
 
 Tests if the geometry field's bounding box overlaps or is above the lookup
 geometry's bounding box.
@@ -446,10 +549,11 @@ PostGIS equivalent::
 
 .. fieldlookup:: overlaps_below
 
-overlaps_below
---------------
+``overlaps_below``
+------------------
 
-*Availability*: PostGIS
+*Availability*: `PostGIS <https://postgis.net/docs/ST_Geometry_Overbelow.html>`__,
+PGRaster (Conversion)
 
 Tests if the geometry field's bounding box overlaps or is below the lookup
 geometry's bounding box.
@@ -464,10 +568,11 @@ PostGIS equivalent::
 
 .. fieldlookup:: strictly_above
 
-strictly_above
---------------
+``strictly_above``
+------------------
 
-*Availability*: PostGIS
+*Availability*: `PostGIS <https://postgis.net/docs/ST_Geometry_Above.html>`__,
+PGRaster (Conversion)
 
 Tests if the geometry field's bounding box is strictly above the lookup
 geometry's bounding box.
@@ -482,10 +587,11 @@ PostGIS equivalent::
 
 .. fieldlookup:: strictly_below
 
-strictly_below
---------------
+``strictly_below``
+------------------
 
-*Availability*: PostGIS
+*Availability*: `PostGIS <https://postgis.net/docs/ST_Geometry_Below.html>`__,
+PGRaster (Conversion)
 
 Tests if the geometry field's bounding box is strictly below the lookup
 geometry's bounding box.
@@ -504,29 +610,47 @@ PostGIS equivalent::
 Distance Lookups
 ================
 
-*Availability*: PostGIS, Oracle, SpatiaLite
+*Availability*: PostGIS, Oracle, SpatiaLite, PGRaster (Native)
 
 For an overview on performing distance queries, please refer to
 the :ref:`distance queries introduction <distance-queries>`.
 
 Distance lookups take the following form::
 
-    <field>__<distance lookup>=(<geometry>, <distance value>[, 'spheroid'])
+    <field>__<distance lookup>=(<geometry/raster>, <distance value>[, 'spheroid'])
+    <field>__<distance lookup>=(<raster>, <band_index>, <distance value>[, 'spheroid'])
+    <field>__<band_index>__<distance lookup>=(<raster>, <band_index>, <distance value>[, 'spheroid'])
 
 The value passed into a distance lookup is a tuple; the first two
 values are mandatory, and are the geometry to calculate distances to,
-and a distance value (either a number in units of the field or a
-:class:`~django.contrib.gis.measure.Distance` object).  On every
-distance lookup but :lookup:`dwithin`, an optional
-third element, ``'spheroid'``, may be included to tell GeoDjango
-to use the more accurate spheroid distance calculation functions on
-fields with a geodetic coordinate system (e.g., ``ST_Distance_Spheroid``
-would be used instead of ``ST_Distance_Sphere``).
+and a distance value (either a number in units of the field, a
+:class:`~django.contrib.gis.measure.Distance` object, or a `query expression
+<ref/models/expressions>`). To pass a band index to the lookup, use a 3-tuple
+where the second entry is the band index.
+
+On every distance lookup except :lookup:`dwithin`, an optional element,
+``'spheroid'``, may be included to use the more accurate spheroid distance
+calculation functions on fields with a geodetic coordinate system.
+
+On PostgreSQL, the ``'spheroid'`` option uses `ST_DistanceSpheroid
+<https://postgis.net/docs/ST_Distance_Spheroid.html>`__ instead of
+`ST_DistanceSphere <https://postgis.net/docs/ST_DistanceSphere.html>`__. The
+simpler `ST_Distance <https://postgis.net/docs/ST_Distance.html>`__ function is
+used with projected coordinate systems. Rasters are converted to geometries for
+spheroid based lookups.
+
+.. versionadded:: 1.10
+
+    The ability to pass an expression as the distance value was added.
+
+.. versionadded:: 1.11
+
+    Support for the ``'spheroid'`` option on SQLite was added.
 
 .. fieldlookup:: distance_gt
 
-distance_gt
------------
+``distance_gt``
+---------------
 
 Returns models where the distance to the geometry field from the lookup
 geometry is greater than the given distance value.
@@ -535,18 +659,18 @@ Example::
 
     Zipcode.objects.filter(poly__distance_gt=(geom, D(m=5)))
 
-==========  ===============================================
+==========  ==================================================
 Backend     SQL Equivalent
-==========  ===============================================
-PostGIS     ``ST_Distance(poly, geom) > 5``
+==========  ==================================================
+PostGIS     ``ST_Distance/ST_Distance_Sphere(poly, geom) > 5``
 Oracle      ``SDO_GEOM.SDO_DISTANCE(poly, geom, 0.05) > 5``
 SpatiaLite  ``Distance(poly, geom) > 5``
-==========  ===============================================
+==========  ==================================================
 
 .. fieldlookup:: distance_gte
 
-distance_gte
-------------
+``distance_gte``
+----------------
 
 Returns models where the distance to the geometry field from the lookup
 geometry is greater than or equal to the given distance value.
@@ -555,18 +679,18 @@ Example::
 
     Zipcode.objects.filter(poly__distance_gte=(geom, D(m=5)))
 
-==========  ================================================
+==========  ===================================================
 Backend     SQL Equivalent
-==========  ================================================
-PostGIS     ``ST_Distance(poly, geom) >= 5``
+==========  ===================================================
+PostGIS     ``ST_Distance/ST_Distance_Sphere(poly, geom) >= 5``
 Oracle      ``SDO_GEOM.SDO_DISTANCE(poly, geom, 0.05) >= 5``
 SpatiaLite  ``Distance(poly, geom) >= 5``
-==========  ================================================
+==========  ===================================================
 
 .. fieldlookup:: distance_lt
 
-distance_lt
------------
+``distance_lt``
+---------------
 
 Returns models where the distance to the geometry field from the lookup
 geometry is less than the given distance value.
@@ -575,18 +699,18 @@ Example::
 
     Zipcode.objects.filter(poly__distance_lt=(geom, D(m=5)))
 
-==========  ===============================================
+==========  ==================================================
 Backend     SQL Equivalent
-==========  ===============================================
-PostGIS     ``ST_Distance(poly, geom) < 5``
+==========  ==================================================
+PostGIS     ``ST_Distance/ST_Distance_Sphere(poly, geom) < 5``
 Oracle      ``SDO_GEOM.SDO_DISTANCE(poly, geom, 0.05) < 5``
 SpatiaLite  ``Distance(poly, geom) < 5``
-==========  ===============================================
+==========  ==================================================
 
 .. fieldlookup:: distance_lte
 
-distance_lte
-------------
+``distance_lte``
+----------------
 
 Returns models where the distance to the geometry field from the lookup
 geometry is less than or equal to the given distance value.
@@ -595,18 +719,18 @@ Example::
 
     Zipcode.objects.filter(poly__distance_lte=(geom, D(m=5)))
 
-==========  ================================================
+==========  ===================================================
 Backend     SQL Equivalent
-==========  ================================================
-PostGIS     ``ST_Distance(poly, geom) <= 5``
+==========  ===================================================
+PostGIS     ``ST_Distance/ST_Distance_Sphere(poly, geom) <= 5``
 Oracle      ``SDO_GEOM.SDO_DISTANCE(poly, geom, 0.05) <= 5``
 SpatiaLite  ``Distance(poly, geom) <= 5``
-==========  ================================================
+==========  ===================================================
 
 .. fieldlookup:: dwithin
 
-dwithin
--------
+``dwithin``
+-----------
 
 Returns models where the distance to the geometry field from the lookup
 geometry are within the given distance from one another. Note that you can only
@@ -623,14 +747,23 @@ Backend     SQL Equivalent
 ==========  ======================================
 PostGIS     ``ST_DWithin(poly, geom, 5)``
 Oracle      ``SDO_WITHIN_DISTANCE(poly, geom, 5)``
+SpatiaLite  ``PtDistWithin(poly, geom, 5)``
 ==========  ======================================
 
-.. note::
+.. versionchanged:: 1.11
 
-    This lookup is not available on SpatiaLite.
+    SpatiaLite support was added.
+
+.. _geoqueryset-methods:
 
 ``GeoQuerySet`` Methods
 =======================
+
+.. deprecated:: 1.9
+
+    Using ``GeoQuerySet`` methods is now deprecated in favor of the new
+    :doc:`functions`. Albeit a little more verbose, they are much more powerful
+    in how it is possible to combine them to build more complex queries.
 
 ``GeoQuerySet`` methods specify that a spatial operation be performed
 on each spatial operation on each geographic
@@ -644,7 +777,7 @@ of every ``GeoQuerySet`` method available in GeoDjango.
 .. note::
 
     What methods are available depend on your spatial backend.  See
-    the :ref:`compatibility table <geoqueryset-method-compatibility>`
+    the :ref:`compatibility table <database-functions-compatibility>`
     for more details.
 
 With a few exceptions, the following keyword arguments may be used with all
@@ -690,6 +823,11 @@ Measurement
 
 .. method:: GeoQuerySet.area(**kwargs)
 
+.. deprecated:: 1.9
+
+    Use the :class:`~django.contrib.gis.db.models.functions.Area` function
+    instead.
+
 Returns the area of the geographic field in an ``area`` attribute on
 each element of this GeoQuerySet.
 
@@ -697,6 +835,11 @@ each element of this GeoQuerySet.
 ~~~~~~~~~~~~
 
 .. method:: GeoQuerySet.distance(geom, **kwargs)
+
+.. deprecated:: 1.9
+
+    Use the :class:`~django.contrib.gis.db.models.functions.Distance` function
+    instead.
 
 This method takes a geometry as a parameter, and attaches a ``distance``
 attribute to every model in the returned queryset that contains the
@@ -737,6 +880,11 @@ __ https://en.wikipedia.org/wiki/Tasmania
 
 .. method:: GeoQuerySet.length(**kwargs)
 
+.. deprecated:: 1.9
+
+    Use the :class:`~django.contrib.gis.db.models.functions.Length` function
+    instead.
+
 Returns the length of the geometry field in a ``length`` attribute
 (a :class:`~django.contrib.gis.measure.Distance` object) on each model in
 the queryset.
@@ -745,6 +893,11 @@ the queryset.
 ~~~~~~~~~~~~~
 
 .. method:: GeoQuerySet.perimeter(**kwargs)
+
+.. deprecated:: 1.9
+
+    Use the :class:`~django.contrib.gis.db.models.functions.Perimeter` function
+    instead.
 
 Returns the perimeter of the geometry field in a ``perimeter`` attribute
 (a :class:`~django.contrib.gis.measure.Distance` object) on each model in
@@ -762,6 +915,11 @@ function evaluated on the geometry field.
 
 .. method:: GeoQuerySet.centroid(**kwargs)
 
+.. deprecated:: 1.9
+
+    Use the :class:`~django.contrib.gis.db.models.functions.Centroid` function
+    instead.
+
 *Availability*: PostGIS, Oracle, SpatiaLite
 
 Returns the ``centroid`` value for the geographic field in a ``centroid``
@@ -772,6 +930,11 @@ attribute on each element of the ``GeoQuerySet``.
 
 .. method:: GeoQuerySet.envelope(**kwargs)
 
+.. deprecated:: 1.9
+
+    Use the :class:`~django.contrib.gis.db.models.functions.Envelope` function
+    instead.
+
 *Availability*: PostGIS, SpatiaLite
 
 Returns a geometry representing the bounding box of the geometry field in
@@ -781,6 +944,11 @@ an ``envelope`` attribute on each element of the ``GeoQuerySet``.
 ~~~~~~~~~~~~~~~~~~~~
 
 .. method:: GeoQuerySet.point_on_surface(**kwargs)
+
+.. deprecated:: 1.9
+
+    Use the :class:`~django.contrib.gis.db.models.functions.PointOnSurface`
+    function instead.
 
 *Availability*: PostGIS, Oracle, SpatiaLite
 
@@ -796,6 +964,11 @@ Geometry Editors
 
 .. method:: GeoQuerySet.force_rhr(**kwargs)
 
+.. deprecated:: 1.9
+
+    Use the :class:`~django.contrib.gis.db.models.functions.ForceRHR` function
+    instead.
+
 *Availability*: PostGIS
 
 Returns a modified version of the polygon/multipolygon in which all
@@ -807,6 +980,11 @@ of the vertices follow the Right-Hand-Rule, and attaches as a
 
 .. method:: GeoQuerySet.reverse_geom(**kwargs)
 
+.. deprecated:: 1.9
+
+    Use the :class:`~django.contrib.gis.db.models.functions.Reverse` function
+    instead.
+
 *Availability*: PostGIS, Oracle
 
 Reverse the coordinate order of the geometry field, and attaches as a
@@ -817,12 +995,22 @@ Reverse the coordinate order of the geometry field, and attaches as a
 
 .. method:: GeoQuerySet.scale(x, y, z=0.0, **kwargs)
 
+.. deprecated:: 1.9
+
+    Use the :class:`~django.contrib.gis.db.models.functions.Scale` function
+    instead.
+
 *Availability*: PostGIS, SpatiaLite
 
 ``snap_to_grid``
 ~~~~~~~~~~~~~~~~
 
 .. method:: GeoQuerySet.snap_to_grid(*args, **kwargs)
+
+.. deprecated:: 1.9
+
+    Use the :class:`~django.contrib.gis.db.models.functions.SnapToGrid` function
+    instead.
 
 Snap all points of the input geometry to the grid.  How the
 geometry is snapped to the grid depends on how many numeric
@@ -840,6 +1028,11 @@ Number of Arguments  Description
 ~~~~~~~~~~~~~
 
 .. method:: GeoQuerySet.transform(srid=4326, **kwargs)
+
+.. deprecated:: 1.9
+
+    Use the :class:`~django.contrib.gis.db.models.functions.Transform` function
+    instead.
 
 *Availability*: PostGIS, Oracle, SpatiaLite
 
@@ -872,6 +1065,11 @@ Example::
 ~~~~~~~~~~~~~
 .. method:: GeoQuerySet.translate(x, y, z=0.0, **kwargs)
 
+.. deprecated:: 1.9
+
+    Use the :class:`~django.contrib.gis.db.models.functions.Translate` function
+    instead.
+
 *Availability*: PostGIS, SpatiaLite
 
 Translates the geometry field to a new location using the given numeric
@@ -889,6 +1087,11 @@ to each element of the ``GeoQuerySet`` that is the result of the operation.
 
 .. method:: GeoQuerySet.difference(geom)
 
+.. deprecated:: 1.9
+
+    Use the :class:`~django.contrib.gis.db.models.functions.Difference` function
+    instead.
+
 Returns the spatial difference of the geographic field with the given
 geometry in a ``difference`` attribute on each element of the
 ``GeoQuerySet``.
@@ -899,6 +1102,11 @@ geometry in a ``difference`` attribute on each element of the
 
 .. method:: GeoQuerySet.intersection(geom)
 
+.. deprecated:: 1.9
+
+    Use the :class:`~django.contrib.gis.db.models.functions.Intersection`
+    function instead.
+
 Returns the spatial intersection of the geographic field with the
 given geometry in an ``intersection`` attribute on each element of the
 ``GeoQuerySet``.
@@ -908,6 +1116,11 @@ given geometry in an ``intersection`` attribute on each element of the
 
 .. method:: GeoQuerySet.sym_difference(geom)
 
+.. deprecated:: 1.9
+
+    Use the :class:`~django.contrib.gis.db.models.functions.SymDifference`
+    function instead.
+
 Returns the symmetric difference of the geographic field with the
 given geometry in a ``sym_difference`` attribute on each element of the
 ``GeoQuerySet``.
@@ -916,6 +1129,11 @@ given geometry in a ``sym_difference`` attribute on each element of the
 ~~~~~~~~~
 
 .. method:: GeoQuerySet.union(geom)
+
+.. deprecated:: 1.9
+
+    Use the :class:`~django.contrib.gis.db.models.functions.Union` function
+    instead.
 
 Returns the union of the geographic field with the given
 geometry in an ``union`` attribute on each element of the
@@ -932,6 +1150,11 @@ of the geometry field in each model converted to the requested output format.
 
 .. method:: GeoQuerySet.geohash(precision=20, **kwargs)
 
+.. deprecated:: 1.9
+
+    Use the :class:`~django.contrib.gis.db.models.functions.GeoHash` function
+    instead.
+
 Attaches a ``geohash`` attribute to every model the queryset
 containing the `GeoHash`__ representation of the geometry.
 
@@ -941,6 +1164,11 @@ __ http://geohash.org/
 ~~~~~~~~~~~
 
 .. method:: GeoQuerySet.geojson(**kwargs)
+
+.. deprecated:: 1.9
+
+    Use the :class:`~django.contrib.gis.db.models.functions.AsGeoJSON` function
+    instead.
 
 *Availability*: PostGIS, SpatiaLite
 
@@ -968,6 +1196,11 @@ __ http://geojson.org/
 ~~~~~~~
 
 .. method:: GeoQuerySet.gml(**kwargs)
+
+.. deprecated:: 1.9
+
+    Use the :class:`~django.contrib.gis.db.models.functions.AsGML` function
+    instead.
 
 *Availability*: PostGIS, Oracle, SpatiaLite
 
@@ -1000,6 +1233,11 @@ __ https://en.wikipedia.org/wiki/Geography_Markup_Language
 
 .. method:: GeoQuerySet.kml(**kwargs)
 
+.. deprecated:: 1.9
+
+    Use the :class:`~django.contrib.gis.db.models.functions.AsKML` function
+    instead.
+
 *Availability*: PostGIS, SpatiaLite
 
 Attaches a ``kml`` attribute to every model in the queryset that contains the
@@ -1028,6 +1266,11 @@ __ https://developers.google.com/kml/documentation/
 
 .. method:: GeoQuerySet.svg(**kwargs)
 
+.. deprecated:: 1.9
+
+    Use the :class:`~django.contrib.gis.db.models.functions.AsSVG` function
+    instead.
+
 *Availability*: PostGIS, SpatiaLite
 
 Attaches a ``svg`` attribute to every model in the queryset that contains
@@ -1055,6 +1298,11 @@ Miscellaneous
 
 .. method:: GeoQuerySet.mem_size(**kwargs)
 
+.. deprecated:: 1.9
+
+    Use the :class:`~django.contrib.gis.db.models.functions.MemSize` function
+    instead.
+
 *Availability*: PostGIS
 
 Returns the memory size (number of bytes) that the geometry field takes
@@ -1064,6 +1312,11 @@ in a ``mem_size`` attribute  on each element of the ``GeoQuerySet``.
 ~~~~~~~~~~~~
 
 .. method:: GeoQuerySet.num_geom(**kwargs)
+
+.. deprecated:: 1.9
+
+    Use the :class:`~django.contrib.gis.db.models.functions.NumGeometries`
+    function instead.
 
 *Availability*: PostGIS, Oracle, SpatiaLite
 
@@ -1077,77 +1330,16 @@ otherwise sets with ``None``.
 
 .. method:: GeoQuerySet.num_points(**kwargs)
 
+.. deprecated:: 1.9
+
+    Use the :class:`~django.contrib.gis.db.models.functions.NumPoints` function
+    instead.
+
 *Availability*: PostGIS, Oracle, SpatiaLite
 
 Returns the number of points in the first linestring in the
 geometry field in a ``num_points`` attribute on each element of
 the ``GeoQuerySet``; otherwise sets with ``None``.
-
-Spatial Aggregates
-==================
-
-Aggregate Methods
------------------
-
-.. deprecated:: 1.8
-
-    Aggregate methods are now deprecated. Prefer using their function-based
-    equivalents.
-
-``collect``
-~~~~~~~~~~~
-
-.. method:: GeoQuerySet.collect(**kwargs)
-
-.. deprecated:: 1.8
-
-    Use the :class:`Collect` aggregate instead.
-
-Shortcut for ``aggregate(Collect(<field>))``.
-
-``extent``
-~~~~~~~~~~
-
-.. method:: GeoQuerySet.extent(**kwargs)
-
-.. deprecated:: 1.8
-
-    Use the :class:`Extent` aggregate instead.
-
-Shortcut for ``aggregate(Extent(<field>))``.
-
-``extent3d``
-~~~~~~~~~~~~
-
-.. method:: GeoQuerySet.extent3d(**kwargs)
-
-.. deprecated:: 1.8
-
-    Use the :class:`Extent` aggregate instead.
-
-Shortcut for ``aggregate(Extent3D(<field>))``.
-
-``make_line``
-~~~~~~~~~~~~~
-
-.. method:: GeoQuerySet.make_line(**kwargs)
-
-.. deprecated:: 1.8
-
-    Use the :class:`MakeLine` aggregate instead.
-
-Shortcut for ``aggregate(MakeLine(<field>))``.
-
-``unionagg``
-~~~~~~~~~~~~
-
-.. method:: GeoQuerySet.unionagg(**kwargs)
-
-.. deprecated:: 1.8
-
-    Use the :class:`Union` aggregate instead.
-
-Shortcut for ``aggregate(Union(<field>))``.
 
 Aggregate Functions
 -------------------
@@ -1165,7 +1357,7 @@ Keyword Argument       Description
                        details.
 =====================  =====================================================
 
-__ http://docs.oracle.com/html/B14255_01/sdo_intro.htm#sthref150
+__ https://docs.oracle.com/database/121/SPATL/GUID-3BD00273-E74F-4830-9444-A3BB15AA0AC4.htm#SPATL466
 
 Example::
 
@@ -1177,7 +1369,8 @@ Example::
 
 .. class:: Collect(geo_field)
 
-*Availability*: PostGIS, Spatialite (≥3.0)
+*Availability*: `PostGIS <https://postgis.net/docs/ST_Collect.html>`__,
+SpatiaLite
 
 Returns a ``GEOMETRYCOLLECTION`` or a ``MULTI`` geometry object from the geometry
 column. This is analogous to a simplified version of the :class:`Union`
@@ -1190,7 +1383,8 @@ not caring about dissolving boundaries.
 
 .. class:: Extent(geo_field)
 
-*Availability*: PostGIS, Oracle, Spatialite (≥3.0)
+*Availability*: `PostGIS <https://postgis.net/docs/ST_Extent.html>`__,
+Oracle, SpatiaLite
 
 Returns the extent of all ``geo_field`` in the ``QuerySet`` as a four-tuple,
 comprising the lower left coordinate and the upper right coordinate.
@@ -1206,7 +1400,7 @@ Example::
 
 .. class:: Extent3D(geo_field)
 
-*Availability*: PostGIS
+*Availability*: `PostGIS <https://postgis.net/docs/ST_3DExtent.html>`__
 
 Returns the 3D extent of all ``geo_field`` in the ``QuerySet`` as a six-tuple,
 comprising the lower left coordinate and upper right coordinate (each with x, y,
@@ -1223,23 +1417,29 @@ Example::
 
 .. class:: MakeLine(geo_field)
 
-*Availability*: PostGIS
+*Availability*: `PostGIS <https://postgis.net/docs/ST_MakeLine.html>`__,
+SpatiaLite
 
 Returns a ``LineString`` constructed from the point field geometries in the
 ``QuerySet``. Currently, ordering the queryset has no effect.
 
+.. versionchanged:: 1.10
+
+    SpatiaLite support was added.
+
 Example::
 
-     >>> print(City.objects.filter(name__in=('Houston', 'Dallas')
-     ...      ).aggregate(MakeLine('poly'))['poly__makeline']
-     LINESTRING (-95.3631510000000020 29.7633739999999989, -96.8016109999999941 32.7820570000000018)
+    >>> qs = City.objects.filter(name__in=('Houston', 'Dallas')).aggregate(MakeLine('poly'))
+    >>> print(qs['poly__makeline'])
+    LINESTRING (-95.3631510000000020 29.7633739999999989, -96.8016109999999941 32.7820570000000018)
 
 ``Union``
 ~~~~~~~~~
 
 .. class:: Union(geo_field)
 
-*Availability*: PostGIS, Oracle, SpatiaLite
+*Availability*: `PostGIS <https://postgis.net/docs/ST_Union.html>`__,
+Oracle, SpatiaLite
 
 This method returns a :class:`~django.contrib.gis.geos.GEOSGeometry` object
 comprising the union of every geometry in the queryset. Please note that use of
@@ -1258,6 +1458,5 @@ Example::
 
 .. rubric:: Footnotes
 .. [#fnde9im] *See* `OpenGIS Simple Feature Specification For SQL <http://www.opengis.org/docs/99-049.pdf>`_, at Ch. 2.1.13.2, p. 2-13 (The Dimensionally Extended Nine-Intersection Model).
-.. [#fnsdorelate] *See* `SDO_RELATE documentation <http://docs.oracle.com/cd/B19306_01/appdev.102/b14255/sdo_operat.htm#sthref845>`_, from Ch. 11 of the Oracle Spatial User's Guide and Manual.
+.. [#fnsdorelate] *See* `SDO_RELATE documentation <https://docs.oracle.com/database/121/SPATL/sdo_relate.htm#SPATL1039>`_, from the Oracle Spatial and Graph Developer's Guide.
 .. [#fncovers] For an explanation of this routine, read `Quirks of the "Contains" Spatial Predicate <http://lin-ear-th-inking.blogspot.com/2007/06/subtleties-of-ogc-covers-spatial.html>`_ by Martin Davis (a PostGIS developer).
-.. [#fncontainsproperly] Refer to the PostGIS ``ST_ContainsProperly`` `documentation <http://postgis.net/docs/manual-1.5/ST_ContainsProperly.html>`_ for more details.
