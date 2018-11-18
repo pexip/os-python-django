@@ -3,6 +3,10 @@ python-django (1:1.11.16-3pexip1) pexip; urgency=low
   * New upstream release
   * debian/patches/backport-optimized-migration-plan-handling.diff:
     Drop: merged upstream
+  * debian/control:
+    - Relax debhelper version to 10
+    - Remove Build-Dep on python-six-doc
+  * debian/compat: Relax compatibility to dh 10
 
  -- John-Mark Bell <jmb@pexip.com>  Sun, 18 Nov 2018 17:57:20 +0000
 
