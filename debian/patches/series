@@ -4,4 +4,3 @@
 0004-Fix-QuerySet.defer-with-super-and-subclass-fields.patch
 0005-Fix-SyntaxError-Generator-expression-must-be-parenth.patch
 0006-Default-to-supporting-Spatialite-4.2.patch
-backport-optimized-migration-plan-handling.diff
