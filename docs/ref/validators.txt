@@ -85,8 +85,8 @@ to, or in lieu of custom ``field.clean()`` methods.
 
     .. attribute:: regex
 
-        The regular expression pattern to search for the provided ``value``,
-        or a pre-compiled regular expression. By default, raises a
+        The regular expression pattern to search for within the provided
+        ``value``, or a pre-compiled regular expression. By default, raises a
         :exc:`~django.core.exceptions.ValidationError` with :attr:`message`
         and :attr:`code` if a match is not found. That standard behavior can
         be reversed by setting :attr:`inverse_match` to ``True``, in which case
@@ -107,18 +107,14 @@ to, or in lieu of custom ``field.clean()`` methods.
 
     .. attribute:: inverse_match
 
-        .. versionadded:: 1.7
-
         The match mode for :attr:`regex`. Defaults to ``False``.
 
     .. attribute:: flags
 
-        .. versionadded:: 1.7
-
-        The flags used when compiling the regular expression string :attr:`regex`.
-        If :attr:`regex` is a pre-compiled regular expression, and :attr:`flags` is overridden,
-        :exc:`TypeError` is raised.
-        Defaults to `0`.
+        The flags used when compiling the regular expression string
+        :attr:`regex`. If :attr:`regex` is a pre-compiled regular expression,
+        and :attr:`flags` is overridden, :exc:`TypeError` is raised. Defaults
+        to ``0``.
 
 ``EmailValidator``
 ------------------
@@ -167,18 +163,9 @@ to, or in lieu of custom ``field.clean()`` methods.
 
         URL/URI scheme list to validate against. If not provided, the default
         list is ``['http', 'https', 'ftp', 'ftps']``. As a reference, the IANA
-        Web site provides a full list of `valid URI schemes`_.
+        website provides a full list of `valid URI schemes`_.
 
         .. _valid URI schemes: https://www.iana.org/assignments/uri-schemes/uri-schemes.xhtml
-
-    .. versionchanged:: 1.7
-
-        The optional ``schemes`` attribute was added.
-
-    .. versionchanged:: 1.8
-
-        Support for IPv6 addresses, unicode domains, and URLs containing
-        authentication data was added.
 
 ``validate_email``
 ------------------
@@ -194,6 +181,14 @@ to, or in lieu of custom ``field.clean()`` methods.
 
     A :class:`RegexValidator` instance that ensures a value consists of only
     letters, numbers, underscores or hyphens.
+
+``validate_unicode_slug``
+-------------------------
+
+.. data:: validate_unicode_slug
+
+    A :class:`RegexValidator` instance that ensures a value consists of only
+    Unicode letters, numbers, underscores, or hyphens.
 
 ``validate_ipv4_address``
 -------------------------
@@ -226,6 +221,19 @@ to, or in lieu of custom ``field.clean()`` methods.
     A :class:`RegexValidator` instance that ensures a value is a
     comma-separated list of integers.
 
+``int_list_validator``
+----------------------
+
+.. function:: int_list_validator(sep=',', message=None, code='invalid', allow_negative=False)
+
+    Returns a :class:`RegexValidator` instance that ensures a string consists
+    of integers separated by ``sep``. It allows negative integers when
+    ``allow_negative`` is ``True``.
+
+    .. versionchanged:: 1.10
+
+        The ``allow_negative`` parameter was added.
+
 ``MaxValueValidator``
 ---------------------
 
@@ -233,10 +241,6 @@ to, or in lieu of custom ``field.clean()`` methods.
 
     Raises a :exc:`~django.core.exceptions.ValidationError` with a code of
     ``'max_value'`` if ``value`` is greater than ``max_value``.
-
-    .. versionchanged:: 1.8
-
-       The ``message`` parameter was added.
 
 ``MinValueValidator``
 ---------------------
@@ -246,10 +250,6 @@ to, or in lieu of custom ``field.clean()`` methods.
     Raises a :exc:`~django.core.exceptions.ValidationError` with a code of
     ``'min_value'`` if ``value`` is less than ``min_value``.
 
-    .. versionchanged:: 1.8
-
-       The ``message`` parameter was added.
-
 ``MaxLengthValidator``
 ----------------------
 
@@ -257,10 +257,6 @@ to, or in lieu of custom ``field.clean()`` methods.
 
     Raises a :exc:`~django.core.exceptions.ValidationError` with a code of
     ``'max_length'`` if the length of ``value`` is greater than ``max_length``.
-
-    .. versionchanged:: 1.8
-
-       The ``message`` parameter was added.
 
 ``MinLengthValidator``
 ----------------------
@@ -270,6 +266,44 @@ to, or in lieu of custom ``field.clean()`` methods.
     Raises a :exc:`~django.core.exceptions.ValidationError` with a code of
     ``'min_length'`` if the length of ``value`` is less than ``min_length``.
 
-    .. versionchanged:: 1.8
+``DecimalValidator``
+--------------------
 
-       The ``message`` parameter was added.
+.. class:: DecimalValidator(max_digits, decimal_places)
+
+    Raises :exc:`~django.core.exceptions.ValidationError` with the following
+    codes:
+
+    - ``'max_digits'`` if the number of digits is larger than ``max_digits``.
+    - ``'max_decimal_places'`` if the number of decimals is larger than
+      ``decimal_places``.
+    - ``'max_whole_digits'`` if the number of whole digits is larger than
+      the difference between ``max_digits`` and ``decimal_places``.
+
+``FileExtensionValidator``
+--------------------------
+
+.. class:: FileExtensionValidator(allowed_extensions, message, code)
+
+    .. versionadded:: 1.11
+
+    Raises a :exc:`~django.core.exceptions.ValidationError` with a code of
+    ``'invalid_extension'`` if the extension of ``value.name`` (``value`` is
+    a :class:`~django.core.files.File`) isn't found in ``allowed_extensions``.
+
+    .. warning::
+
+        Don't rely on validation of the file extension to determine a file's
+        type. Files can be renamed to have any extension no matter what data
+        they contain.
+
+``validate_image_file_extension``
+---------------------------------
+
+.. data:: validate_image_file_extension
+
+    .. versionadded:: 1.11
+
+    Uses Pillow to ensure that ``value.name`` (``value`` is a
+    :class:`~django.core.files.File`) has `a valid image extension
+    <https://pillow.readthedocs.io/en/latest/handbook/image-file-formats.html>`_.

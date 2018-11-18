@@ -1,26 +1,38 @@
 from django.contrib.auth.models import AnonymousUser, User
+from django.contrib.flatpages.models import FlatPage
+from django.contrib.sites.models import Site
 from django.template import Context, Template, TemplateSyntaxError
-from django.test import TestCase, modify_settings, override_settings
-
-from .settings import FLATPAGES_TEMPLATES
+from django.test import TestCase
 
 
-@modify_settings(INSTALLED_APPS={'append': 'django.contrib.flatpages'})
-@override_settings(
-    MIDDLEWARE_CLASSES=(
-        'django.middleware.common.CommonMiddleware',
-        'django.contrib.sessions.middleware.SessionMiddleware',
-        'django.middleware.csrf.CsrfViewMiddleware',
-        'django.contrib.auth.middleware.AuthenticationMiddleware',
-        'django.contrib.messages.middleware.MessageMiddleware',
-        'django.contrib.flatpages.middleware.FlatpageFallbackMiddleware',
-    ),
-    ROOT_URLCONF='flatpages_tests.urls',
-    TEMPLATES=FLATPAGES_TEMPLATES,
-    SITE_ID=1,
-)
 class FlatpageTemplateTagTests(TestCase):
-    fixtures = ['sample_flatpages']
+
+    @classmethod
+    def setUpTestData(cls):
+        # don't use the manager because we want to ensure the site exists
+        # with pk=1, regardless of whether or not it already exists.
+        cls.site1 = Site(pk=1, domain='example.com', name='example.com')
+        cls.site1.save()
+        cls.fp1 = FlatPage.objects.create(
+            url='/flatpage/', title='A Flatpage', content="Isn't it flat!",
+            enable_comments=False, template_name='', registration_required=False
+        )
+        cls.fp2 = FlatPage.objects.create(
+            url='/location/flatpage/', title='A Nested Flatpage', content="Isn't it flat and deep!",
+            enable_comments=False, template_name='', registration_required=False
+        )
+        cls.fp3 = FlatPage.objects.create(
+            url='/sekrit/', title='Sekrit Flatpage', content="Isn't it sekrit!",
+            enable_comments=False, template_name='', registration_required=True
+        )
+        cls.fp4 = FlatPage.objects.create(
+            url='/location/sekrit/', title='Sekrit Nested Flatpage', content="Isn't it sekrit and deep!",
+            enable_comments=False, template_name='', registration_required=True
+        )
+        cls.fp1.sites.add(cls.site1)
+        cls.fp2.sites.add(cls.site1)
+        cls.fp3.sites.add(cls.site1)
+        cls.fp4.sites.add(cls.site1)
 
     def test_get_flatpages_tag(self):
         "The flatpage template tag retrieves unregistered prefixed flatpages by default"
@@ -113,19 +125,20 @@ class FlatpageTemplateTagTests(TestCase):
 
     def test_parsing_errors(self):
         "There are various ways that the flatpages template tag won't parse"
-        render = lambda t: Template(t).render(Context())
+        def render(t):
+            return Template(t).render(Context())
 
-        self.assertRaises(TemplateSyntaxError, render,
-                          "{% load flatpages %}{% get_flatpages %}")
-        self.assertRaises(TemplateSyntaxError, render,
-                          "{% load flatpages %}{% get_flatpages as %}")
-        self.assertRaises(TemplateSyntaxError, render,
-                          "{% load flatpages %}{% get_flatpages cheesecake flatpages %}")
-        self.assertRaises(TemplateSyntaxError, render,
-                          "{% load flatpages %}{% get_flatpages as flatpages asdf %}")
-        self.assertRaises(TemplateSyntaxError, render,
-                          "{% load flatpages %}{% get_flatpages cheesecake user as flatpages %}")
-        self.assertRaises(TemplateSyntaxError, render,
-                          "{% load flatpages %}{% get_flatpages for user as flatpages asdf %}")
-        self.assertRaises(TemplateSyntaxError, render,
-                          "{% load flatpages %}{% get_flatpages prefix for user as flatpages asdf %}")
+        with self.assertRaises(TemplateSyntaxError):
+            render("{% load flatpages %}{% get_flatpages %}")
+        with self.assertRaises(TemplateSyntaxError):
+            render("{% load flatpages %}{% get_flatpages as %}")
+        with self.assertRaises(TemplateSyntaxError):
+            render("{% load flatpages %}{% get_flatpages cheesecake flatpages %}")
+        with self.assertRaises(TemplateSyntaxError):
+            render("{% load flatpages %}{% get_flatpages as flatpages asdf %}")
+        with self.assertRaises(TemplateSyntaxError):
+            render("{% load flatpages %}{% get_flatpages cheesecake user as flatpages %}")
+        with self.assertRaises(TemplateSyntaxError):
+            render("{% load flatpages %}{% get_flatpages for user as flatpages asdf %}")
+        with self.assertRaises(TemplateSyntaxError):
+            render("{% load flatpages %}{% get_flatpages prefix for user as flatpages asdf %}")

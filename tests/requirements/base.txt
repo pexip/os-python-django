@@ -1,11 +1,15 @@
+argon2-cffi >= 16.1.0
 bcrypt
 docutils
-jinja2 >= 2.7
-# move to py2.txt when dropping Python 3.2
-mock
-numpy < 1.12
+geoip2
+jinja2 >= 2.9.2
+numpy
 Pillow
 PyYAML
-pytz > dev
+# pylibmc/libmemcached can't be built on Windows.
+pylibmc; sys.platform != 'win32'
+python-memcached >= 1.59
+pytz
 selenium
 sqlparse
+tblib

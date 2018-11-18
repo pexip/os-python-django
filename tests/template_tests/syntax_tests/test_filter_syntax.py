@@ -71,8 +71,17 @@ class FilterSyntaxTests(SimpleTestCase):
         """
         Raise TemplateSyntaxError for empty block tags
         """
-        with self.assertRaises(TemplateSyntaxError):
+        with self.assertRaisesMessage(TemplateSyntaxError, 'Empty block tag on line 1'):
             self.engine.get_template('filter-syntax08')
+
+    @setup({'filter-syntax08-multi-line': "line 1\nline 2\nline 3{% %}\nline 4\nline 5"})
+    def test_filter_syntax08_multi_line(self):
+        """
+        Raise TemplateSyntaxError for empty block tags in templates with
+        multiple lines.
+        """
+        with self.assertRaisesMessage(TemplateSyntaxError, 'Empty block tag on line 3'):
+            self.engine.get_template('filter-syntax08-multi-line')
 
     @setup({'filter-syntax09': '{{ var|cut:"o"|upper|lower }}'})
     def test_filter_syntax09(self):
@@ -228,3 +237,8 @@ class FilterSyntaxTests(SimpleTestCase):
         """
         with self.assertRaises(AttributeError):
             self.engine.render_to_string('filter-syntax25', {'var': SomeClass()})
+
+    @setup({'template': '{{ var.type_error_attribute }}'})
+    def test_type_error_attribute(self):
+        with self.assertRaises(TypeError):
+            self.engine.render_to_string('template', {'var': SomeClass()})

@@ -3,19 +3,15 @@ from __future__ import unicode_literals
 
 from datetime import datetime
 
-from django.contrib.gis.geos import HAS_GEOS
+from django.contrib.gis.db.models import Extent
 from django.contrib.gis.shortcuts import render_to_kmz
 from django.db.models import Count, Min
 from django.test import TestCase, skipUnlessDBFeature
 
 from ..utils import no_oracle
-
-if HAS_GEOS:
-    from django.contrib.gis.db.models import Extent
-    from .models import City, PennsylvaniaCity, State, Truth
+from .models import City, PennsylvaniaCity, State, Truth
 
 
-@skipUnlessDBFeature("gis_enabled")
 class GeoRegressionTests(TestCase):
     fixtures = ['initial']
 
@@ -88,5 +84,5 @@ class GeoRegressionTests(TestCase):
         self.assertIsInstance(val1, bool)
         self.assertIsInstance(val2, bool)
         # verify values
-        self.assertEqual(val1, True)
-        self.assertEqual(val2, False)
+        self.assertIs(val1, True)
+        self.assertIs(val2, False)

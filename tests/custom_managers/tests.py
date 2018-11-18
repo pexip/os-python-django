@@ -6,8 +6,9 @@ from django.utils import six
 
 from .models import (
     Book, Car, CustomManager, CustomQuerySet, DeconstructibleCustomManager,
-    FunPerson, OneToOneRestrictedModel, Person, PersonManager,
-    PublishedBookManager, RelatedModel, RestrictedModel,
+    FastCarAsBase, FastCarAsDefault, FunPerson, OneToOneRestrictedModel,
+    Person, PersonFromAbstract, PersonManager, PublishedBookManager,
+    RelatedModel, RestrictedModel,
 )
 
 
@@ -69,12 +70,12 @@ class CustomManagerTests(TestCase):
             manager = getattr(Person, manager_name)
             queryset = manager.filter()
             self.assertQuerysetEqual(queryset, ["Bugs Bunny"], six.text_type)
-            self.assertEqual(queryset._filter_CustomQuerySet, True)
+            self.assertIs(queryset._filter_CustomQuerySet, True)
 
-            # Test that specialized querysets inherit from our custom queryset.
+            # Specialized querysets inherit from our custom queryset.
             queryset = manager.values_list('first_name', flat=True).filter()
             self.assertEqual(list(queryset), [six.text_type("Bugs")])
-            self.assertEqual(queryset._filter_CustomQuerySet, True)
+            self.assertIs(queryset._filter_CustomQuerySet, True)
 
             self.assertIsInstance(queryset.values(), CustomQuerySet)
             self.assertIsInstance(queryset.values().values(), CustomQuerySet)
@@ -101,7 +102,7 @@ class CustomManagerTests(TestCase):
         """
         queryset = Person.custom_queryset_custom_manager.filter()
         self.assertQuerysetEqual(queryset, ["Bugs Bunny"], six.text_type)
-        self.assertEqual(queryset._filter_CustomManager, True)
+        self.assertIs(queryset._filter_CustomManager, True)
 
     def test_related_manager(self):
         """
@@ -115,7 +116,8 @@ class CustomManagerTests(TestCase):
         The default manager, "objects", doesn't exist, because a custom one
         was provided.
         """
-        self.assertRaises(AttributeError, lambda: Book.objects)
+        with self.assertRaises(AttributeError):
+            Book.objects
 
     def test_filtering(self):
         """
@@ -281,7 +283,7 @@ class CustomManagerTests(TestCase):
         Person.objects.create(first_name="Bugs", last_name="Bunny", fun=True, favorite_book=self.b1)
         droopy = Person.objects.create(first_name="Droopy", last_name="Dog", fun=False, favorite_book=self.b1)
 
-        # Check that the fun manager DOESN'T remove boring people.
+        # The fun manager DOESN'T remove boring people.
         self.b1.favorite_books(manager='fun_people').remove(droopy, bulk=bulk)
         self.assertQuerysetEqual(
             self.b1.favorite_books(manager='boring_people').all(), [
@@ -290,7 +292,7 @@ class CustomManagerTests(TestCase):
             lambda c: c.first_name,
             ordered=False,
         )
-        # Check that the boring manager DOES remove boring people.
+        # The boring manager DOES remove boring people.
         self.b1.favorite_books(manager='boring_people').remove(droopy, bulk=bulk)
         self.assertQuerysetEqual(
             self.b1.favorite_books(manager='boring_people').all(), [
@@ -301,7 +303,7 @@ class CustomManagerTests(TestCase):
         droopy.favorite_book = self.b1
         droopy.save()
 
-        # Check that the fun manager ONLY clears fun people.
+        # The fun manager ONLY clears fun people.
         self.b1.favorite_books(manager='fun_people').clear(bulk=bulk)
         self.assertQuerysetEqual(
             self.b1.favorite_books(manager='boring_people').all(), [
@@ -361,7 +363,7 @@ class CustomManagerTests(TestCase):
         Person.objects.create(first_name="Bugs", last_name="Bunny", fun=True, favorite_thing=self.b1)
         droopy = Person.objects.create(first_name="Droopy", last_name="Dog", fun=False, favorite_thing=self.b1)
 
-        # Check that the fun manager DOESN'T remove boring people.
+        # The fun manager DOESN'T remove boring people.
         self.b1.favorite_things(manager='fun_people').remove(droopy, bulk=bulk)
         self.assertQuerysetEqual(
             self.b1.favorite_things(manager='boring_people').all(), [
@@ -371,7 +373,7 @@ class CustomManagerTests(TestCase):
             ordered=False,
         )
 
-        # Check that the boring manager DOES remove boring people.
+        # The boring manager DOES remove boring people.
         self.b1.favorite_things(manager='boring_people').remove(droopy, bulk=bulk)
         self.assertQuerysetEqual(
             self.b1.favorite_things(manager='boring_people').all(), [
@@ -382,7 +384,7 @@ class CustomManagerTests(TestCase):
         droopy.favorite_thing = self.b1
         droopy.save()
 
-        # Check that the fun manager ONLY clears fun people.
+        # The fun manager ONLY clears fun people.
         self.b1.favorite_things(manager='fun_people').clear(bulk=bulk)
         self.assertQuerysetEqual(
             self.b1.favorite_things(manager='boring_people').all(), [
@@ -442,7 +444,7 @@ class CustomManagerTests(TestCase):
         droopy = Person.objects.create(first_name="Droopy", last_name="Dog", fun=False)
         self.b1.authors.add(droopy)
 
-        # Check that the fun manager DOESN'T remove boring people.
+        # The fun manager DOESN'T remove boring people.
         self.b1.authors(manager='fun_people').remove(droopy)
         self.assertQuerysetEqual(
             self.b1.authors(manager='boring_people').all(), [
@@ -452,7 +454,7 @@ class CustomManagerTests(TestCase):
             ordered=False,
         )
 
-        # Check that the boring manager DOES remove boring people.
+        # The boring manager DOES remove boring people.
         self.b1.authors(manager='boring_people').remove(droopy)
         self.assertQuerysetEqual(
             self.b1.authors(manager='boring_people').all(), [
@@ -462,7 +464,7 @@ class CustomManagerTests(TestCase):
         )
         self.b1.authors.add(droopy)
 
-        # Check that the fun manager ONLY clears fun people.
+        # The fun manager ONLY clears fun people.
         self.b1.authors(manager='fun_people').clear()
         self.assertQuerysetEqual(
             self.b1.authors(manager='boring_people').all(), [
@@ -516,6 +518,17 @@ class CustomManagerTests(TestCase):
         with self.assertRaisesMessage(ValueError, msg):
             mgr.deconstruct()
 
+    def test_abstract_model_with_custom_manager_name(self):
+        """
+        A custom manager may be defined on an abstract model.
+        It will be inherited by the abstract model's children.
+        """
+        PersonFromAbstract.abstract_persons.create(objects='Test')
+        self.assertQuerysetEqual(
+            PersonFromAbstract.abstract_persons.all(), ["Test"],
+            lambda c: c.objects,
+        )
+
 
 class TestCars(TestCase):
 
@@ -542,6 +555,34 @@ class TestCars(TestCase):
         # alternate manager
         self.assertQuerysetEqual(
             Car.fast_cars.all(), [
+                "Corvette",
+            ],
+            lambda c: c.name
+        )
+        # explicit default manager
+        self.assertQuerysetEqual(
+            FastCarAsDefault.cars.order_by("name"), [
+                "Corvette",
+                "Neon",
+            ],
+            lambda c: c.name
+        )
+        self.assertQuerysetEqual(
+            FastCarAsDefault._default_manager.all(), [
+                "Corvette",
+            ],
+            lambda c: c.name
+        )
+        # explicit base manager
+        self.assertQuerysetEqual(
+            FastCarAsBase.cars.order_by("name"), [
+                "Corvette",
+                "Neon",
+            ],
+            lambda c: c.name
+        )
+        self.assertQuerysetEqual(
+            FastCarAsBase._base_manager.all(), [
                 "Corvette",
             ],
             lambda c: c.name
@@ -590,3 +631,12 @@ class CustomManagersRegressTestCase(TestCase):
         obj = RelatedModel.objects.get(name="xyzzy")
         obj.delete()
         self.assertEqual(len(OneToOneRestrictedModel.plain_manager.all()), 0)
+
+    def test_queryset_with_custom_init(self):
+        """
+        BaseManager.get_queryset() should use kwargs rather than args to allow
+        custom kwargs (#24911).
+        """
+        qs_custom = Person.custom_init_queryset_manager.all()
+        qs_default = Person.objects.all()
+        self.assertQuerysetEqual(qs_custom, qs_default)

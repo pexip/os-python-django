@@ -17,6 +17,7 @@ class NamedModel(models.Model):
 
 class City3D(NamedModel):
     point = models.PointField(dim=3)
+    pointg = models.PointField(dim=3, geography=True)
 
 
 class Interstate2D(NamedModel):
@@ -44,8 +45,6 @@ class Polygon3D(NamedModel):
 
 
 class SimpleModel(models.Model):
-
-    objects = models.GeoManager()
 
     class Meta:
         abstract = True

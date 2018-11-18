@@ -34,8 +34,8 @@ For introductory material, see the :doc:`migrations topic guide
 Schema Operations
 =================
 
-CreateModel
------------
+``CreateModel``
+---------------
 
 .. class:: CreateModel(name, fields, options=None, bases=None, managers=None)
 
@@ -60,19 +60,15 @@ inheriting from the standard ``models.Model``.
 The first manager in the list will be the default manager for this model during
 migrations.
 
-.. versionchanged:: 1.8
-
-    The ``managers`` argument was added.
-
-DeleteModel
------------
+``DeleteModel``
+---------------
 
 .. class:: DeleteModel(name)
 
 Deletes the model from the project history and its table from the database.
 
-RenameModel
------------
+``RenameModel``
+---------------
 
 .. class:: RenameModel(old_name, new_name)
 
@@ -84,16 +80,16 @@ the autodetector, this will look like you deleted a model with the old name
 and added a new one with a different name, and the migration it creates will
 lose any data in the old table.
 
-AlterModelTable
----------------
+``AlterModelTable``
+-------------------
 
 .. class:: AlterModelTable(name, table)
 
 Changes the model's table name (the :attr:`~django.db.models.Options.db_table`
 option on the ``Meta`` subclass).
 
-AlterUniqueTogether
--------------------
+``AlterUniqueTogether``
+-----------------------
 
 .. class:: AlterUniqueTogether(name, unique_together)
 
@@ -101,8 +97,8 @@ Changes the model's set of unique constraints (the
 :attr:`~django.db.models.Options.unique_together` option on the ``Meta``
 subclass).
 
-AlterIndexTogether
-------------------
+``AlterIndexTogether``
+----------------------
 
 .. class:: AlterIndexTogether(name, index_together)
 
@@ -110,8 +106,8 @@ Changes the model's set of custom indexes (the
 :attr:`~django.db.models.Options.index_together` option on the ``Meta``
 subclass).
 
-AlterOrderWithRespectTo
------------------------
+``AlterOrderWithRespectTo``
+---------------------------
 
 .. class:: AlterOrderWithRespectTo(name, order_with_respect_to)
 
@@ -119,8 +115,8 @@ Makes or deletes the ``_order`` column needed for the
 :attr:`~django.db.models.Options.order_with_respect_to` option on the ``Meta``
 subclass.
 
-AlterModelOptions
------------------
+``AlterModelOptions``
+---------------------
 
 .. class:: AlterModelOptions(name, options)
 
@@ -129,17 +125,15 @@ like ``permissions`` and ``verbose_name``. Does not affect the database, but
 persists these changes for :class:`RunPython` instances to use. ``options``
 should be a dictionary mapping option names to values.
 
-AlterModelManagers
-------------------
-
-.. versionadded:: 1.8
+``AlterModelManagers``
+----------------------
 
 .. class:: AlterModelManagers(name, managers)
 
 Alters the managers that are available during migrations.
 
-AddField
---------
+``AddField``
+------------
 
 .. class:: AddField(model_name, name, field, preserve_default=True)
 
@@ -156,19 +150,21 @@ a default value to put into existing rows. It does not affect the behavior
 of setting defaults in the database directly - Django never sets database
 defaults and always applies them in the Django ORM code.
 
-RemoveField
------------
+``RemoveField``
+---------------
 
 .. class:: RemoveField(model_name, name)
 
 Removes a field from a model.
 
-Bear in mind that when reversed this is actually adding a field to a model;
-if the field is not nullable this may make this operation irreversible (apart
-from any data loss, which of course is irreversible).
+Bear in mind that when reversed, this is actually adding a field to a model.
+The operation is reversible (apart from any data loss, which of course is
+irreversible) if the field is nullable or if it has a default value that can be
+used to populate the recreated column. If the field is not nullable and does
+not have a default value, the operation is irreversible.
 
-AlterField
-----------
+``AlterField``
+--------------
 
 .. class:: AlterField(model_name, name, field, preserve_default=True)
 
@@ -188,25 +184,40 @@ Note that not all changes are possible on all databases - for example, you
 cannot change a text-type field like ``models.TextField()`` into a number-type
 field like ``models.IntegerField()`` on most databases.
 
-.. versionchanged:: 1.7.1
-
-    The ``preserve_default`` argument was added.
-
-RenameField
------------
+``RenameField``
+---------------
 
 .. class:: RenameField(model_name, old_name, new_name)
 
 Changes a field's name (and, unless :attr:`~django.db.models.Field.db_column`
 is set, its column name).
 
+``AddIndex``
+------------
+
+.. class:: AddIndex(model_name, index)
+
+.. versionadded:: 1.11
+
+Creates an index in the database table for the model with ``model_name``.
+``index`` is an instance of the :class:`~django.db.models.Index` class.
+
+``RemoveIndex``
+---------------
+
+.. class:: RemoveIndex(model_name, name)
+
+.. versionadded:: 1.11
+
+Removes the index named ``name`` from the model with ``model_name``.
+
 Special Operations
 ==================
 
-RunSQL
-------
+``RunSQL``
+----------
 
-.. class:: RunSQL(sql, reverse_sql=None, state_operations=None, hints=None)
+.. class:: RunSQL(sql, reverse_sql=None, state_operations=None, hints=None, elidable=False)
 
 Allows running of arbitrary SQL on the database - useful for more advanced
 features of database backends that Django doesn't support directly, like
@@ -241,28 +252,28 @@ equivalent to the SQL in terms of project state; for example, if you are
 manually creating a column, you should pass in a list containing an ``AddField``
 operation here so that the autodetector still has an up-to-date state of the
 model (otherwise, when you next run ``makemigrations``, it won't see any
-operation that adds that field and so will try to run it again).
+operation that adds that field and so will try to run it again). For example::
+
+    migrations.RunSQL(
+        "ALTER TABLE musician ADD COLUMN name varchar(255) NOT NULL;",
+        state_operations=[
+            migrations.AddField(
+                'musician',
+                'name',
+                models.CharField(max_length=255),
+            ),
+        ],
+    )
 
 The optional ``hints`` argument will be passed as ``**hints`` to the
 :meth:`allow_migrate` method of database routers to assist them in making
 routing decisions. See :ref:`topics-db-multi-db-hints` for more details on
 database hints.
 
-.. versionchanged:: 1.7.1
-
-    If you want to include literal percent signs in a query without parameters
-    you don't need to double them anymore.
-
-.. versionchanged:: 1.8
-
-    The ability to pass parameters to the ``sql`` and ``reverse_sql`` queries
-    was added.
-
-    The ``hints`` argument was added.
+The optional ``elidable`` argument determines whether or not the operation will
+be removed (elided) when :ref:`squashing migrations <migration-squashing>`.
 
 .. attribute:: RunSQL.noop
-
-    .. versionadded:: 1.8
 
     Pass the ``RunSQL.noop`` attribute to ``sql`` or ``reverse_sql`` when you
     want the operation not to do anything in the given direction. This is
@@ -270,10 +281,14 @@ database hints.
 
 .. _sqlparse: https://pypi.python.org/pypi/sqlparse
 
-RunPython
----------
+.. versionadded:: 1.10
 
-.. class:: RunPython(code, reverse_code=None, atomic=True, hints=None)
+    The ``elidable`` argument was added.
+
+``RunPython``
+-------------
+
+.. class:: RunPython(code, reverse_code=None, atomic=None, hints=None, elidable=False)
 
 Runs custom Python code in a historical context. ``code`` (and ``reverse_code``
 if supplied) should be callable objects that accept two arguments; the first is
@@ -291,9 +306,8 @@ The optional ``hints`` argument will be passed as ``**hints`` to the
 routing decision. See :ref:`topics-db-multi-db-hints` for more details on
 database hints.
 
-.. versionadded:: 1.8
-
-    The ``hints`` argument was added.
+The optional ``elidable`` argument determines whether or not the operation will
+be removed (elided) when :ref:`squashing migrations <migration-squashing>`.
 
 You are advised to write the code as a separate function above the ``Migration``
 class in the migration file, and just pass it to ``RunPython``. Here's an
@@ -301,7 +315,9 @@ example of using ``RunPython`` to create some initial objects on a ``Country``
 model::
 
     # -*- coding: utf-8 -*-
-    from django.db import models, migrations
+    from __future__ import unicode_literals
+
+    from django.db import migrations
 
     def forwards_func(apps, schema_editor):
         # We get the model from the versioned app registry;
@@ -357,15 +373,18 @@ the ``schema_editor`` provided on these backends; in this case, pass
 
 On databases that do support DDL transactions (SQLite and PostgreSQL),
 ``RunPython`` operations do not have any transactions automatically added
-besides the transactions created for each migration (the ``atomic`` parameter
-has no effect on these databases). Thus, on PostgreSQL, for example, you should
-avoid combining schema changes and ``RunPython`` operations in the same
-migration or you may hit errors like ``OperationalError: cannot ALTER TABLE
-"mytable" because it has pending trigger events``.
+besides the transactions created for each migration. Thus, on PostgreSQL, for
+example, you should avoid combining schema changes and ``RunPython`` operations
+in the same migration or you may hit errors like ``OperationalError: cannot
+ALTER TABLE "mytable" because it has pending trigger events``.
 
 If you have a different database and aren't sure if it supports DDL
 transactions, check the ``django.db.connection.features.can_rollback_ddl``
 attribute.
+
+If the ``RunPython`` operation is part of a :ref:`non-atomic migration
+<non-atomic-migrations>`, the operation will only be executed in a transaction
+if ``atomic=True`` is passed to the ``RunPython`` operation.
 
 .. warning::
 
@@ -377,14 +396,21 @@ attribute.
 
 .. staticmethod:: RunPython.noop
 
-    .. versionadded:: 1.8
-
     Pass the ``RunPython.noop`` method to ``code`` or ``reverse_code`` when
     you want the operation not to do anything in the given direction. This is
     especially useful in making the operation reversible.
 
-SeparateDatabaseAndState
-------------------------
+.. versionadded:: 1.10
+
+    The ``elidable`` argument was added.
+
+.. versionchanged:: 1.10
+
+    The ``atomic`` argument default was changed to ``None``, indicating that
+    the atomicity is controlled by the ``atomic`` attribute of the migration.
+
+``SeparateDatabaseAndState``
+----------------------------
 
 .. class:: SeparateDatabaseAndState(database_operations=None, state_operations=None)
 
@@ -394,6 +420,8 @@ A highly specialized operation that let you mix and match the database
 It accepts two list of operations, and when asked to apply state will use the
 state list, and when asked to apply changes to the database will use the database
 list. Do not use this operation unless you're very sure you know what you're doing.
+
+.. _writing-your-own-migration-operation:
 
 Writing your own
 ================
@@ -441,7 +469,8 @@ You can take this template and work from it, though we suggest looking at the
 built-in Django operations in ``django.db.migrations.operations`` - they're
 easy to read and cover a lot of the example usage of semi-internal aspects
 of the migration framework like ``ProjectState`` and the patterns used to get
-historical models.
+historical models, as well as ``ModelState`` and the patterns used to mutate
+historical models in ``state_forwards()``.
 
 Some things to note:
 
@@ -453,12 +482,37 @@ Some things to note:
   to them; these just represent the difference the ``state_forwards`` method
   would have applied, but are given to you for convenience and speed reasons.
 
+* If you want to work with model classes or model instances from the
+  ``from_state`` argument in ``database_forwards()`` or
+  ``database_backwards()``, you must render model states using the
+  ``clear_delayed_apps_cache()`` method to make related models available::
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        # This operation should have access to all models. Ensure that all models are
+        # reloaded in case any are delayed.
+        from_state.clear_delayed_apps_cache()
+        ...
+
+  .. versionadded:: 1.11
+
+    This requirement and the ``clear_delayed_apps_cache()`` method is new.
+
 * ``to_state`` in the database_backwards method is the *older* state; that is,
   the one that will be the current state once the migration has finished reversing.
 
 * You might see implementations of ``references_model`` on the built-in
   operations; this is part of the autodetection code and does not matter for
   custom operations.
+
+.. warning::
+
+    For performance reasons, the :class:`~django.db.models.Field` instances in
+    ``ModelState.fields`` are reused across migrations. You must never change
+    the attributes on these instances. If you need to mutate a field in
+    ``state_forwards()``, you must remove the old instance from
+    ``ModelState.fields`` and add a new instance in its place. The same is true
+    for the :class:`~django.db.models.Manager` instances in
+    ``ModelState.managers``.
 
 As a simple example, let's make an operation that loads PostgreSQL extensions
 (which contain some of PostgreSQL's more exciting features). It's simple enough;
