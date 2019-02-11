@@ -1,3 +1,53 @@
+python-django (1:1.11.20-1) unstable; urgency=medium
+
+  * New upstream security release.
+    - CVE-2019-6975: Fix memory exhaustion in utils.numberformat.format().
+      (Closes: #922027)
+
+ -- Chris Lamb <lamby@debian.org>  Mon, 11 Feb 2019 19:08:53 +0100
+
+python-django (1:1.11.18-1) unstable; urgency=medium
+
+  * New upstream security release:
+    - CVE-2019-3498: Content spoofing possibility in the default 404 page.
+      (Closes: #918230)
+    <https://www.djangoproject.com/weblog/2019/jan/04/security-releases/>
+  * Move to debhelper-compat virtual package.
+  * Bump debhelper compatibility level to 12.
+  * Bump Standards-Version to 4.3.0.
+  * 0007-Fixed-29182-Adjusted-SQLite-schema-table-.patch: Fix grammar/spelling
+    error in upstream patch.
+
+ -- Chris Lamb <lamby@debian.org>  Fri, 04 Jan 2019 18:23:06 +0100
+
+python-django (1:1.11.17-2) unstable; urgency=medium
+
+  * Backport patch from upstream to fix compatibility with SQLite 3.26.
+    (Closes: #915626)
+
+ -- Chris Lamb <lamby@debian.org>  Fri, 07 Dec 2018 14:14:22 +0100
+
+python-django (1:1.11.17-1) unstable; urgency=medium
+
+  * New upstream bugfix release.
+    - https://docs.djangoproject.com/en/stable/releases/1.11.17/
+  * Drop patches that have been applied upstream:
+    - 0005-Fix-SyntaxError-Generator-expression-must-be-parenth.patch,
+    - 0007-Refs-28814-Fixed-migrations-crash-with-namespace-pac.patch
+    - 0008-Refs-28814-Fixed-test_runner-failure-on-Python-3.7.patch
+
+ -- Chris Lamb <lamby@debian.org>  Mon, 03 Dec 2018 22:34:53 +0100
+
+python-django (1:1.11.16-4) unstable; urgency=medium
+
+  * Cherry-pick two patches from upstream to fix test failures under Python
+    3.7. Thanks to Gaudenz Steinlin for the in-depth investigation.
+    (Closes: #891753)
+  * Add libsqlite3-mod-spatialite to Build-Depends to ensure we test our patch
+    for Spatialite 4.2 introduced as part of the fix for #910240.
+
+ -- Chris Lamb <lamby@debian.org>  Sun, 02 Dec 2018 23:13:07 +0100
+
 python-django (1:1.11.16-3) unstable; urgency=medium
 
   * Default to supporting Spatialite >= 4.2. (Closes: #910240)
