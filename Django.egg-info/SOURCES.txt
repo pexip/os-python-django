@@ -3283,9 +3283,7 @@ docs/glossary.txt
 docs/index.txt
 docs/make.bat
 docs/spelling_wordlist
-docs/_ext/cve_role.py
 docs/_ext/djangodocs.py
-docs/_ext/ticket_role.py
 docs/_theme/djangodocs/genindex.html
 docs/_theme/djangodocs/layout.html
 docs/_theme/djangodocs/modindex.html
@@ -3545,7 +3543,11 @@ docs/releases/1.11.13.txt
 docs/releases/1.11.14.txt
 docs/releases/1.11.15.txt
 docs/releases/1.11.16.txt
+docs/releases/1.11.17.txt
+docs/releases/1.11.18.txt
+docs/releases/1.11.19.txt
 docs/releases/1.11.2.txt
+docs/releases/1.11.20.txt
 docs/releases/1.11.3.txt
 docs/releases/1.11.4.txt
 docs/releases/1.11.5.txt
