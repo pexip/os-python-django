@@ -3548,6 +3548,9 @@ docs/releases/1.11.18.txt
 docs/releases/1.11.19.txt
 docs/releases/1.11.2.txt
 docs/releases/1.11.20.txt
+docs/releases/1.11.21.txt
+docs/releases/1.11.22.txt
+docs/releases/1.11.23.txt
 docs/releases/1.11.3.txt
 docs/releases/1.11.4.txt
 docs/releases/1.11.5.txt
