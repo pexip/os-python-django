@@ -3555,6 +3555,7 @@ docs/releases/1.11.24.txt
 docs/releases/1.11.25.txt
 docs/releases/1.11.26.txt
 docs/releases/1.11.27.txt
+docs/releases/1.11.28.txt
 docs/releases/1.11.3.txt
 docs/releases/1.11.4.txt
 docs/releases/1.11.5.txt
