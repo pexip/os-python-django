@@ -4,3 +4,5 @@
 0004-Fix-QuerySet.defer-with-super-and-subclass-fields.patch
 0006-Default-to-supporting-Spatialite-4.2.patch
 0007-Fixed-29182-Adjusted-SQLite-schema-table-alteration-.patch
+0008-CVE-2020-13254.patch
+0009-CVE-2020-13596.patch
