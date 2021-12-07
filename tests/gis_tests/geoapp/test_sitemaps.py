@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 import zipfile
 from io import BytesIO
 from xml.dom import minidom
@@ -15,13 +13,13 @@ from .models import City, Country
 @override_settings(ROOT_URLCONF='gis_tests.geoapp.urls')
 class GeoSitemapTest(TestCase):
 
-    def setUp(self):
-        super(GeoSitemapTest, self).setUp()
+    @classmethod
+    def setUpTestData(cls):
         Site(id=settings.SITE_ID, domain="example.com", name="example.com").save()
 
     def assertChildNodes(self, elem, expected):
         "Taken from syndication/tests.py."
-        actual = set(n.nodeName for n in elem.childNodes)
+        actual = {n.nodeName for n in elem.childNodes}
         expected = set(expected)
         self.assertEqual(actual, expected)
 

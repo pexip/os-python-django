@@ -1,5 +1,6 @@
+from unittest import mock
+
 from django.core.management import call_command
-from django.test import mock
 
 from .base import SitemapTestsBase
 
@@ -9,8 +10,8 @@ class PingGoogleTests(SitemapTestsBase):
 
     def test_default(self, ping_google_func):
         call_command('ping_google')
-        ping_google_func.assert_called_with(sitemap_url=None)
+        ping_google_func.assert_called_with(sitemap_url=None, sitemap_uses_https=True)
 
-    def test_arg(self, ping_google_func):
-        call_command('ping_google', 'foo.xml')
-        ping_google_func.assert_called_with(sitemap_url='foo.xml')
+    def test_args(self, ping_google_func):
+        call_command('ping_google', 'foo.xml', '--sitemap-uses-http')
+        ping_google_func.assert_called_with(sitemap_url='foo.xml', sitemap_uses_https=False)

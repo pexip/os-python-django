@@ -1,19 +1,15 @@
-# -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-
 from datetime import datetime
+from functools import partialmethod
+from io import StringIO
+from unittest import mock, skipIf
 
 from django.core import serializers
 from django.core.serializers import SerializerDoesNotExist
 from django.core.serializers.base import ProgressBar
 from django.db import connection, transaction
 from django.http import HttpResponse
-from django.test import (
-    SimpleTestCase, mock, override_settings, skipUnlessDBFeature,
-)
+from django.test import SimpleTestCase, override_settings, skipUnlessDBFeature
 from django.test.utils import Approximate
-from django.utils.functional import curry
-from django.utils.six import StringIO
 
 from .models import (
     Actor, Article, Author, AuthorProfile, BaseModel, Category, ComplexModel,
@@ -91,12 +87,8 @@ class SerializerRegistrationTests(SimpleTestCase):
             serializers.get_deserializer("nonsense")
 
 
-class SerializersTestBase(object):
+class SerializersTestBase:
     serializer_name = None  # Set by subclasses to the serialization format name
-
-    @staticmethod
-    def _comparison_value(value):
-        return value
 
     def setUp(self):
         sports = Category.objects.create(name="Sports")
@@ -148,7 +140,7 @@ class SerializersTestBase(object):
             if isinstance(stream, StringIO):
                 self.assertEqual(string_data, stream.getvalue())
             else:
-                self.assertEqual(string_data, stream.content.decode('utf-8'))
+                self.assertEqual(string_data, stream.content.decode())
 
     def test_serialize_specific_fields(self):
         obj = ComplexModel(field1='first', field2='second', field3='third')
@@ -197,7 +189,7 @@ class SerializersTestBase(object):
         self.assertFalse(self._get_field_values(serial_str, 'author'))
 
         for obj in serializers.deserialize(self.serializer_name, serial_str):
-            self.assertEqual(obj.object.pk, self._comparison_value(self.joe.pk))
+            self.assertEqual(obj.object.pk, self.joe.pk)
 
     def test_serialize_field_subset(self):
         """Output can be restricted to a subset of fields"""
@@ -352,7 +344,7 @@ class SerializersTestBase(object):
 class SerializerAPITests(SimpleTestCase):
 
     def test_stream_class(self):
-        class File(object):
+        class File:
             def __init__(self):
                 self.lines = []
 
@@ -372,7 +364,7 @@ class SerializerAPITests(SimpleTestCase):
         self.assertEqual(data, '[{"model": "serializers.score", "pk": 1, "fields": {"score": 3.4}}]')
 
 
-class SerializersTransactionTestBase(object):
+class SerializersTransactionTestBase:
 
     available_apps = ['serializers']
 
@@ -397,16 +389,16 @@ class SerializersTransactionTestBase(object):
         self.assertEqual(art_obj.author.name, "Agnes")
 
 
-def register_tests(test_class, method_name, test_func, exclude=None):
+def register_tests(test_class, method_name, test_func, exclude=()):
     """
     Dynamically create serializer tests to ensure that all registered
     serializers are automatically tested.
     """
-    formats = [
-        f for f in serializers.get_serializer_formats()
-        if (not isinstance(serializers.get_serializer(f), serializers.BadSerializer) and
-            f != 'geojson' and
-            (exclude is None or f not in exclude))
-    ]
-    for format_ in formats:
-        setattr(test_class, method_name % format_, curry(test_func, format_))
+    for format_ in serializers.get_serializer_formats():
+        if format_ == 'geojson' or format_ in exclude:
+            continue
+        decorated_func = skipIf(
+            isinstance(serializers.get_serializer(format_), serializers.BadSerializer),
+            'The Python library for the %s serializer is not installed.' % format_,
+        )(test_func)
+        setattr(test_class, method_name % format_, partialmethod(decorated_func, format_))

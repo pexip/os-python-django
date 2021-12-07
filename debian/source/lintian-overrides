@@ -3,5 +3,3 @@ source-contains-prebuilt-javascript-object django/contrib/admin/static/admin/js/
 source-contains-prebuilt-javascript-object django/contrib/admin/static/admin/js/collapse.min.js
 source-contains-prebuilt-javascript-object django/contrib/admin/static/admin/js/inlines.min.js
 source-contains-prebuilt-javascript-object django/contrib/admin/static/admin/js/prepopulate.min.js
-source-contains-prebuilt-javascript-object django/contrib/admin/static/admin/js/vendor/jquery/jquery.min.js
-source-contains-prebuilt-javascript-object django/contrib/admin/static/admin/js/vendor/xregexp/xregexp.min.js

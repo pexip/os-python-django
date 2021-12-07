@@ -1,12 +1,11 @@
 import os
 import re
-import unittest
 
 from django.contrib.gis.gdal import (
     GDAL_VERSION, DataSource, Envelope, GDALException, OGRGeometry,
-    OGRIndexError,
 )
 from django.contrib.gis.gdal.field import OFTInteger, OFTReal, OFTString
+from django.test import SimpleTestCase
 
 from ..test_data import TEST_DATA, TestDS, get_ds_file
 
@@ -16,12 +15,7 @@ wgs_84_wkt = (
     '0.017453292519943295]]'
 )
 # Using a regex because of small differences depending on GDAL versions.
-# AUTHORITY part has been added in GDAL 2.2.
-wgs_84_wkt_regex = (
-    r'^GEOGCS\["GCS_WGS_1984",DATUM\["WGS_1984",SPHEROID\["WGS_(19)?84",'
-    r'6378137,298.257223563\]\],PRIMEM\["Greenwich",0\],UNIT\["Degree",'
-    r'0.017453292519943295\](,AUTHORITY\["EPSG","4326"\])?\]$'
-)
+wgs_84_wkt_regex = r'^GEOGCS\["(GCS_)?WGS[ _](19)?84".*$'
 
 # List of acceptable data sources.
 ds_list = (
@@ -65,7 +59,7 @@ ds_list = (
 bad_ds = (TestDS('foo'),)
 
 
-class DataSourceTest(unittest.TestCase):
+class DataSourceTest(SimpleTestCase):
 
     def test01_valid_shp(self):
         "Testing valid SHP Data Source files."
@@ -84,8 +78,12 @@ class DataSourceTest(unittest.TestCase):
             self.assertEqual(source.driver, str(ds.driver))
 
             # Making sure indexing works
-            with self.assertRaises(OGRIndexError):
-                ds[len(ds)]
+            msg = 'Index out of range when accessing layers in a datasource: %s.'
+            with self.assertRaisesMessage(IndexError, msg % len(ds)):
+                ds.__getitem__(len(ds))
+
+            with self.assertRaisesMessage(IndexError, 'Invalid OGR layer name given: invalid.'):
+                ds.__getitem__('invalid')
 
     def test02_invalid_shp(self):
         "Testing invalid SHP files for the Data Source."
@@ -120,17 +118,15 @@ class DataSourceTest(unittest.TestCase):
                     self.assertIn(f, source.fields)
 
                 # Negative FIDs are not allowed.
-                with self.assertRaises(OGRIndexError):
+                with self.assertRaisesMessage(IndexError, 'Negative indices are not allowed on OGR Layers.'):
                     layer.__getitem__(-1)
-                with self.assertRaises(OGRIndexError):
+                with self.assertRaisesMessage(IndexError, 'Invalid feature id: 50000.'):
                     layer.__getitem__(50000)
 
                 if hasattr(source, 'field_values'):
-                    fld_names = source.field_values.keys()
-
                     # Testing `Layer.get_fields` (which uses Layer.__iter__)
-                    for fld_name in fld_names:
-                        self.assertEqual(source.field_values[fld_name], layer.get_fields(fld_name))
+                    for fld_name, fld_value in source.field_values.items():
+                        self.assertEqual(fld_value, layer.get_fields(fld_name))
 
                     # Testing `Layer.__getitem__`.
                     for i, fid in enumerate(source.fids):
@@ -138,8 +134,15 @@ class DataSourceTest(unittest.TestCase):
                         self.assertEqual(fid, feat.fid)
                         # Maybe this should be in the test below, but we might as well test
                         # the feature values here while in this loop.
-                        for fld_name in fld_names:
-                            self.assertEqual(source.field_values[fld_name][i], feat.get(fld_name))
+                        for fld_name, fld_value in source.field_values.items():
+                            self.assertEqual(fld_value[i], feat.get(fld_name))
+
+                        msg = 'Index out of range when accessing field in a feature: %s.'
+                        with self.assertRaisesMessage(IndexError, msg % len(feat)):
+                            feat.__getitem__(len(feat))
+
+                        with self.assertRaisesMessage(IndexError, 'Invalid OFT field name given: invalid.'):
+                            feat.__getitem__('invalid')
 
     def test03b_layer_slice(self):
         "Test indexing and slicing on Layers."
@@ -197,10 +200,11 @@ class DataSourceTest(unittest.TestCase):
                         # Making sure we get the proper OGR Field instance, using
                         # a string value index for the feature.
                         self.assertIsInstance(feat[k], v)
+                    self.assertIsInstance(feat.fields[0], str)
 
                     # Testing Feature.__iter__
                     for fld in feat:
-                        self.assertIn(fld.name, source.fields.keys())
+                        self.assertIn(fld.name, source.fields)
 
     def test05_geometries(self):
         "Testing Geometries from Data Source Features."

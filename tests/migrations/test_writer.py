@@ -1,58 +1,44 @@
-# -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-
 import datetime
 import decimal
+import enum
 import functools
 import math
 import os
 import re
-import sys
-import tokenize
-import unittest
 import uuid
+from unittest import mock
 
 import custom_migration_operations.more_operations
 import custom_migration_operations.operations
 
 from django import get_version
-from django.conf import settings
+from django.conf import SettingsReference, settings
 from django.core.validators import EmailValidator, RegexValidator
 from django.db import migrations, models
-from django.db.migrations.writer import (
-    MigrationWriter, OperationWriter, SettingsReference,
-)
-from django.test import SimpleTestCase, ignore_warnings, mock
-from django.utils import datetime_safe, six
-from django.utils._os import upath
+from django.db.migrations.serializer import BaseSerializer
+from django.db.migrations.writer import MigrationWriter, OperationWriter
+from django.test import SimpleTestCase
 from django.utils.deconstruct import deconstructible
-from django.utils.encoding import force_str
 from django.utils.functional import SimpleLazyObject
-from django.utils.timezone import FixedOffset, get_default_timezone, utc
-from django.utils.translation import ugettext_lazy as _
+from django.utils.timezone import get_default_timezone, get_fixed_timezone, utc
+from django.utils.translation import gettext_lazy as _
+from django.utils.version import PY36
 
 from .models import FoodManager, FoodQuerySet
-
-try:
-    import enum
-except ImportError:
-    enum = None
-
-PY36 = sys.version_info >= (3, 6)
 
 
 class Money(decimal.Decimal):
     def deconstruct(self):
         return (
             '%s.%s' % (self.__class__.__module__, self.__class__.__name__),
-            [six.text_type(self)],
+            [str(self)],
             {}
         )
 
 
-class TestModel1(object):
+class TestModel1:
     def upload_to(self):
-        return "somewhere dynamic"
+        return '/somewhere/dynamic/'
     thing = models.FileField(upload_to=upload_to)
 
 
@@ -183,7 +169,7 @@ class WriterTests(SimpleTestCase):
     def safe_exec(self, string, value=None):
         d = {}
         try:
-            exec(force_str(string), globals(), d)
+            exec(string, globals(), d)
         except Exception as e:
             if value:
                 self.fail("Could not exec %r (from value %r): %s" % (string.strip(), value, e))
@@ -263,11 +249,10 @@ class WriterTests(SimpleTestCase):
         )
 
     def test_serialize_lazy_objects(self):
-        pattern = re.compile(r'^foo$', re.UNICODE)
+        pattern = re.compile(r'^foo$')
         lazy_pattern = SimpleLazyObject(lambda: pattern)
         self.assertEqual(self.serialize_round_trip(lazy_pattern), pattern)
 
-    @unittest.skipUnless(enum, "enum34 is required on Python 2")
     def test_serialize_enums(self):
         class TextEnum(enum.Enum):
             A = 'a-value'
@@ -364,7 +349,7 @@ class WriterTests(SimpleTestCase):
         self.assertSerializedEqual(datetime.date.today)
         self.assertSerializedEqual(datetime.datetime.now().time())
         self.assertSerializedEqual(datetime.datetime(2014, 1, 1, 1, 1, tzinfo=get_default_timezone()))
-        self.assertSerializedEqual(datetime.datetime(2013, 12, 31, 22, 1, tzinfo=FixedOffset(180)))
+        self.assertSerializedEqual(datetime.datetime(2013, 12, 31, 22, 1, tzinfo=get_fixed_timezone(180)))
         self.assertSerializedResultEqual(
             datetime.datetime(2014, 1, 1, 1, 1),
             ("datetime.datetime(2014, 1, 1, 1, 1)", {'import datetime'})
@@ -375,20 +360,6 @@ class WriterTests(SimpleTestCase):
                 "datetime.datetime(2012, 1, 1, 1, 1, tzinfo=utc)",
                 {'import datetime', 'from django.utils.timezone import utc'},
             )
-        )
-
-    def test_serialize_datetime_safe(self):
-        self.assertSerializedResultEqual(
-            datetime_safe.date(2014, 3, 31),
-            ("datetime.date(2014, 3, 31)", {'import datetime'})
-        )
-        self.assertSerializedResultEqual(
-            datetime_safe.time(10, 25),
-            ("datetime.time(10, 25)", {'import datetime'})
-        )
-        self.assertSerializedResultEqual(
-            datetime_safe.datetime(2014, 3, 31, 16, 4, 31),
-            ("datetime.datetime(2014, 3, 31, 16, 4, 31)", {'import datetime'})
         )
 
     def test_serialize_fields(self):
@@ -420,7 +391,7 @@ class WriterTests(SimpleTestCase):
         """
         Make sure compiled regex can be serialized.
         """
-        regex = re.compile(r'^\w+$', re.U)
+        regex = re.compile(r'^\w+$')
         self.assertSerializedEqual(regex)
 
     def test_serialize_class_based_validators(self):
@@ -434,18 +405,18 @@ class WriterTests(SimpleTestCase):
         self.serialize_round_trip(validator)
 
         # Test with a compiled regex.
-        validator = RegexValidator(regex=re.compile(r'^\w+$', re.U))
+        validator = RegexValidator(regex=re.compile(r'^\w+$'))
         string = MigrationWriter.serialize(validator)[0]
-        self.assertEqual(string, "django.core.validators.RegexValidator(regex=re.compile('^\\\\w+$', 32))")
+        self.assertEqual(string, "django.core.validators.RegexValidator(regex=re.compile('^\\\\w+$'))")
         self.serialize_round_trip(validator)
 
         # Test a string regex with flag
-        validator = RegexValidator(r'^[0-9]+$', flags=re.U)
+        validator = RegexValidator(r'^[0-9]+$', flags=re.S)
         string = MigrationWriter.serialize(validator)[0]
         if PY36:
-            self.assertEqual(string, "django.core.validators.RegexValidator('^[0-9]+$', flags=re.RegexFlag(32))")
+            self.assertEqual(string, "django.core.validators.RegexValidator('^[0-9]+$', flags=re.RegexFlag(16))")
         else:
-            self.assertEqual(string, "django.core.validators.RegexValidator('^[0-9]+$', flags=32)")
+            self.assertEqual(string, "django.core.validators.RegexValidator('^[0-9]+$', flags=16)")
         self.serialize_round_trip(validator)
 
         # Test message and code
@@ -465,7 +436,7 @@ class WriterTests(SimpleTestCase):
         self.assertEqual(string, "migrations.test_writer.EmailValidator(message='hello')")
 
         validator = deconstructible(path="custom.EmailValidator")(EmailValidator)(message="hello")
-        with self.assertRaisesRegex(ImportError, "No module named '?custom'?"):
+        with self.assertRaisesMessage(ImportError, "No module named 'custom'"):
             MigrationWriter.serialize(validator)
 
         validator = deconstructible(path="django.core.validators.EmailValidator2")(EmailValidator)(message="hello")
@@ -484,36 +455,23 @@ class WriterTests(SimpleTestCase):
         self.assertSerializedEqual(one_item_tuple)
         self.assertSerializedEqual(many_items_tuple)
 
+    def test_serialize_range(self):
+        string, imports = MigrationWriter.serialize(range(1, 5))
+        self.assertEqual(string, 'range(1, 5)')
+        self.assertEqual(imports, set())
+
     def test_serialize_builtins(self):
         string, imports = MigrationWriter.serialize(range)
         self.assertEqual(string, 'range')
         self.assertEqual(imports, set())
 
-    @unittest.skipUnless(six.PY2, "Only applies on Python 2")
-    def test_serialize_direct_function_reference(self):
-        """
-        Ticket #22436: You cannot use a function straight from its body
-        (e.g. define the method and use it in the same body)
-        """
-        with self.assertRaises(ValueError):
-            self.serialize_round_trip(TestModel1.thing)
+    def test_serialize_unbound_method_reference(self):
+        """An unbound method used within a class body can be serialized."""
+        self.serialize_round_trip(TestModel1.thing)
 
     def test_serialize_local_function_reference(self):
-        """
-        Neither py2 or py3 can serialize a reference in a local scope.
-        """
-        class TestModel2(object):
-            def upload_to(self):
-                return "somewhere dynamic"
-            thing = models.FileField(upload_to=upload_to)
-        with self.assertRaises(ValueError):
-            self.serialize_round_trip(TestModel2.thing)
-
-    def test_serialize_local_function_reference_message(self):
-        """
-        Make sure user is seeing which module/function is the issue
-        """
-        class TestModel2(object):
+        """A reference in a local scope can't be serialized."""
+        class TestModel2:
             def upload_to(self):
                 return "somewhere dynamic"
             thing = models.FileField(upload_to=upload_to)
@@ -534,6 +492,12 @@ class WriterTests(SimpleTestCase):
         self.assertSerializedEqual(frozenset())
         self.assertSerializedEqual(frozenset("let it go"))
 
+    def test_serialize_set(self):
+        self.assertSerializedEqual(set())
+        self.assertSerializedResultEqual(set(), ('set()', set()))
+        self.assertSerializedEqual({'a'})
+        self.assertSerializedResultEqual({'a'}, ("{'a'}", set()))
+
     def test_serialize_timedelta(self):
         self.assertSerializedEqual(datetime.timedelta())
         self.assertSerializedEqual(datetime.timedelta(minutes=42))
@@ -544,6 +508,17 @@ class WriterTests(SimpleTestCase):
         self.assertEqual(result.func, value.func)
         self.assertEqual(result.args, value.args)
         self.assertEqual(result.keywords, value.keywords)
+
+    def test_serialize_functools_partialmethod(self):
+        value = functools.partialmethod(datetime.timedelta, 1, seconds=2)
+        result = self.serialize_round_trip(value)
+        self.assertIsInstance(result, functools.partialmethod)
+        self.assertEqual(result.func, value.func)
+        self.assertEqual(result.args, value.args)
+        self.assertEqual(result.keywords, value.keywords)
+
+    def test_serialize_type_none(self):
+        self.assertSerializedEqual(type(None))
 
     def test_simple_migration(self):
         """
@@ -559,7 +534,7 @@ class WriterTests(SimpleTestCase):
             'verbose_name_plural': 'My models',
         }
 
-        migration = type(str("Migration"), (migrations.Migration,), {
+        migration = type("Migration", (migrations.Migration,), {
             "operations": [
                 migrations.CreateModel("MyModel", tuple(fields.items()), options, (models.Model,)),
                 migrations.CreateModel("MyModel2", tuple(fields.items()), bases=(models.Model,)),
@@ -577,22 +552,7 @@ class WriterTests(SimpleTestCase):
         # Just make sure it runs for now, and that things look alright.
         result = self.safe_exec(output)
         self.assertIn("Migration", result)
-        # In order to preserve compatibility with Python 3.2 unicode literals
-        # prefix shouldn't be added to strings.
-        tokens = tokenize.generate_tokens(six.StringIO(str(output)).readline)
-        for token_type, token_source, (srow, scol), __, line in tokens:
-            if token_type == tokenize.STRING:
-                self.assertFalse(
-                    token_source.startswith('u'),
-                    "Unicode literal prefix found at %d:%d: %r" % (
-                        srow, scol, line.strip()
-                    )
-                )
 
-    # Silence warning on Python 2: Not importing directory
-    # 'tests/migrations/migrations_test_apps/without_init_file/migrations':
-    # missing __init__.py
-    @ignore_warnings(category=ImportWarning)
     def test_migration_path(self):
         test_apps = [
             'migrations.migrations_test_apps.normal',
@@ -600,7 +560,7 @@ class WriterTests(SimpleTestCase):
             'migrations.migrations_test_apps.without_init_file',
         ]
 
-        base_dir = os.path.dirname(os.path.dirname(upath(__file__)))
+        base_dir = os.path.dirname(os.path.dirname(__file__))
 
         for app in test_apps:
             with self.modify_settings(INSTALLED_APPS={'append': app}):
@@ -610,7 +570,7 @@ class WriterTests(SimpleTestCase):
                 self.assertEqual(writer.path, expected_path)
 
     def test_custom_operation(self):
-        migration = type(str("Migration"), (migrations.Migration,), {
+        migration = type("Migration", (migrations.Migration,), {
             "operations": [
                 custom_migration_operations.operations.TestOperation(),
                 custom_migration_operations.operations.CreateModel(),
@@ -632,7 +592,7 @@ class WriterTests(SimpleTestCase):
         """
         #24155 - Tests ordering of imports.
         """
-        migration = type(str("Migration"), (migrations.Migration,), {
+        migration = type("Migration", (migrations.Migration,), {
             "operations": [
                 migrations.AddField("mymodel", "myfield", models.DateTimeField(
                     default=datetime.datetime(2012, 1, 1, 1, 1, tzinfo=utc),
@@ -652,28 +612,32 @@ class WriterTests(SimpleTestCase):
         """
         Test comments at top of file.
         """
-        migration = type(str("Migration"), (migrations.Migration,), {
+        migration = type("Migration", (migrations.Migration,), {
             "operations": []
         })
         dt = datetime.datetime(2015, 7, 31, 4, 40, 0, 0, tzinfo=utc)
         with mock.patch('django.db.migrations.writer.now', lambda: dt):
-            writer = MigrationWriter(migration)
-            output = writer.as_string()
+            for include_header in (True, False):
+                with self.subTest(include_header=include_header):
+                    writer = MigrationWriter(migration, include_header)
+                    output = writer.as_string()
 
-        self.assertTrue(
-            output.startswith(
-                "# -*- coding: utf-8 -*-\n"
-                "# Generated by Django %(version)s on 2015-07-31 04:40\n" % {
-                    'version': get_version(),
-                }
-            )
-        )
+                    self.assertEqual(
+                        include_header,
+                        output.startswith(
+                            "# Generated by Django %s on 2015-07-31 04:40\n\n" % get_version()
+                        )
+                    )
+                    if not include_header:
+                        # Make sure the output starts with something that's not
+                        # a comment or indentation or blank line
+                        self.assertRegex(output.splitlines(keepends=True)[0], r"^[^#\s]+")
 
     def test_models_import_omitted(self):
         """
         django.db.models shouldn't be imported if unused.
         """
-        migration = type(str("Migration"), (migrations.Migration,), {
+        migration = type("Migration", (migrations.Migration,), {
             "operations": [
                 migrations.AlterModelOptions(
                     name='model',
@@ -689,9 +653,24 @@ class WriterTests(SimpleTestCase):
         # Yes, it doesn't make sense to use a class as a default for a
         # CharField. It does make sense for custom fields though, for example
         # an enumfield that takes the enum class as an argument.
-        class DeconstructibleInstances(object):
+        class DeconstructibleInstances:
             def deconstruct(self):
                 return ('DeconstructibleInstances', [], {})
 
         string = MigrationWriter.serialize(models.CharField(default=DeconstructibleInstances))[0]
         self.assertEqual(string, "models.CharField(default=migrations.test_writer.DeconstructibleInstances)")
+
+    def test_register_serializer(self):
+        class ComplexSerializer(BaseSerializer):
+            def serialize(self):
+                return 'complex(%r)' % self.value, {}
+
+        MigrationWriter.register_serializer(complex, ComplexSerializer)
+        self.assertSerializedEqual(complex(1, 2))
+        MigrationWriter.unregister_serializer(complex)
+        with self.assertRaisesMessage(ValueError, 'Cannot serialize: (1+2j)'):
+            self.assertSerializedEqual(complex(1, 2))
+
+    def test_register_non_serializer(self):
+        with self.assertRaisesMessage(ValueError, "'TestModel1' must inherit from 'BaseSerializer'."):
+            MigrationWriter.register_serializer(complex, TestModel1)

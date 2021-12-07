@@ -8,9 +8,9 @@ Overview
 ========
 In general, GeoDjango installation requires:
 
-1. :ref:`Python and Django <django>`
-2. :ref:`spatial_database`
-3. :doc:`geolibs`
+#. :ref:`Python and Django <django>`
+#. :ref:`spatial_database`
+#. :doc:`geolibs`
 
 Details for each of the requirements and installation instructions
 are provided in the sections below. In addition, platform-specific
@@ -58,10 +58,10 @@ supported versions, and any notes for each of the supported database backends:
 ==================  ==============================  ==================  =========================================
 Database            Library Requirements            Supported Versions  Notes
 ==================  ==============================  ==================  =========================================
-PostgreSQL          GEOS, GDAL, PROJ.4, PostGIS     9.3+                Requires PostGIS.
-MySQL               GEOS, GDAL                      5.5+                Not OGC-compliant; :ref:`limited functionality <mysql-spatial-limitations>`.
-Oracle              GEOS, GDAL                      11.2+               XE not supported.
-SQLite              GEOS, GDAL, PROJ.4, SpatiaLite  3.6.+               Requires SpatiaLite 4.0+, pysqlite2 2.5+
+PostgreSQL          GEOS, GDAL, PROJ.4, PostGIS     9.4+                Requires PostGIS.
+MySQL               GEOS, GDAL                      5.6+                Not OGC-compliant; :ref:`limited functionality <mysql-spatial-limitations>`.
+Oracle              GEOS, GDAL                      12.1+               XE not supported.
+SQLite              GEOS, GDAL, PROJ.4, SpatiaLite  3.8.3+              Requires SpatiaLite 4.1+
 ==================  ==============================  ==================  =========================================
 
 See also `this comparison matrix`__ on the OSGeo Wiki for
@@ -89,6 +89,12 @@ Database installation
     postgis
     spatialite
 
+:setting:`DATABASES` configuration
+----------------------------------
+
+Set the :setting:`ENGINE <DATABASE-ENGINE>` setting to one of the :ref:`spatial
+backends <spatial-backends>`.
+
 Add ``django.contrib.gis`` to :setting:`INSTALLED_APPS`
 -------------------------------------------------------
 
@@ -103,9 +109,9 @@ Troubleshooting
 If you can't find the solution to your problem here then participate in the
 community!  You can:
 
-* Join the ``#geodjango`` IRC channel on Freenode. Please be patient and polite
-  -- while you may not get an immediate response, someone will attempt to answer
-  your question as soon as they see it.
+* Join the ``#django-geo`` IRC channel on Libera.Chat. Please be patient and
+  polite -- while you may not get an immediate response, someone will attempt
+  to answer your question as soon as they see it.
 * Ask your question on the `GeoDjango`__ mailing list.
 * File a ticket on the `Django trac`__ if you think there's a bug.  Make
   sure to provide a complete description of the problem, versions used,
@@ -225,7 +231,7 @@ __ https://www.python.org/ftp/python/
 Postgres.app
 ~~~~~~~~~~~~
 
-`Postgres.app <http://postgresapp.com/>`_ is a standalone PostgreSQL server
+`Postgres.app <https://postgresapp.com/>`_ is a standalone PostgreSQL server
 that includes the PostGIS extension. You will also need to install ``gdal`` and
 ``libgeoip`` with :ref:`homebrew`.
 
@@ -268,8 +274,7 @@ KyngChaos packages
 William Kyngesburye provides a number of `geospatial library binary packages`__
 that make it simple to get GeoDjango installed on macOS without compiling
 them from source.  However, `Xcode`_ is still necessary for compiling the
-Python database adapters :ref:`psycopg2_kyngchaos` (for PostGIS) and
-`pysqlite2 <https://pypi.python.org/pypi/pysqlite>`_ (for SpatiaLite).
+Python database adapters :ref:`psycopg2_kyngchaos` (for PostGIS).
 
 .. note::
 
@@ -300,8 +305,8 @@ your ``.profile`` to be able to run the package programs from the command-line::
     export PATH=/Library/Frameworks/GDAL.framework/Programs:$PATH
     export PATH=/usr/local/pgsql/bin:$PATH
 
-__ http://www.kyngchaos.com/software/frameworks
-__ http://www.kyngchaos.com/software/postgres
+__ https://www.kyngchaos.com/software/frameworks
+__ https://www.kyngchaos.com/software/postgres
 
 .. _psycopg2_kyngchaos:
 
@@ -463,7 +468,7 @@ executable with ``cmd.exe``, will set this up:
 .. code-block:: bat
 
     set OSGEO4W_ROOT=C:\OSGeo4W
-    set PYTHON_ROOT=C:\Python27
+    set PYTHON_ROOT=C:\Python3X
     set GDAL_DATA=%OSGEO4W_ROOT%\share\gdal
     set PROJ_LIB=%OSGEO4W_ROOT%\share\proj
     set PATH=%PATH%;%PYTHON_ROOT%;%OSGEO4W_ROOT%\bin
@@ -471,15 +476,12 @@ executable with ``cmd.exe``, will set this up:
     reg ADD "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v GDAL_DATA /t REG_EXPAND_SZ /f /d "%GDAL_DATA%"
     reg ADD "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v PROJ_LIB /t REG_EXPAND_SZ /f /d "%PROJ_LIB%"
 
-For your convenience, these commands are available in the executable batch
-script, :download:`geodjango_setup.bat`.
-
 .. note::
 
     Administrator privileges are required to execute these commands.
-    To do this, right-click on :download:`geodjango_setup.bat` and select
-    :menuselection:`Run as administrator`. You need to log out and log back in again
-    for the settings to take effect.
+    To do this, create a ``bat`` script with the commands, right-click it, and
+    select :menuselection:`Run as administrator`. You need to log out and log
+    back in again for the settings to take effect.
 
 .. note::
 

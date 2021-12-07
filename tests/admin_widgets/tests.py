@@ -1,6 +1,3 @@
-# -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-
 import gettext
 import os
 import re
@@ -20,16 +17,17 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db.models import CharField, DateField, DateTimeField, UUIDField
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
-from django.utils import six, translation
+from django.utils import translation
 
 from .models import (
     Advisor, Album, Band, Bee, Car, Company, Event, Honeycomb, Individual,
     Inventory, Member, MyFileField, Profile, School, Student,
+    UnsafeLimitChoicesTo,
 )
 from .widgetadmin import site as widget_admin_site
 
 
-class TestDataMixin(object):
+class TestDataMixin:
 
     @classmethod
     def setUpTestData(cls):
@@ -183,7 +181,7 @@ class AdminFormfieldForDBFieldTests(SimpleTestCase):
         ma = AdvisorAdmin(Advisor, admin.site)
         f = ma.formfield_for_dbfield(Advisor._meta.get_field('companies'), request=None)
         self.assertEqual(
-            six.text_type(f.help_text),
+            f.help_text,
             'Hold down "Control", or "Command" on a Mac, to select more than one.'
         )
 
@@ -225,7 +223,7 @@ class AdminForeignKeyRawIdWidget(TestDataMixin, TestCase):
         post_data = {
             "main_band": '%s' % pk,
         }
-        # Try posting with a non-existent pk in a raw id field: this
+        # Try posting with a nonexistent pk in a raw id field: this
         # should result in an error message, not a server exception.
         response = self.client.post(reverse('admin:admin_widgets_event_add'), post_data)
         self.assertContains(response, 'Select a valid choice. That choice is not one of the available choices.')
@@ -264,7 +262,7 @@ class FilteredSelectMultipleWidgetTest(SimpleTestCase):
         w = widgets.FilteredSelectMultiple('test\\', False)
         self.assertHTMLEqual(
             w.render('test', 'test'),
-            '<select multiple="multiple" name="test" class="selectfilter" '
+            '<select multiple name="test" class="selectfilter" '
             'data-field-name="test\\" data-is-stacked="0">\n</select>'
         )
 
@@ -273,7 +271,7 @@ class FilteredSelectMultipleWidgetTest(SimpleTestCase):
         w = widgets.FilteredSelectMultiple('test\\', True)
         self.assertHTMLEqual(
             w.render('test', 'test'),
-            '<select multiple="multiple" name="test" class="selectfilterstacked" '
+            '<select multiple name="test" class="selectfilterstacked" '
             'data-field-name="test\\" data-is-stacked="1">\n</select>'
         )
 
@@ -283,13 +281,13 @@ class AdminDateWidgetTest(SimpleTestCase):
         w = widgets.AdminDateWidget()
         self.assertHTMLEqual(
             w.render('test', datetime(2007, 12, 1, 9, 30)),
-            '<input value="2007-12-01" type="text" class="vDateField" name="test" size="10" />',
+            '<input value="2007-12-01" type="text" class="vDateField" name="test" size="10">',
         )
         # pass attrs to widget
         w = widgets.AdminDateWidget(attrs={'size': 20, 'class': 'myDateField'})
         self.assertHTMLEqual(
             w.render('test', datetime(2007, 12, 1, 9, 30)),
-            '<input value="2007-12-01" type="text" class="myDateField" name="test" size="20" />',
+            '<input value="2007-12-01" type="text" class="myDateField" name="test" size="20">',
         )
 
 
@@ -298,13 +296,13 @@ class AdminTimeWidgetTest(SimpleTestCase):
         w = widgets.AdminTimeWidget()
         self.assertHTMLEqual(
             w.render('test', datetime(2007, 12, 1, 9, 30)),
-            '<input value="09:30:00" type="text" class="vTimeField" name="test" size="8" />',
+            '<input value="09:30:00" type="text" class="vTimeField" name="test" size="8">',
         )
         # pass attrs to widget
         w = widgets.AdminTimeWidget(attrs={'size': 20, 'class': 'myTimeField'})
         self.assertHTMLEqual(
             w.render('test', datetime(2007, 12, 1, 9, 30)),
-            '<input value="09:30:00" type="text" class="myTimeField" name="test" size="20" />',
+            '<input value="09:30:00" type="text" class="myTimeField" name="test" size="20">',
         )
 
 
@@ -315,9 +313,9 @@ class AdminSplitDateTimeWidgetTest(SimpleTestCase):
             w.render('test', datetime(2007, 12, 1, 9, 30)),
             '<p class="datetime">'
             'Date: <input value="2007-12-01" type="text" class="vDateField" '
-            'name="test_0" size="10" /><br />'
+            'name="test_0" size="10"><br>'
             'Time: <input value="09:30:00" type="text" class="vTimeField" '
-            'name="test_1" size="8" /></p>'
+            'name="test_1" size="8"></p>'
         )
 
     def test_localization(self):
@@ -329,9 +327,9 @@ class AdminSplitDateTimeWidgetTest(SimpleTestCase):
                 w.render('test', datetime(2007, 12, 1, 9, 30)),
                 '<p class="datetime">'
                 'Datum: <input value="01.12.2007" type="text" '
-                'class="vDateField" name="test_0"size="10" /><br />'
+                'class="vDateField" name="test_0"size="10"><br>'
                 'Zeit: <input value="09:30:00" type="text" class="vTimeField" '
-                'name="test_1" size="8" /></p>'
+                'name="test_1" size="8"></p>'
             )
 
 
@@ -339,21 +337,22 @@ class AdminURLWidgetTest(SimpleTestCase):
     def test_get_context_validates_url(self):
         w = widgets.AdminURLFieldWidget()
         for invalid in ['', '/not/a/full/url/', 'javascript:alert("Danger XSS!")']:
-            self.assertFalse(w.get_context('name', invalid, {})['url_valid'])
+            with self.subTest(url=invalid):
+                self.assertFalse(w.get_context('name', invalid, {})['url_valid'])
         self.assertTrue(w.get_context('name', 'http://example.com', {})['url_valid'])
 
     def test_render(self):
         w = widgets.AdminURLFieldWidget()
         self.assertHTMLEqual(
             w.render('test', ''),
-            '<input class="vURLField" name="test" type="url" />'
+            '<input class="vURLField" name="test" type="url">'
         )
         self.assertHTMLEqual(
             w.render('test', 'http://example.com'),
             '<p class="url">Currently:<a href="http://example.com">'
-            'http://example.com</a><br />'
+            'http://example.com</a><br>'
             'Change:<input class="vURLField" name="test" type="url" '
-            'value="http://example.com" /></p>'
+            'value="http://example.com"></p>'
         )
 
     def test_render_idn(self):
@@ -361,9 +360,9 @@ class AdminURLWidgetTest(SimpleTestCase):
         self.assertHTMLEqual(
             w.render('test', 'http://example-äüö.com'),
             '<p class="url">Currently: <a href="http://xn--example--7za4pnc.com">'
-            'http://example-äüö.com</a><br />'
+            'http://example-äüö.com</a><br>'
             'Change:<input class="vURLField" name="test" type="url" '
-            'value="http://example-äüö.com" /></p>'
+            'value="http://example-äüö.com"></p>'
         )
 
     def test_render_quoting(self):
@@ -417,12 +416,26 @@ class AdminURLWidgetTest(SimpleTestCase):
         )
 
 
+class AdminUUIDWidgetTests(SimpleTestCase):
+    def test_attrs(self):
+        w = widgets.AdminUUIDInputWidget()
+        self.assertHTMLEqual(
+            w.render('test', '550e8400-e29b-41d4-a716-446655440000'),
+            '<input value="550e8400-e29b-41d4-a716-446655440000" type="text" class="vUUIDField" name="test">',
+        )
+        w = widgets.AdminUUIDInputWidget(attrs={'class': 'myUUIDInput'})
+        self.assertHTMLEqual(
+            w.render('test', '550e8400-e29b-41d4-a716-446655440000'),
+            '<input value="550e8400-e29b-41d4-a716-446655440000" type="text" class="myUUIDInput" name="test">',
+        )
+
+
 @override_settings(ROOT_URLCONF='admin_widgets.urls')
 class AdminFileWidgetTests(TestDataMixin, TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        super(AdminFileWidgetTests, cls).setUpTestData()
+        super().setUpTestData()
         band = Band.objects.create(name='Linkin Park')
         cls.album = band.album_set.create(
             name='Hybrid Theory', cover_art=r'albums\hybrid_theory.jpg'
@@ -435,15 +448,15 @@ class AdminFileWidgetTests(TestDataMixin, TestCase):
             '<p class="file-upload">Currently: <a href="%(STORAGE_URL)salbums/'
             r'hybrid_theory.jpg">albums\hybrid_theory.jpg</a> '
             '<span class="clearable-file-input">'
-            '<input type="checkbox" name="test-clear" id="test-clear_id" /> '
-            '<label for="test-clear_id">Clear</label></span><br />'
-            'Change: <input type="file" name="test" /></p>' % {
+            '<input type="checkbox" name="test-clear" id="test-clear_id"> '
+            '<label for="test-clear_id">Clear</label></span><br>'
+            'Change: <input type="file" name="test"></p>' % {
                 'STORAGE_URL': default_storage.url(''),
             },
         )
         self.assertHTMLEqual(
             w.render('test', SimpleUploadedFile('test', b'content')),
-            '<input type="file" name="test" />',
+            '<input type="file" name="test">',
         )
 
     def test_render_required(self):
@@ -452,8 +465,8 @@ class AdminFileWidgetTests(TestDataMixin, TestCase):
         self.assertHTMLEqual(
             widget.render('test', self.album.cover_art),
             '<p class="file-upload">Currently: <a href="%(STORAGE_URL)salbums/'
-            r'hybrid_theory.jpg">albums\hybrid_theory.jpg</a><br />'
-            'Change: <input type="file" name="test" /></p>' % {
+            r'hybrid_theory.jpg">albums\hybrid_theory.jpg</a><br>'
+            'Change: <input type="file" name="test"></p>' % {
                 'STORAGE_URL': default_storage.url(''),
             },
         )
@@ -472,7 +485,7 @@ class AdminFileWidgetTests(TestDataMixin, TestCase):
         )
         self.assertNotContains(
             response,
-            '<input type="file" name="cover_art" id="id_cover_art" />',
+            '<input type="file" name="cover_art" id="id_cover_art">',
             html=True,
         )
         response = self.client.get(reverse('admin:admin_widgets_album_add'))
@@ -497,7 +510,7 @@ class ForeignKeyRawIdWidgetTest(TestCase):
         self.assertHTMLEqual(
             w.render('test', band.pk, attrs={}),
             '<input type="text" name="test" value="%(bandpk)s" '
-            'class="vForeignKeyRawIdAdminField" />'
+            'class="vForeignKeyRawIdAdminField">'
             '<a href="/admin_widgets/band/?_to_field=id" class="related-lookup" '
             'id="lookup_id_test" title="Lookup"></a>&nbsp;<strong>'
             '<a href="/admin_widgets/band/%(bandpk)s/change/">Linkin Park</a>'
@@ -517,7 +530,7 @@ class ForeignKeyRawIdWidgetTest(TestCase):
         self.assertHTMLEqual(
             w.render('test', core.parent_id, attrs={}),
             '<input type="text" name="test" value="86" '
-            'class="vForeignKeyRawIdAdminField" />'
+            'class="vForeignKeyRawIdAdminField">'
             '<a href="/admin_widgets/inventory/?_to_field=barcode" '
             'class="related-lookup" id="lookup_id_test" title="Lookup"></a>'
             '&nbsp;<strong><a href="/admin_widgets/inventory/%(pk)s/change/">'
@@ -534,9 +547,9 @@ class ForeignKeyRawIdWidgetTest(TestCase):
         w = widgets.ForeignKeyRawIdWidget(rel, widget_admin_site)
         self.assertHTMLEqual(
             w.render('honeycomb_widget', big_honeycomb.pk, attrs={}),
-            '<input type="text" name="honeycomb_widget" value="%(hcombpk)s" />'
-            '&nbsp;<strong>Honeycomb object</strong>'
-            % {'hcombpk': big_honeycomb.pk}
+            '<input type="text" name="honeycomb_widget" value="%(hcombpk)s">'
+            '&nbsp;<strong>%(hcomb)s</strong>'
+            % {'hcombpk': big_honeycomb.pk, 'hcomb': big_honeycomb}
         )
 
     def test_fk_to_self_model_not_in_admin(self):
@@ -549,9 +562,9 @@ class ForeignKeyRawIdWidgetTest(TestCase):
         w = widgets.ForeignKeyRawIdWidget(rel, widget_admin_site)
         self.assertHTMLEqual(
             w.render('individual_widget', subject1.pk, attrs={}),
-            '<input type="text" name="individual_widget" value="%(subj1pk)s" />'
-            '&nbsp;<strong>Individual object</strong>'
-            % {'subj1pk': subject1.pk}
+            '<input type="text" name="individual_widget" value="%(subj1pk)s">'
+            '&nbsp;<strong>%(subj1)s</strong>'
+            % {'subj1pk': subject1.pk, 'subj1': subject1}
         )
 
     def test_proper_manager_for_label_lookup(self):
@@ -567,11 +580,24 @@ class ForeignKeyRawIdWidgetTest(TestCase):
         )
         self.assertHTMLEqual(
             w.render('test', child_of_hidden.parent_id, attrs={}),
-            '<input type="text" name="test" value="93" class="vForeignKeyRawIdAdminField" />'
+            '<input type="text" name="test" value="93" class="vForeignKeyRawIdAdminField">'
             '<a href="/admin_widgets/inventory/?_to_field=barcode" '
             'class="related-lookup" id="lookup_id_test" title="Lookup"></a>'
             '&nbsp;<strong><a href="/admin_widgets/inventory/%(pk)s/change/">'
             'Hidden</a></strong>' % {'pk': hidden.pk}
+        )
+
+    def test_render_unsafe_limit_choices_to(self):
+        rel = UnsafeLimitChoicesTo._meta.get_field('band').remote_field
+        w = widgets.ForeignKeyRawIdWidget(rel, widget_admin_site)
+        parameters = w.url_parameters()
+        parameters['name'] = '%22%26%3E%3Cescapeme'
+        self.assertHTMLEqual(
+            w.render('test', None),
+            '<input type="text" name="test" class="vForeignKeyRawIdAdminField">'
+            '<a class="related-lookup" href="/admin_widgets/band/?%s" '
+            'id="lookup_id_test" title="Lookup"></a>'
+            % '&amp;'.join('%s=%s' % (k, v) for k, v in parameters.items())
         )
 
 
@@ -589,16 +615,16 @@ class ManyToManyRawIdWidgetTest(TestCase):
         w = widgets.ManyToManyRawIdWidget(rel, widget_admin_site)
         self.assertHTMLEqual(
             w.render('test', [m1.pk, m2.pk], attrs={}), (
-                '<input type="text" name="test" value="%(m1pk)s,%(m2pk)s" class="vManyToManyRawIdAdminField" />'
+                '<input type="text" name="test" value="%(m1pk)s,%(m2pk)s" class="vManyToManyRawIdAdminField">'
                 '<a href="/admin_widgets/member/" class="related-lookup" id="lookup_id_test" title="Lookup"></a>'
-            ) % dict(m1pk=m1.pk, m2pk=m2.pk)
+            ) % {'m1pk': m1.pk, 'm2pk': m2.pk}
         )
 
         self.assertHTMLEqual(
             w.render('test', [m1.pk]), (
                 '<input type="text" name="test" value="%(m1pk)s" class="vManyToManyRawIdAdminField">'
                 '<a href="/admin_widgets/member/" class="related-lookup" id="lookup_id_test" title="Lookup"></a>'
-            ) % dict(m1pk=m1.pk)
+            ) % {'m1pk': m1.pk}
         )
 
     def test_m2m_related_model_not_in_admin(self):
@@ -614,12 +640,12 @@ class ManyToManyRawIdWidgetTest(TestCase):
         w = widgets.ManyToManyRawIdWidget(rel, widget_admin_site)
         self.assertHTMLEqual(
             w.render('company_widget1', [c1.pk, c2.pk], attrs={}),
-            '<input type="text" name="company_widget1" value="%(c1pk)s,%(c2pk)s" />' % {'c1pk': c1.pk, 'c2pk': c2.pk}
+            '<input type="text" name="company_widget1" value="%(c1pk)s,%(c2pk)s">' % {'c1pk': c1.pk, 'c2pk': c2.pk}
         )
 
         self.assertHTMLEqual(
             w.render('company_widget2', [c1.pk]),
-            '<input type="text" name="company_widget2" value="%(c1pk)s" />' % {'c1pk': c1.pk}
+            '<input type="text" name="company_widget2" value="%(c1pk)s">' % {'c1pk': c1.pk}
         )
 
 
@@ -682,6 +708,29 @@ class RelatedFieldWidgetWrapperTests(SimpleTestCase):
         wrapper = widgets.RelatedFieldWidgetWrapper(widget, rel, widget_admin_site)
         self.assertIs(wrapper.value_omitted_from_data({}, {}, 'band'), False)
 
+    def test_widget_is_hidden(self):
+        rel = Album._meta.get_field('band').remote_field
+        widget = forms.HiddenInput()
+        widget.choices = ()
+        wrapper = widgets.RelatedFieldWidgetWrapper(widget, rel, widget_admin_site)
+        self.assertIs(wrapper.is_hidden, True)
+        context = wrapper.get_context('band', None, {})
+        self.assertIs(context['is_hidden'], True)
+        output = wrapper.render('name', 'value')
+        # Related item links are hidden.
+        self.assertNotIn('<a ', output)
+
+    def test_widget_is_not_hidden(self):
+        rel = Album._meta.get_field('band').remote_field
+        widget = forms.Select()
+        wrapper = widgets.RelatedFieldWidgetWrapper(widget, rel, widget_admin_site)
+        self.assertIs(wrapper.is_hidden, False)
+        context = wrapper.get_context('band', None, {})
+        self.assertIs(context['is_hidden'], False)
+        output = wrapper.render('name', 'value')
+        # Related item links are present.
+        self.assertIn('<a ', output)
+
 
 @override_settings(ROOT_URLCONF='admin_widgets.urls')
 class AdminWidgetSeleniumTestCase(AdminSeleniumTestCase):
@@ -696,7 +745,8 @@ class DateTimePickerSeleniumTests(AdminWidgetSeleniumTestCase):
 
     def test_show_hide_date_time_picker_widgets(self):
         """
-        Pressing the ESC key closes the date and time picker widgets.
+        Pressing the ESC key or clicking on a widget value closes the date and
+        time picker widgets.
         """
         from selenium.webdriver.common.keys import Keys
 
@@ -705,22 +755,32 @@ class DateTimePickerSeleniumTests(AdminWidgetSeleniumTestCase):
         self.selenium.get(self.live_server_url + reverse('admin:admin_widgets_member_add'))
 
         # First, with the date picker widget ---------------------------------
+        cal_icon = self.selenium.find_element_by_id('calendarlink0')
         # The date picker is hidden
         self.assertEqual(self.get_css_value('#calendarbox0', 'display'), 'none')
         # Click the calendar icon
-        self.selenium.find_element_by_id('calendarlink0').click()
+        cal_icon.click()
         # The date picker is visible
         self.assertEqual(self.get_css_value('#calendarbox0', 'display'), 'block')
         # Press the ESC key
         self.selenium.find_element_by_tag_name('body').send_keys([Keys.ESCAPE])
         # The date picker is hidden again
         self.assertEqual(self.get_css_value('#calendarbox0', 'display'), 'none')
+        # Click the calendar icon, then on the 15th of current month
+        cal_icon.click()
+        self.selenium.find_element_by_xpath("//a[contains(text(), '15')]").click()
+        self.assertEqual(self.get_css_value('#calendarbox0', 'display'), 'none')
+        self.assertEqual(
+            self.selenium.find_element_by_id('id_birthdate_0').get_attribute('value'),
+            datetime.today().strftime('%Y-%m-') + '15',
+        )
 
         # Then, with the time picker widget ----------------------------------
+        time_icon = self.selenium.find_element_by_id('clocklink0')
         # The time picker is hidden
         self.assertEqual(self.get_css_value('#clockbox0', 'display'), 'none')
         # Click the time icon
-        self.selenium.find_element_by_id('clocklink0').click()
+        time_icon.click()
         # The time picker is visible
         self.assertEqual(self.get_css_value('#clockbox0', 'display'), 'block')
         self.assertEqual(
@@ -734,6 +794,14 @@ class DateTimePickerSeleniumTests(AdminWidgetSeleniumTestCase):
         self.selenium.find_element_by_tag_name('body').send_keys([Keys.ESCAPE])
         # The time picker is hidden again
         self.assertEqual(self.get_css_value('#clockbox0', 'display'), 'none')
+        # Click the time icon, then select the 'Noon' value
+        time_icon.click()
+        self.selenium.find_element_by_xpath("//a[contains(text(), 'Noon')]").click()
+        self.assertEqual(self.get_css_value('#clockbox0', 'display'), 'none')
+        self.assertEqual(
+            self.selenium.find_element_by_id('id_birthdate_1').get_attribute('value'),
+            '12:00:00',
+        )
 
     def test_calendar_nonday_class(self):
         """
@@ -906,7 +974,7 @@ class DateTimePickerAltTimezoneSeleniumTests(DateTimePickerShortcutsSeleniumTest
 class HorizontalVerticalFilterSeleniumTests(AdminWidgetSeleniumTestCase):
 
     def setUp(self):
-        super(HorizontalVerticalFilterSeleniumTests, self).setUp()
+        super().setUp()
         self.lisa = Student.objects.create(name='Lisa')
         self.john = Student.objects.create(name='John')
         self.bob = Student.objects.create(name='Bob')
@@ -1223,7 +1291,7 @@ class HorizontalVerticalFilterSeleniumTests(AdminWidgetSeleniumTestCase):
 class AdminRawIdWidgetSeleniumTests(AdminWidgetSeleniumTestCase):
 
     def setUp(self):
-        super(AdminRawIdWidgetSeleniumTests, self).setUp()
+        super().setUp()
         Band.objects.create(id=42, name='Bogey Blues')
         Band.objects.create(id=98, name='Green Potatoes')
 

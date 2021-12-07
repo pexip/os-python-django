@@ -1,13 +1,9 @@
-# -*- coding: utf-8 -*-
-import warnings
-
 from django.http import HttpRequest
 from django.template import (
     Context, Engine, RequestContext, Template, Variable, VariableDoesNotExist,
 )
 from django.template.context import RenderContext
-from django.test import RequestFactory, SimpleTestCase, ignore_warnings
-from django.utils.deprecation import RemovedInDjango20Warning
+from django.test import RequestFactory, SimpleTestCase
 
 
 class ContextTests(SimpleTestCase):
@@ -184,26 +180,6 @@ class ContextTests(SimpleTestCase):
         """
         RequestContext(HttpRequest()).new().new()
 
-    @ignore_warnings(category=RemovedInDjango20Warning)
-    def test_has_key(self):
-        a = Context({'a': 1})
-        b = RequestContext(HttpRequest(), {'a': 1})
-        msg = "Context.has_key() is deprecated in favor of the 'in' operator."
-        msg2 = "RequestContext.has_key() is deprecated in favor of the 'in' operator."
-
-        with warnings.catch_warnings(record=True) as warns:
-            warnings.simplefilter('always')
-            self.assertIs(a.has_key('a'), True)
-            self.assertIs(a.has_key('b'), False)
-            self.assertIs(b.has_key('a'), True)
-            self.assertIs(b.has_key('b'), False)
-
-        self.assertEqual(len(warns), 4)
-        self.assertEqual(str(warns[0].message), msg)
-        self.assertEqual(str(warns[1].message), msg)
-        self.assertEqual(str(warns[2].message), msg2)
-        self.assertEqual(str(warns[3].message), msg2)
-
     def test_set_upward(self):
         c = Context({'a': 1})
         c.set_upward('a', 2)
@@ -237,6 +213,7 @@ class ContextTests(SimpleTestCase):
 
 
 class RequestContextTests(SimpleTestCase):
+    request_factory = RequestFactory()
 
     def test_include_only(self):
         """
@@ -248,7 +225,7 @@ class RequestContextTests(SimpleTestCase):
                 'child': '{{ var|default:"none" }}',
             }),
         ])
-        request = RequestFactory().get('/')
+        request = self.request_factory.get('/')
         ctx = RequestContext(request, {'var': 'parent'})
         self.assertEqual(engine.from_string('{% include "child" %}').render(ctx), 'parent')
         self.assertEqual(engine.from_string('{% include "child" only %}').render(ctx), 'none')
@@ -257,7 +234,7 @@ class RequestContextTests(SimpleTestCase):
         """
         #7116 -- Optimize RequetsContext construction
         """
-        request = RequestFactory().get('/')
+        request = self.request_factory.get('/')
         ctx = RequestContext(request, {})
         # The stack should now contain 3 items:
         # [builtins, supplied context, context processor, empty dict]
@@ -269,7 +246,7 @@ class RequestContextTests(SimpleTestCase):
 
         # test comparing RequestContext to prevent problems if somebody
         # adds __eq__ in the future
-        request = RequestFactory().get('/')
+        request = self.request_factory.get('/')
 
         self.assertEqual(
             RequestContext(request, dict_=test_data),
@@ -278,7 +255,7 @@ class RequestContextTests(SimpleTestCase):
 
     def test_modify_context_and_render(self):
         template = Template('{{ foo }}')
-        request = RequestFactory().get('/')
+        request = self.request_factory.get('/')
         context = RequestContext(request, {})
         context['foo'] = 'foo'
         self.assertEqual(template.render(context), 'foo')

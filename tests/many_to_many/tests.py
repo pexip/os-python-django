@@ -1,8 +1,5 @@
-from __future__ import unicode_literals
-
 from django.db import transaction
-from django.test import TestCase, ignore_warnings
-from django.utils.deprecation import RemovedInDjango20Warning
+from django.test import TestCase
 
 from .models import Article, InheritedArticleA, InheritedArticleB, Publication
 
@@ -30,9 +27,13 @@ class ManyToManyTests(TestCase):
 
     def test_add(self):
         # Create an Article.
-        a5 = Article(headline='Django lets you reate Web apps easily')
+        a5 = Article(headline='Django lets you create Web apps easily')
         # You can't associate it with a Publication until it's been saved.
-        with self.assertRaises(ValueError):
+        msg = (
+            '"<Article: Django lets you create Web apps easily>" needs to have '
+            'a value for field "id" before this many-to-many relationship can be used.'
+        )
+        with self.assertRaisesMessage(ValueError, msg):
             getattr(a5, 'publications')
         # Save it!
         a5.save()
@@ -56,7 +57,8 @@ class ManyToManyTests(TestCase):
         )
 
         # Adding an object of the wrong type raises TypeError
-        with self.assertRaisesMessage(TypeError, "'Publication' instance expected, got <Article"):
+        msg = "'Publication' instance expected, got <Article: Django lets you create Web apps easily>"
+        with self.assertRaisesMessage(TypeError, msg):
             with transaction.atomic():
                 a6.publications.add(a5)
 
@@ -400,44 +402,21 @@ class ManyToManyTests(TestCase):
         self.a4.publications.set([], clear=True)
         self.assertQuerysetEqual(self.a4.publications.all(), [])
 
-    def test_assign_forward_deprecation(self):
+    def test_assign_forward(self):
         msg = (
             "Direct assignment to the reverse side of a many-to-many set is "
-            "deprecated due to the implicit save() that happens. Use "
-            "article_set.set() instead."
+            "prohibited. Use article_set.set() instead."
         )
-        with self.assertRaisesMessage(RemovedInDjango20Warning, msg):
+        with self.assertRaisesMessage(TypeError, msg):
             self.p2.article_set = [self.a4, self.a3]
 
-    def test_assign_reverse_deprecation(self):
+    def test_assign_reverse(self):
         msg = (
             "Direct assignment to the forward side of a many-to-many "
-            "set is deprecated due to the implicit save() that happens. Use "
-            "publications.set() instead."
+            "set is prohibited. Use publications.set() instead."
         )
-        with self.assertRaisesMessage(RemovedInDjango20Warning, msg):
+        with self.assertRaisesMessage(TypeError, msg):
             self.a1.publications = [self.p1, self.p2]
-
-    @ignore_warnings(category=RemovedInDjango20Warning)
-    def test_assign_deprecated(self):
-        self.p2.article_set = [self.a4, self.a3]
-        self.assertQuerysetEqual(
-            self.p2.article_set.all(),
-            [
-                '<Article: NASA finds intelligent life on Earth>',
-                '<Article: Oxygen-free diet works wonders>',
-            ]
-        )
-        self.assertQuerysetEqual(self.a4.publications.all(), ['<Publication: Science News>'])
-        self.a4.publications = [self.p3.id]
-        self.assertQuerysetEqual(self.p2.article_set.all(), ['<Article: NASA finds intelligent life on Earth>'])
-        self.assertQuerysetEqual(self.a4.publications.all(), ['<Publication: Science Weekly>'])
-
-        # An alternate to calling clear() is to assign the empty set
-        self.p2.article_set = []
-        self.assertQuerysetEqual(self.p2.article_set.all(), [])
-        self.a4.publications = []
-        self.assertQuerysetEqual(self.a4.publications.all(), [])
 
     def test_assign(self):
         # Relation sets can be assigned using set().
@@ -576,3 +555,9 @@ class ManyToManyTests(TestCase):
             ]
         )
         self.assertQuerysetEqual(b.publications.all(), ['<Publication: Science Weekly>'])
+
+    def test_custom_default_manager_exists_count(self):
+        a5 = Article.objects.create(headline='deleted')
+        a5.publications.add(self.p2)
+        self.assertEqual(self.p2.article_set.count(), self.p2.article_set.all().count())
+        self.assertEqual(self.p3.article_set.exists(), self.p3.article_set.all().exists())

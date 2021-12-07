@@ -1,12 +1,9 @@
-# -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import migrations, models
 
 from ..fields import (
     ArrayField, BigIntegerRangeField, CICharField, CIEmailField, CITextField,
-    DateRangeField, DateTimeRangeField, FloatRangeField, HStoreField,
+    DateRangeField, DateTimeRangeField, DecimalRangeField, HStoreField,
     IntegerRangeField, JSONField, SearchVectorField,
 )
 from ..models import TagField
@@ -48,6 +45,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
                 ('field', HStoreField(blank=True, null=True)),
+                ('array_field', ArrayField(HStoreField(), null=True)),
             ],
             options={
                 'required_db_vendor': 'postgresql',
@@ -58,10 +56,13 @@ class Migration(migrations.Migration):
             name='OtherTypesArrayModel',
             fields=[
                 ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
-                ('ips', ArrayField(models.GenericIPAddressField(), size=None)),
-                ('uuids', ArrayField(models.UUIDField(), size=None)),
-                ('decimals', ArrayField(models.DecimalField(max_digits=5, decimal_places=2), size=None)),
+                ('ips', ArrayField(models.GenericIPAddressField(), size=None, default=list)),
+                ('uuids', ArrayField(models.UUIDField(), size=None, default=list)),
+                ('decimals', ArrayField(models.DecimalField(max_digits=5, decimal_places=2), size=None, default=list)),
                 ('tags', ArrayField(TagField(), blank=True, null=True, size=None)),
+                ('json', ArrayField(JSONField(default={}), default=[])),
+                ('int_ranges', ArrayField(IntegerRangeField(), null=True, blank=True)),
+                ('bigint_ranges', ArrayField(BigIntegerRangeField(), null=True, blank=True)),
             ],
             options={
                 'required_db_vendor': 'postgresql',
@@ -170,7 +171,7 @@ class Migration(migrations.Migration):
             name='AggregateTestModel',
             fields=[
                 ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
-                ('boolean_field', models.NullBooleanField()),
+                ('boolean_field', models.BooleanField(null=True)),
                 ('char_field', models.CharField(max_length=30, blank=True)),
                 ('integer_field', models.IntegerField(null=True)),
             ]
@@ -196,14 +197,23 @@ class Migration(migrations.Migration):
             ]
         ),
         migrations.CreateModel(
+            name='UUIDTestModel',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('uuid', models.UUIDField(default=None, null=True)),
+            ]
+        ),
+        migrations.CreateModel(
             name='RangesModel',
             fields=[
                 ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
                 ('ints', IntegerRangeField(null=True, blank=True)),
                 ('bigints', BigIntegerRangeField(null=True, blank=True)),
-                ('floats', FloatRangeField(null=True, blank=True)),
+                ('decimals', DecimalRangeField(null=True, blank=True)),
                 ('timestamps', DateTimeRangeField(null=True, blank=True)),
+                ('timestamps_inner', DateTimeRangeField(null=True, blank=True)),
                 ('dates', DateRangeField(null=True, blank=True)),
+                ('dates_inner', DateRangeField(null=True, blank=True)),
             ],
             options={
                 'required_db_vendor': 'postgresql'
@@ -237,7 +247,7 @@ class Migration(migrations.Migration):
                 ('field_custom', JSONField(null=True, blank=True, encoder=DjangoJSONEncoder)),
             ],
             options={
-                'required_db_features': {'has_jsonb_datatype'},
+                'required_db_vendor': 'postgresql',
             },
             bases=(models.Model,),
         ),

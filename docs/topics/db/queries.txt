@@ -23,14 +23,14 @@ models, which comprise a Weblog application:
         name = models.CharField(max_length=100)
         tagline = models.TextField()
 
-        def __str__(self):              # __unicode__ on Python 2
+        def __str__(self):
             return self.name
 
     class Author(models.Model):
         name = models.CharField(max_length=200)
         email = models.EmailField()
 
-        def __str__(self):              # __unicode__ on Python 2
+        def __str__(self):
             return self.name
 
     class Entry(models.Model):
@@ -40,11 +40,11 @@ models, which comprise a Weblog application:
         pub_date = models.DateField()
         mod_date = models.DateField()
         authors = models.ManyToManyField(Author)
-        n_comments = models.IntegerField()
-        n_pingbacks = models.IntegerField()
+        number_of_comments = models.IntegerField()
+        number_of_pingbacks = models.IntegerField()
         rating = models.IntegerField()
 
-        def __str__(self):              # __unicode__ on Python 2
+        def __str__(self):
             return self.headline
 
 Creating objects
@@ -361,6 +361,9 @@ every *second* object of the first 10::
 
     >>> Entry.objects.all()[:10:2]
 
+Further filtering or ordering of a sliced queryset is prohibited due to the
+ambiguous nature of how that might work.
+
 To retrieve a *single* object rather than a list
 (e.g. ``SELECT foo FROM bar LIMIT 1``), use a simple index instead of a
 slice. For example, this returns the first ``Entry`` in the database, after
@@ -622,20 +625,20 @@ than pingbacks, we construct an ``F()`` object to reference the pingback count,
 and use that ``F()`` object in the query::
 
     >>> from django.db.models import F
-    >>> Entry.objects.filter(n_comments__gt=F('n_pingbacks'))
+    >>> Entry.objects.filter(number_of_comments__gt=F('number_of_pingbacks'))
 
 Django supports the use of addition, subtraction, multiplication,
 division, modulo, and power arithmetic with ``F()`` objects, both with constants
 and with other ``F()`` objects. To find all the blog entries with more than
 *twice* as many comments as pingbacks, we modify the query::
 
-    >>> Entry.objects.filter(n_comments__gt=F('n_pingbacks') * 2)
+    >>> Entry.objects.filter(number_of_comments__gt=F('number_of_pingbacks') * 2)
 
 To find all the entries where the rating of the entry is less than the
 sum of the pingback count and comment count, we would issue the
 query::
 
-    >>> Entry.objects.filter(rating__lt=F('n_comments') + F('n_pingbacks'))
+    >>> Entry.objects.filter(rating__lt=F('number_of_comments') + F('number_of_pingbacks'))
 
 You can also use the double underscore notation to span relationships in
 an ``F()`` object. An ``F()`` object with a double underscore will introduce
@@ -656,10 +659,6 @@ The ``F()`` objects support bitwise operations by ``.bitand()``, ``.bitor()``,
 ``.bitrightshift()``, and ``.bitleftshift()``. For example::
 
     >>> F('somefield').bitand(16)
-
-.. versionchanged:: 1.11
-
-    Support for ``.bitrightshift()`` and ``.bitleftshift()`` was added.
 
 The ``pk`` lookup shortcut
 --------------------------
@@ -868,10 +867,8 @@ precede the definition of any keyword arguments. For example::
 
 .. seealso::
 
-    The `OR lookups examples`_ in the Django unit tests show some possible uses
-    of ``Q``.
-
-    .. _OR lookups examples: https://github.com/django/django/blob/master/tests/or_lookups/tests.py
+    The :source:`OR lookups examples <tests/or_lookups/tests.py>` in Django's
+    unit tests show some possible uses of ``Q``.
 
 Comparing objects
 =================
@@ -1052,7 +1049,7 @@ update one field based on the value of another field in the model. This is
 especially useful for incrementing counters based upon their current value. For
 example, to increment the pingback count for every entry in the blog::
 
-    >>> Entry.objects.all().update(n_pingbacks=F('n_pingbacks') + 1)
+    >>> Entry.objects.all().update(number_of_pingbacks=F('number_of_pingbacks') + 1)
 
 However, unlike ``F()`` objects in filter and exclude clauses, you can't
 introduce joins when you use ``F()`` objects in an update -- you can only
@@ -1088,7 +1085,7 @@ For example, a ``Blog`` object ``b`` has access to a list of all related
 All examples in this section use the sample ``Blog``, ``Author`` and ``Entry``
 models defined at the top of this page.
 
-.. _descriptors: https://docs.python.org/3/howto/descriptor.html
+.. _descriptors: https://docs.python.org/howto/descriptor.html
 
 One-to-many relationships
 -------------------------
@@ -1226,13 +1223,11 @@ be found in the :doc:`related objects reference </ref/models/relations>`.
     Replace the set of related objects.
 
 To assign the members of a related set, use the ``set()`` method with an
-iterable of object instances or a list of primary key values. For example::
+iterable of object instances. For example, if ``e1`` and ``e2`` are ``Entry``
+instances::
 
     b = Blog.objects.get(id=1)
     b.entry_set.set([e1, e2])
-
-In this example, ``e1`` and ``e2`` can be full Entry instances, or integer
-primary key values.
 
 If the ``clear()`` method is available, any pre-existing objects will be
 removed from the ``entry_set`` before all objects in the iterable (in this
@@ -1250,9 +1245,9 @@ Many-to-many relationships
 --------------------------
 
 Both ends of a many-to-many relationship get automatic API access to the other
-end. The API works just as a "backward" one-to-many relationship, above.
+end. The API works similar to a "backward" one-to-many relationship, above.
 
-The only difference is in the attribute naming: The model that defines the
+One difference is in the attribute naming: The model that defines the
 :class:`~django.db.models.ManyToManyField` uses the attribute name of that
 field itself, whereas the "reverse" model uses the lowercased model name of the
 original model, plus ``'_set'`` (just like reverse one-to-many relationships).
@@ -1273,6 +1268,15 @@ Like :class:`~django.db.models.ForeignKey`,
 if the :class:`~django.db.models.ManyToManyField` in ``Entry`` had specified
 ``related_name='entries'``, then each ``Author`` instance would have an
 ``entries`` attribute instead of ``entry_set``.
+
+Another difference from one-to-many relationships is that in addition to model
+instances,  the ``add()``, ``set()``, and ``remove()`` methods on many-to-many
+relationships accept primary key values. For example, if ``e1`` and ``e2`` are
+``Entry`` instances, then these ``set()`` calls work identically::
+
+    a = Author.objects.get(id=5)
+    a.entry_set.set([e1, e2])
+    a.entry_set.set([e1.pk, e2.pk])
 
 One-to-one relationships
 ------------------------

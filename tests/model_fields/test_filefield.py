@@ -1,8 +1,11 @@
 import os
 import sys
+import tempfile
 import unittest
 
-from django.core.files import temp
+from django.core.exceptions import SuspiciousFileOperation
+from django.core.files import File, temp
+from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import TemporaryUploadedFile
 from django.db.utils import IntegrityError
 from django.test import TestCase, override_settings
@@ -58,6 +61,15 @@ class FileFieldTests(TestCase):
         d.refresh_from_db()
         self.assertIs(d.myfile.instance, d)
 
+    @unittest.skipIf(sys.platform == 'win32', "Crashes with OSError on Windows.")
+    def test_save_without_name(self):
+        with tempfile.NamedTemporaryFile(suffix='.txt') as tmp:
+            document = Document.objects.create(myfile='something.txt')
+            document.myfile = File(tmp)
+            msg = "Detected path traversal attempt in '%s'" % tmp.name
+            with self.assertRaisesMessage(SuspiciousFileOperation, msg):
+                document.save()
+
     def test_defer(self):
         Document.objects.create(myfile='something.txt')
         self.assertEqual(Document.objects.defer('myfile')[0].myfile, 'something.txt')
@@ -83,3 +95,13 @@ class FileFieldTests(TestCase):
             tmp_file_path = tmp_file.temporary_file_path()
             Document.objects.create(myfile=tmp_file)
             self.assertFalse(os.path.exists(tmp_file_path), 'Temporary file still exists')
+
+    def test_open_returns_self(self):
+        """
+        FieldField.open() returns self so it can be used as a context manager.
+        """
+        d = Document.objects.create(myfile='something.txt')
+        # Replace the FileField's file with an in-memory ContentFile, so that
+        # open() doesn't write to disk.
+        d.myfile.file = ContentFile(b'', name='bla')
+        self.assertEqual(d.myfile, d.myfile.open())

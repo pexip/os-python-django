@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-
-from __future__ import unicode_literals
-
-import sys
-import unittest
-
 from django.core.exceptions import ImproperlyConfigured
 from django.core.handlers.wsgi import WSGIHandler, WSGIRequest, get_script_name
 from django.core.signals import request_finished, request_started
@@ -12,18 +5,11 @@ from django.db import close_old_connections, connection
 from django.test import (
     RequestFactory, SimpleTestCase, TransactionTestCase, override_settings,
 )
-from django.utils import six
-from django.utils.encoding import force_str
-
-try:
-    from http import HTTPStatus
-except ImportError:  # Python < 3.5
-    HTTPStatus = None
-
-PY37 = sys.version_info >= (3, 7, 0)
+from django.utils.version import PY37
 
 
 class HandlerTests(SimpleTestCase):
+    request_factory = RequestFactory()
 
     def setUp(self):
         request_started.disconnect(close_old_connections)
@@ -33,15 +19,15 @@ class HandlerTests(SimpleTestCase):
 
     def test_middleware_initialized(self):
         handler = WSGIHandler()
-        self.assertIsNotNone(handler._request_middleware)
+        self.assertIsNotNone(handler._middleware_chain)
 
     def test_bad_path_info(self):
         """
         A non-UTF-8 path populates PATH_INFO with an URL-encoded path and
         produces a 404.
         """
-        environ = RequestFactory().get('/').environ
-        environ['PATH_INFO'] = b'\xed' if six.PY2 else '\xed'
+        environ = self.request_factory.get('/').environ
+        environ['PATH_INFO'] = '\xed'
         handler = WSGIHandler()
         response = handler(environ, lambda *a, **k: None)
         # The path of the request will be encoded to '/%ED'.
@@ -51,7 +37,7 @@ class HandlerTests(SimpleTestCase):
         """
         Non-ASCII query strings are properly decoded (#20530, #22996).
         """
-        environ = RequestFactory().get('/').environ
+        environ = self.request_factory.get('/').environ
         raw_query_strings = [
             b'want=caf%C3%A9',  # This is the proper way to encode 'café'
             b'want=caf\xc3\xa9',  # UA forgot to quote bytes
@@ -60,38 +46,27 @@ class HandlerTests(SimpleTestCase):
         ]
         got = []
         for raw_query_string in raw_query_strings:
-            if six.PY3:
-                # Simulate http.server.BaseHTTPRequestHandler.parse_request handling of raw request
-                environ['QUERY_STRING'] = str(raw_query_string, 'iso-8859-1')
-            else:
-                environ['QUERY_STRING'] = raw_query_string
+            # Simulate http.server.BaseHTTPRequestHandler.parse_request handling of raw request
+            environ['QUERY_STRING'] = str(raw_query_string, 'iso-8859-1')
             request = WSGIRequest(environ)
             got.append(request.GET['want'])
-        if six.PY2:
-            self.assertListEqual(got, ['café', 'café', 'café', 'café'])
-        else:
-            # On Python 3, %E9 is converted to the unicode replacement character by parse_qsl
-            self.assertListEqual(got, ['café', 'café', 'caf\ufffd', 'café'])
+        # %E9 is converted to the unicode replacement character by parse_qsl
+        self.assertEqual(got, ['café', 'café', 'caf\ufffd', 'café'])
 
     def test_non_ascii_cookie(self):
         """Non-ASCII cookies set in JavaScript are properly decoded (#20557)."""
-        environ = RequestFactory().get('/').environ
-        raw_cookie = 'want="café"'
-        if six.PY3:
-            raw_cookie = raw_cookie.encode('utf-8').decode('iso-8859-1')
+        environ = self.request_factory.get('/').environ
+        raw_cookie = 'want="café"'.encode('utf-8').decode('iso-8859-1')
         environ['HTTP_COOKIE'] = raw_cookie
         request = WSGIRequest(environ)
-        # If would be nicer if request.COOKIES returned unicode values.
-        # However the current cookie parser doesn't do this and fixing it is
-        # much more work than fixing #20557. Feel free to remove force_str()!
-        self.assertEqual(request.COOKIES['want'], force_str("café"))
+        self.assertEqual(request.COOKIES['want'], "café")
 
     def test_invalid_unicode_cookie(self):
         """
         Invalid cookie content should result in an absent cookie, but not in a
         crash while trying to decode it (#23638).
         """
-        environ = RequestFactory().get('/').environ
+        environ = self.request_factory.get('/').environ
         environ['HTTP_COOKIE'] = 'x=W\x03c(h]\x8e'
         request = WSGIRequest(environ)
         # We don't test COOKIES content, as the result might differ between
@@ -105,7 +80,7 @@ class HandlerTests(SimpleTestCase):
         Invalid boundary string should produce a "Bad Request" response, not a
         server error (#23887).
         """
-        environ = RequestFactory().post('/malformed_post/').environ
+        environ = self.request_factory.post('/malformed_post/').environ
         environ['CONTENT_TYPE'] = 'multipart/form-data; boundary=WRONG\x07'
         handler = WSGIHandler()
         response = handler(environ, lambda *a, **k: None)
@@ -180,6 +155,7 @@ def empty_middleware(get_response):
 
 @override_settings(ROOT_URLCONF='handlers.urls')
 class HandlerRequestTests(SimpleTestCase):
+    request_factory = RequestFactory()
 
     def test_suspiciousop_in_view_returns_400(self):
         response = self.client.get('/suspicious/')
@@ -200,15 +176,14 @@ class HandlerRequestTests(SimpleTestCase):
         self.assertEqual(response.context['request_path'], '/%E2%98%8E%25E2%25A9%E2%99%A5/')
 
     def test_environ_path_info_type(self):
-        environ = RequestFactory().get('/%E2%A8%87%87%A5%E2%A8%A0').environ
-        self.assertIsInstance(environ['PATH_INFO'], six.text_type)
+        environ = self.request_factory.get('/%E2%A8%87%87%A5%E2%A8%A0').environ
+        self.assertIsInstance(environ['PATH_INFO'], str)
 
-    @unittest.skipIf(HTTPStatus is None, 'HTTPStatus only exists on Python 3.5+')
     def test_handle_accepts_httpstatus_enum_value(self):
         def start_response(status, headers):
             start_response.status = status
 
-        environ = RequestFactory().get('/httpstatus_enum/').environ
+        environ = self.request_factory.get('/httpstatus_enum/').environ
         WSGIHandler()(environ, start_response)
         self.assertEqual(start_response.status, '200 OK')
 
@@ -217,6 +192,16 @@ class HandlerRequestTests(SimpleTestCase):
         msg = 'Middleware factory handlers.tests.empty_middleware returned None.'
         with self.assertRaisesMessage(ImproperlyConfigured, msg):
             self.client.get('/')
+
+    def test_no_response(self):
+        msg = "The view %s didn't return an HttpResponse object. It returned None instead."
+        tests = (
+            ('/no_response_fbv/', 'handlers.views.no_response'),
+            ('/no_response_cbv/', 'handlers.views.NoResponse.__call__'),
+        )
+        for url, view in tests:
+            with self.subTest(url=url), self.assertRaisesMessage(ValueError, msg % view):
+                self.client.get(url)
 
 
 class ScriptNameTests(SimpleTestCase):

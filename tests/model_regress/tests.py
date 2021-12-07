@@ -1,18 +1,17 @@
-from __future__ import unicode_literals
-
+import copy
 import datetime
 from operator import attrgetter
 
 from django.core.exceptions import ValidationError
-from django.db import router
+from django.db import models, router
 from django.db.models.sql import InsertQuery
 from django.test import TestCase, skipUnlessDBFeature
-from django.utils import six
+from django.test.utils import isolate_apps
 from django.utils.timezone import get_fixed_timezone
 
 from .models import (
-    Article, BrokenUnicodeMethod, Department, Event, Model1, Model2, Model3,
-    NonAutoPK, Party, Worker,
+    Article, Department, Event, Model1, Model2, Model3, NonAutoPK, Party,
+    Worker,
 )
 
 
@@ -55,10 +54,9 @@ class ModelTests(TestCase):
         # An empty choice field should return None for the display name.
         self.assertIs(a.get_status_display(), None)
 
-        # Empty strings should be returned as Unicode
+        # Empty strings should be returned as string
         a = Article.objects.get(pk=a.pk)
         self.assertEqual(a.misc_data, '')
-        self.assertIs(type(a.misc_data), six.text_type)
 
     def test_long_textfield(self):
         # TextFields can hold more than 4000 characters (this was broken in
@@ -188,16 +186,11 @@ class ModelTests(TestCase):
         # Check Department and Worker (non-default PK type)
         d = Department.objects.create(id=10, name="IT")
         w = Worker.objects.create(department=d, name="Full-time")
-        self.assertEqual(six.text_type(w), "Full-time")
-
-    def test_broken_unicode(self):
-        # Models with broken unicode methods should still have a printable repr
-        b = BrokenUnicodeMethod.objects.create(name="Jerry")
-        self.assertEqual(repr(b), "<BrokenUnicodeMethod: [Bad Unicode data]>")
+        self.assertEqual(str(w), "Full-time")
 
     @skipUnlessDBFeature("supports_timezones")
     def test_timezones(self):
-        # Saving an updating with timezone-aware datetime Python objects.
+        # Saving and updating with timezone-aware datetime Python objects.
         # Regression test for #10443.
         # The idea is that all these creations and saving should work without
         # crashing. It's not rocket science.
@@ -226,6 +219,23 @@ class ModelTests(TestCase):
         m3 = Model3.objects.get(model2=1000)
         m3.model2
 
+    @isolate_apps('model_regress')
+    def test_metaclass_can_access_attribute_dict(self):
+        """
+        Model metaclasses have access to the class attribute dict in
+        __init__() (#30254).
+        """
+        class HorseBase(models.base.ModelBase):
+            def __init__(cls, name, bases, attrs):
+                super(HorseBase, cls).__init__(name, bases, attrs)
+                cls.horns = (1 if 'magic' in attrs else 0)
+
+        class Horse(models.Model, metaclass=HorseBase):
+            name = models.CharField(max_length=255)
+            magic = True
+
+        self.assertEqual(Horse.horns, 1)
+
 
 class ModelValidationTest(TestCase):
     def test_pk_validation(self):
@@ -247,3 +257,17 @@ class EvaluateMethodTest(TestCase):
         dept = Department.objects.create(pk=1, name='abc')
         dept.evaluate = 'abc'
         Worker.objects.filter(department=dept)
+
+
+class ModelFieldsCacheTest(TestCase):
+    def test_fields_cache_reset_on_copy(self):
+        department1 = Department.objects.create(id=1, name='department1')
+        department2 = Department.objects.create(id=2, name='department2')
+        worker1 = Worker.objects.create(name='worker', department=department1)
+        worker2 = copy.copy(worker1)
+
+        self.assertEqual(worker2.department, department1)
+        # Changing related fields doesn't mutate the base object.
+        worker2.department = department2
+        self.assertEqual(worker2.department, department2)
+        self.assertEqual(worker1.department, department1)

@@ -1,6 +1,3 @@
-# -*- encoding: utf-8 -*-
-from __future__ import unicode_literals
-
 from django.db import models
 
 
@@ -20,6 +17,7 @@ class PeopleData(models.Model):
 
 class PeopleMoreData(models.Model):
     people_unique = models.ForeignKey(People, models.CASCADE, unique=True)
+    message = models.ForeignKey(Message, models.CASCADE, blank=True, null=True)
     license = models.CharField(max_length=255)
 
 
@@ -47,10 +45,9 @@ class ColumnTypes(models.Model):
     id = models.AutoField(primary_key=True)
     big_int_field = models.BigIntegerField()
     bool_field = models.BooleanField(default=False)
-    null_bool_field = models.NullBooleanField()
+    null_bool_field = models.BooleanField(null=True)
     char_field = models.CharField(max_length=10)
     null_char_field = models.CharField(max_length=10, blank=True, null=True)
-    comma_separated_int_field = models.CommaSeparatedIntegerField(max_length=99)
     date_field = models.DateField()
     date_time_field = models.DateTimeField()
     decimal_field = models.DecimalField(max_digits=6, decimal_places=1)
