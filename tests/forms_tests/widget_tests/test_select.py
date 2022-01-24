@@ -1,6 +1,3 @@
-# -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-
 import copy
 import datetime
 
@@ -297,6 +294,7 @@ class SelectTest(WidgetTest):
                 'template_name': 'django/forms/widgets/select_option.html',
                 'name': 'name',
                 'selected': False,
+                'wrap_label': True,
             }, {
                 'value': 'cd',
                 'type': 'select',
@@ -306,6 +304,7 @@ class SelectTest(WidgetTest):
                 'template_name': 'django/forms/widgets/select_option.html',
                 'name': 'name',
                 'selected': False,
+                'wrap_label': True,
             }]
         )
         self.assertEqual(index, 0)
@@ -322,6 +321,7 @@ class SelectTest(WidgetTest):
                 'name': 'name',
                 'selected': True,
                 'type': 'select',
+                'wrap_label': True,
             }, {
                 'value': 'dvd',
                 'template_name': 'django/forms/widgets/select_option.html',
@@ -331,6 +331,7 @@ class SelectTest(WidgetTest):
                 'name': 'name',
                 'selected': False,
                 'type': 'select',
+                'wrap_label': True,
             }]
         )
         self.assertEqual(index, 1)
@@ -347,6 +348,7 @@ class SelectTest(WidgetTest):
                 'index': '2',
                 'name': 'name',
                 'type': 'select',
+                'wrap_label': True,
             }]
         )
         self.assertEqual(index, 2)

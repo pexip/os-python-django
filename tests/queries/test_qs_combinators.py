@@ -1,9 +1,6 @@
-from __future__ import unicode_literals
-
 from django.db.models import Exists, F, IntegerField, OuterRef, Value
-from django.db.utils import DatabaseError
+from django.db.utils import DatabaseError, NotSupportedError
 from django.test import TestCase, skipIfDBFeature, skipUnlessDBFeature
-from django.utils.six.moves import range
 
 from .models import Number, ReservedName
 
@@ -12,7 +9,7 @@ from .models import Number, ReservedName
 class QuerySetSetOperationTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        Number.objects.bulk_create(Number(num=i) for i in range(10))
+        Number.objects.bulk_create(Number(num=i, other_num=10 - i) for i in range(10))
 
     def number_transform(self, value):
         return value.num
@@ -103,12 +100,6 @@ class QuerySetSetOperationTests(TestCase):
         self.assertEqual(len(qs2.union(qs2)), 0)
         self.assertEqual(len(qs3.union(qs3)), 0)
 
-    def test_union_bad_kwarg(self):
-        qs1 = Number.objects.all()
-        msg = "union() received an unexpected keyword argument 'bad'"
-        with self.assertRaisesMessage(TypeError, msg):
-            self.assertEqual(len(list(qs1.union(qs1, bad=True))), 20)
-
     def test_limits(self):
         qs1 = Number.objects.all()
         qs2 = Number.objects.all()
@@ -118,6 +109,11 @@ class QuerySetSetOperationTests(TestCase):
         qs1 = Number.objects.filter(num__lte=1)
         qs2 = Number.objects.filter(num__gte=2, num__lte=3)
         self.assertNumbersEqual(qs1.union(qs2).order_by('-num'), [3, 2, 1, 0])
+
+    def test_ordering_by_f_expression(self):
+        qs1 = Number.objects.filter(num__lte=1)
+        qs2 = Number.objects.filter(num__gte=2, num__lte=3)
+        self.assertNumbersEqual(qs1.union(qs2).order_by(F('num').desc()), [3, 2, 1, 0])
 
     def test_union_with_values(self):
         ReservedName.objects.create(name='a', order=2)
@@ -137,6 +133,13 @@ class QuerySetSetOperationTests(TestCase):
         ).annotate(
             num=Value(1, IntegerField()),
         ).values_list('num', 'count')
+        self.assertCountEqual(qs1.union(qs2), [(1, 0), (2, 1)])
+
+    def test_union_with_extra_and_values_list(self):
+        qs1 = Number.objects.filter(num=1).extra(
+            select={'count': 0},
+        ).values_list('num', 'count')
+        qs2 = Number.objects.filter(num=2).extra(select={'count': 1})
         self.assertCountEqual(qs1.union(qs2), [(1, 0), (2, 1)])
 
     def test_union_with_values_list_on_annotated_and_unannotated(self):
@@ -189,8 +192,8 @@ class QuerySetSetOperationTests(TestCase):
     def test_unsupported_intersection_raises_db_error(self):
         qs1 = Number.objects.all()
         qs2 = Number.objects.all()
-        msg = 'intersection not supported on this database backend'
-        with self.assertRaisesMessage(DatabaseError, msg):
+        msg = 'intersection is not supported on this database backend'
+        with self.assertRaisesMessage(NotSupportedError, msg):
             list(qs1.intersection(qs2))
 
     def test_combining_multiple_models(self):
@@ -216,3 +219,16 @@ class QuerySetSetOperationTests(TestCase):
             list(qs1.union(qs2).order_by('num'))
         # switched order, now 'exists' again:
         list(qs2.union(qs1).order_by('num'))
+
+    @skipUnlessDBFeature('supports_select_difference', 'supports_select_intersection')
+    def test_qs_with_subcompound_qs(self):
+        qs1 = Number.objects.all()
+        qs2 = Number.objects.intersection(Number.objects.filter(num__gt=1))
+        self.assertEqual(qs1.difference(qs2).count(), 2)
+
+    def test_order_by_same_type(self):
+        qs = Number.objects.all()
+        union = qs.union(qs)
+        numbers = list(range(10))
+        self.assertNumbersEqual(union.order_by('num'), numbers)
+        self.assertNumbersEqual(union.order_by('other_num'), reversed(numbers))

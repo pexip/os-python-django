@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 from django.http import Http404, HttpResponse
 from django.template import engines
 from django.template.response import TemplateResponse
@@ -7,7 +5,7 @@ from django.template.response import TemplateResponse
 log = []
 
 
-class BaseMiddleware(object):
+class BaseMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
@@ -58,6 +56,11 @@ class LogMiddleware(BaseMiddleware):
         response = self.get_response(request)
         log.append((response.status_code, response.content))
         return response
+
+
+class NoTemplateResponseMiddleware(BaseMiddleware):
+    def process_template_response(self, request, response):
+        return None
 
 
 class NotFoundMiddleware(BaseMiddleware):

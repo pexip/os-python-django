@@ -2,7 +2,7 @@ from django.contrib import messages
 from django.test import RequestFactory, SimpleTestCase
 
 
-class DummyStorage(object):
+class DummyStorage:
     """
     dummy message-store to test the api methods
     """
@@ -15,8 +15,9 @@ class DummyStorage(object):
 
 
 class ApiTests(SimpleTestCase):
+    rf = RequestFactory()
+
     def setUp(self):
-        self.rf = RequestFactory()
         self.request = self.rf.request()
         self.storage = DummyStorage()
 
@@ -44,13 +45,13 @@ class ApiTests(SimpleTestCase):
         self.assertEqual(self.storage.store, [])
 
 
-class CustomRequest(object):
+class CustomRequest:
     def __init__(self, request):
         self._request = request
 
     def __getattribute__(self, attr):
         try:
-            return super(CustomRequest, self).__getattribute__(attr)
+            return super().__getattribute__(attr)
         except AttributeError:
             return getattr(self._request, attr)
 
@@ -61,5 +62,5 @@ class CustomRequestApiTests(ApiTests):
     one in Django REST framework.
     """
     def setUp(self):
-        super(CustomRequestApiTests, self).setUp()
+        super().setUp()
         self.request = CustomRequest(self.request)

@@ -5,13 +5,14 @@ import sys
 import tempfile
 import unittest
 
-from django.utils._os import upath
+from django.core.exceptions import SuspiciousOperation
+from django.test import SimpleTestCase
 from django.utils.archive import Archive, extract
 
-TEST_DIR = os.path.join(os.path.dirname(upath(__file__)), 'archives')
+TEST_DIR = os.path.join(os.path.dirname(__file__), 'archives')
 
 
-class ArchiveTester(object):
+class ArchiveTester:
     archive = None
 
     def setUp(self):
@@ -88,3 +89,22 @@ class TestGzipTar(ArchiveTester, unittest.TestCase):
 
 class TestBzip2Tar(ArchiveTester, unittest.TestCase):
     archive = 'foobar.tar.bz2'
+
+
+class TestArchiveInvalid(SimpleTestCase):
+    def test_extract_function_traversal(self):
+        archives_dir = os.path.join(os.path.dirname(__file__), 'traversal_archives')
+        tests = [
+            ('traversal.tar', '..'),
+            ('traversal_absolute.tar', '/tmp/evil.py'),
+        ]
+        if sys.platform == 'win32':
+            tests += [
+                ('traversal_disk_win.tar', 'd:evil.py'),
+                ('traversal_disk_win.zip', 'd:evil.py'),
+            ]
+        msg = "Archive contains invalid path: '%s'"
+        for entry, invalid_path in tests:
+            with self.subTest(entry), tempfile.TemporaryDirectory() as tmpdir:
+                with self.assertRaisesMessage(SuspiciousOperation, msg % invalid_path):
+                    extract(os.path.join(archives_dir, entry), tmpdir)

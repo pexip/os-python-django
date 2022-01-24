@@ -1,5 +1,6 @@
 import json
 
+from django.conf import settings
 from django.contrib.messages import constants
 from django.contrib.messages.storage.base import Message
 from django.contrib.messages.storage.cookie import (
@@ -57,6 +58,7 @@ class CookieTests(BaseTests, SimpleTestCase):
         # The message contains what's expected.
         self.assertEqual(list(storage), example_messages)
 
+    @override_settings(SESSION_COOKIE_SAMESITE='Strict')
     def test_cookie_setings(self):
         """
         CookieStorage honors SESSION_COOKIE_DOMAIN, SESSION_COOKIE_SECURE, and
@@ -72,6 +74,7 @@ class CookieTests(BaseTests, SimpleTestCase):
         self.assertEqual(response.cookies['messages']['expires'], '')
         self.assertIs(response.cookies['messages']['secure'], True)
         self.assertIs(response.cookies['messages']['httponly'], True)
+        self.assertEqual(response.cookies['messages']['samesite'], 'Strict')
 
         # Test deletion of the cookie (storing with an empty value) after the messages have been consumed
         storage = self.get_storage()
@@ -82,7 +85,11 @@ class CookieTests(BaseTests, SimpleTestCase):
         storage.update(response)
         self.assertEqual(response.cookies['messages'].value, '')
         self.assertEqual(response.cookies['messages']['domain'], '.example.com')
-        self.assertEqual(response.cookies['messages']['expires'], 'Thu, 01-Jan-1970 00:00:00 GMT')
+        self.assertEqual(response.cookies['messages']['expires'], 'Thu, 01 Jan 1970 00:00:00 GMT')
+        self.assertEqual(
+            response.cookies['messages']['samesite'],
+            settings.SESSION_COOKIE_SAMESITE,
+        )
 
     def test_get_bad_cookie(self):
         request = self.get_request()

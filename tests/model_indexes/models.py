@@ -5,6 +5,7 @@ class Book(models.Model):
     title = models.CharField(max_length=50)
     author = models.CharField(max_length=50)
     pages = models.IntegerField(db_column='page_count')
+    shortcut = models.CharField(max_length=50, db_tablespace='idx_tbls')
     isbn = models.CharField(max_length=50, db_tablespace='idx_tbls')
 
     class Meta:
