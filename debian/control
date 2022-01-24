@@ -50,7 +50,7 @@ Build-Depends-Indep:
 Homepage: http://www.djangoproject.com/
 Vcs-Git: https://salsa.debian.org/python-team/modules/python-django.git
 Vcs-Browser: https://salsa.debian.org/python-team/modules/python-django
-XS-Pexip-Upstream: http://ftp.debian.org/debian/ buster
+XS-Pexip-Upstream: http://ftp.debian.org/debian/ bullseye
 
 Package: python-django
 Architecture: all
