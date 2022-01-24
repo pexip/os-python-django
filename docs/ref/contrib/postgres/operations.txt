@@ -54,18 +54,28 @@ run the query ``CREATE EXTENSION IF NOT EXISTS hstore;``.
 
 .. class:: BtreeGinExtension()
 
-    .. versionadded:: 1.11
-
     Install the ``btree_gin`` extension.
+
+``BtreeGistExtension``
+======================
+
+.. class:: BtreeGistExtension()
+
+    Install the ``btree_gist`` extension.
 
 ``CITextExtension``
 ===================
 
 .. class:: CITextExtension()
 
-    .. versionadded:: 1.11
-
     Installs the ``citext`` extension.
+
+``CryptoExtension``
+===================
+
+.. class:: CryptoExtension()
+
+    Installs the ``pgcrypto`` extension.
 
 ``HStoreExtension``
 ===================
@@ -79,8 +89,6 @@ run the query ``CREATE EXTENSION IF NOT EXISTS hstore;``.
 ====================
 
 .. class:: TrigramExtension()
-
-    .. versionadded:: 1.10
 
     Installs the ``pg_trgm`` extension.
 

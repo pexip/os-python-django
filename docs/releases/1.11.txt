@@ -15,9 +15,10 @@ want to be aware of when upgrading from Django 1.10 or older versions. We've
 See the :doc:`/howto/upgrade-version` guide if you're updating an existing
 project.
 
-Django 1.11 is designated as a :term:`long-term support release`. It will
-receive security updates for at least three years after its release. Support
-for the previous LTS, Django 1.8, will end in April 2018.
+Django 1.11 is designated as a :term:`long-term support release
+<Long-term support release>`. It will receive security updates for at least
+three years after its release. Support for the previous LTS, Django 1.8, will
+end in April 2018.
 
 Python compatibility
 ====================
@@ -180,8 +181,8 @@ Minor features
 
 * The OpenLayers-based form widgets now use ``OpenLayers.js`` from
   ``https://cdnjs.cloudflare.com`` which is more suitable for production use
-  than the the old ``http://openlayers.org`` source. They are also updated to
-  use OpenLayers 3.
+  than the old ``https://openlayers.org/`` source. They are also updated to use
+  OpenLayers 3.
 
 * PostGIS migrations can now change field dimensions.
 
@@ -330,16 +331,16 @@ Models
   (This validator moved to the form field in :doc:`Django 1.11.2 <1.11.2>`.)
 
 * Added support for time truncation to
-  :class:`~django.db.models.functions.datetime.Trunc` functions.
+  :class:`~django.db.models.functions.Trunc` functions.
 
-* Added the :class:`~django.db.models.functions.datetime.ExtractWeek` function
-  to extract the week from :class:`~django.db.models.DateField` and
+* Added the :class:`~django.db.models.functions.ExtractWeek` function to
+  extract the week from :class:`~django.db.models.DateField` and
   :class:`~django.db.models.DateTimeField` and exposed it through the
   :lookup:`week` lookup.
 
-* Added the :class:`~django.db.models.functions.datetime.TruncTime` function
-  to truncate :class:`~django.db.models.DateTimeField` to its time component
-  and exposed it through the :lookup:`time` lookup.
+* Added the :class:`~django.db.models.functions.TruncTime` function to truncate
+  :class:`~django.db.models.DateTimeField` to its time component and exposed it
+  through the :lookup:`time` lookup.
 
 * Added support for expressions in :meth:`.QuerySet.values` and
   :meth:`~.QuerySet.values_list`.
@@ -449,8 +450,8 @@ Backwards incompatible changes in 1.11
   dependency for GeoDjango. In older versions, it's only required for SQLite.
 
 * ``contrib.gis.maps`` is removed as it interfaces with a retired version of
-  the Google Maps API and seems to be unmaintained. If you're using it, `let
-  us know <https://code.djangoproject.com/ticket/14284>`_.
+  the Google Maps API and seems to be unmaintained. If you're using it,
+  :ticket:`let us know <14284>`.
 
 * The ``GEOSGeometry`` equality operator now also compares SRID.
 
@@ -490,6 +491,9 @@ Backwards incompatible changes in 1.11
 Database backend API
 --------------------
 
+This section describes changes that may be needed in third-party database
+backends.
+
 * The ``DatabaseOperations.time_trunc_sql()`` method is added to support
   ``TimeField`` truncation. It accepts a ``lookup_type`` and ``field_name``
   arguments and returns the appropriate SQL to truncate the given time field
@@ -509,7 +513,7 @@ Database backend API
   default value is ``True`` and the ``DatabaseIntrospection.get_constraints()``
   method should include an ``'orders'`` key in each of the returned
   dictionaries with a list of ``'ASC'`` and/or ``'DESC'`` values corresponding
-  to the the ordering of each column in the index.
+  to the ordering of each column in the index.
 
 * :djadmin:`inspectdb` no longer calls ``DatabaseIntrospection.get_indexes()``
   which is deprecated. Custom database backends should ensure all types of
@@ -573,7 +577,7 @@ It's automatically installed along with Django.
 Support for ``settings.TIME_ZONE = None`` is removed as the behavior isn't
 commonly used and is questionably useful. If you want to automatically detect
 the timezone based on the system timezone, you can use `tzlocal
-<https://pypi.python.org/pypi/tzlocal>`_::
+<https://pypi.org/project/tzlocal/>`_::
 
     from tzlocal import get_localzone
 

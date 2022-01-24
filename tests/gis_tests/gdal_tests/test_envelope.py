@@ -3,7 +3,7 @@ import unittest
 from django.contrib.gis.gdal import Envelope, GDALException
 
 
-class TestPoint(object):
+class TestPoint:
     def __init__(self, x, y):
         self.x = x
         self.y = y

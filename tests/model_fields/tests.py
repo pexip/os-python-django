@@ -3,13 +3,19 @@ import pickle
 from django import forms
 from django.db import models
 from django.test import SimpleTestCase, TestCase
+from django.utils.functional import lazy
 
 from .models import (
-    Foo, RenamedField, VerboseNameField, Whiz, WhizIter, WhizIterEmpty,
+    Bar, Foo, RenamedField, VerboseNameField, Whiz, WhizIter, WhizIterEmpty,
 )
 
 
-class BasicFieldTests(TestCase):
+class Nested:
+    class Field(models.Field):
+        pass
+
+
+class BasicFieldTests(SimpleTestCase):
 
     def test_show_hidden_initial(self):
         """
@@ -33,6 +39,10 @@ class BasicFieldTests(TestCase):
         f = models.fields.CharField()
         self.assertEqual(repr(f), '<django.db.models.fields.CharField>')
 
+    def test_field_repr_nested(self):
+        """__repr__() uses __qualname__ for nested class support."""
+        self.assertEqual(repr(Nested.Field()), '<model_fields.tests.Nested.Field>')
+
     def test_field_name(self):
         """
         A defined field name (name="fieldname") is used instead of the model
@@ -44,7 +54,7 @@ class BasicFieldTests(TestCase):
 
     def test_field_verbose_name(self):
         m = VerboseNameField
-        for i in range(1, 24):
+        for i in range(1, 23):
             self.assertEqual(m._meta.get_field('field%d' % i).verbose_name, 'verbose field%d' % i)
 
         self.assertEqual(m._meta.get_field('id').verbose_name, 'verbose pk')
@@ -85,6 +95,11 @@ class BasicFieldTests(TestCase):
         field._get_default
         pickle.dumps(field)
 
+    def test_deconstruct_nested_field(self):
+        """deconstruct() uses __qualname__ for nested class support."""
+        name, path, args, kwargs = Nested.Field().deconstruct()
+        self.assertEqual(path, 'model_fields.tests.Nested.Field')
+
 
 class ChoicesTests(SimpleTestCase):
 
@@ -98,6 +113,16 @@ class ChoicesTests(SimpleTestCase):
         self.assertEqual(Whiz(c=9).get_c_display(), 9)          # Invalid value
         self.assertIsNone(Whiz(c=None).get_c_display())         # Blank value
         self.assertEqual(Whiz(c='').get_c_display(), '')        # Empty value
+
+    def test_overriding_FIELD_display(self):
+        class FooBar(models.Model):
+            foo_bar = models.IntegerField(choices=[(1, 'foo'), (2, 'bar')])
+
+            def get_foo_bar_display(self):
+                return 'something'
+
+        f = FooBar(foo_bar=1)
+        self.assertEqual(f.get_foo_bar_display(), 'something')
 
     def test_iterator_choices(self):
         """
@@ -116,3 +141,79 @@ class ChoicesTests(SimpleTestCase):
         self.assertEqual(WhizIterEmpty(c="b").c, "b")      # Invalid value
         self.assertIsNone(WhizIterEmpty(c=None).c)         # Blank value
         self.assertEqual(WhizIterEmpty(c='').c, '')        # Empty value
+
+
+class GetChoicesTests(SimpleTestCase):
+
+    def test_blank_in_choices(self):
+        choices = [('', '<><>'), ('a', 'A')]
+        f = models.CharField(choices=choices)
+        self.assertEqual(f.get_choices(include_blank=True), choices)
+
+    def test_blank_in_grouped_choices(self):
+        choices = [
+            ('f', 'Foo'),
+            ('b', 'Bar'),
+            ('Group', (
+                ('', 'No Preference'),
+                ('fg', 'Foo'),
+                ('bg', 'Bar'),
+            )),
+        ]
+        f = models.CharField(choices=choices)
+        self.assertEqual(f.get_choices(include_blank=True), choices)
+
+    def test_lazy_strings_not_evaluated(self):
+        lazy_func = lazy(lambda x: 0 / 0, int)  # raises ZeroDivisionError if evaluated.
+        f = models.CharField(choices=[(lazy_func('group'), (('a', 'A'), ('b', 'B')))])
+        self.assertEqual(f.get_choices(include_blank=True)[0], ('', '---------'))
+
+
+class GetChoicesOrderingTests(TestCase):
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.foo1 = Foo.objects.create(a='a', d='12.35')
+        cls.foo2 = Foo.objects.create(a='b', d='12.34')
+        cls.bar1 = Bar.objects.create(a=cls.foo1, b='b')
+        cls.bar2 = Bar.objects.create(a=cls.foo2, b='a')
+        cls.field = Bar._meta.get_field('a')
+
+    def assertChoicesEqual(self, choices, objs):
+        self.assertEqual(choices, [(obj.pk, str(obj)) for obj in objs])
+
+    def test_get_choices(self):
+        self.assertChoicesEqual(
+            self.field.get_choices(include_blank=False, ordering=('a',)),
+            [self.foo1, self.foo2]
+        )
+        self.assertChoicesEqual(
+            self.field.get_choices(include_blank=False, ordering=('-a',)),
+            [self.foo2, self.foo1]
+        )
+
+    def test_get_choices_default_ordering(self):
+        self.addCleanup(setattr, Foo._meta, 'ordering', Foo._meta.ordering)
+        Foo._meta.ordering = ('d',)
+        self.assertChoicesEqual(
+            self.field.get_choices(include_blank=False),
+            [self.foo2, self.foo1]
+        )
+
+    def test_get_choices_reverse_related_field(self):
+        self.assertChoicesEqual(
+            self.field.remote_field.get_choices(include_blank=False, ordering=('a',)),
+            [self.bar1, self.bar2]
+        )
+        self.assertChoicesEqual(
+            self.field.remote_field.get_choices(include_blank=False, ordering=('-a',)),
+            [self.bar2, self.bar1]
+        )
+
+    def test_get_choices_reverse_related_field_default_ordering(self):
+        self.addCleanup(setattr, Bar._meta, 'ordering', Bar._meta.ordering)
+        Bar._meta.ordering = ('b',)
+        self.assertChoicesEqual(
+            self.field.remote_field.get_choices(include_blank=False),
+            [self.bar2, self.bar1]
+        )

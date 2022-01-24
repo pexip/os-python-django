@@ -14,9 +14,9 @@ Problems running ``django-admin``
 -----------------------------------
 
 :doc:`django-admin </ref/django-admin>` should be on your system path if you
-installed Django via ``python setup.py``. If it's not on your path, you can
-find it in ``site-packages/django/bin``, where ``site-packages`` is a directory
-within your Python installation. Consider symlinking to :doc:`django-admin
+installed Django via ``pip``. If it's not on your path, you can find it in
+``site-packages/django/bin``, where ``site-packages`` is a directory within
+your Python installation. Consider symlinking to :doc:`django-admin
 </ref/django-admin>` from some place on your path, such as
 :file:`/usr/local/bin`.
 
@@ -54,15 +54,6 @@ pitfalls producing this error:
   UNIX-like systems (can be checked by the ``locale`` command). If it's the
   case, please refer to your system documentation to learn how you can change
   this to a UTF-8 locale.
-
-* You created raw bytestrings, which is easy to do on Python 2::
-
-      my_string = 'café'
-
-  Either use the ``u''`` prefix or even better, add the
-  ``from __future__ import unicode_literals`` line at the top of your file
-  so that your code will be compatible with Python 3.2 which doesn't support
-  the ``u''`` prefix.
 
 Related resources:
 

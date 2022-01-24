@@ -15,7 +15,7 @@ Patch-Name: 02_disable-sources-in-sphinxdoc.diff
  1 file changed, 4 insertions(+), 1 deletion(-)
 
 diff --git a/docs/conf.py b/docs/conf.py
-index 62e337d..ceb935f 100644
+index 9526cc411bab..9cbac4ad2804 100644
 --- a/docs/conf.py
 +++ b/docs/conf.py
 @@ -210,7 +210,10 @@ html_additional_pages = {}

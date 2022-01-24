@@ -1,0 +1,18 @@
+From: Chris Lamb <lamby@debian.org>
+Date: Sun, 24 Sep 2017 22:36:30 +0100
+Subject: Set the default shebang to new projects to use Python 3.
+
+---
+ django/conf/project_template/manage.py-tpl | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/django/conf/project_template/manage.py-tpl b/django/conf/project_template/manage.py-tpl
+index 9525fd7ac703..d5d5607bad93 100755
+--- a/django/conf/project_template/manage.py-tpl
++++ b/django/conf/project_template/manage.py-tpl
+@@ -1,4 +1,4 @@
+-#!/usr/bin/env python
++#!/usr/bin/env python3
+ """Django's command-line utility for administrative tasks."""
+ import os
+ import sys

@@ -10,7 +10,6 @@ from django.db.migrations.state import (
 )
 from django.test import SimpleTestCase, override_settings
 from django.test.utils import isolate_apps
-from django.utils import six
 
 from .models import (
     FoodManager, FoodQuerySet, ModelWithCustomBase, NoMigrationFoodManager,
@@ -128,9 +127,14 @@ class StateTests(SimpleTestCase):
         self.assertIs(author_state.fields[3][1].null, True)
         self.assertEqual(
             author_state.options,
-            {"unique_together": {("name", "bio")}, "index_together": {("bio", "age")}, "indexes": []}
+            {
+                "unique_together": {("name", "bio")},
+                "index_together": {("bio", "age")},
+                "indexes": [],
+                "constraints": [],
+            }
         )
-        self.assertEqual(author_state.bases, (models.Model, ))
+        self.assertEqual(author_state.bases, (models.Model,))
 
         self.assertEqual(book_state.app_label, "migrations")
         self.assertEqual(book_state.name, "Book")
@@ -140,24 +144,27 @@ class StateTests(SimpleTestCase):
         self.assertEqual(book_state.fields[3][1].__class__.__name__, "ManyToManyField")
         self.assertEqual(
             book_state.options,
-            {"verbose_name": "tome", "db_table": "test_tome", "indexes": [book_index]},
+            {"verbose_name": "tome", "db_table": "test_tome", "indexes": [book_index], "constraints": []},
         )
-        self.assertEqual(book_state.bases, (models.Model, ))
+        self.assertEqual(book_state.bases, (models.Model,))
 
         self.assertEqual(author_proxy_state.app_label, "migrations")
         self.assertEqual(author_proxy_state.name, "AuthorProxy")
         self.assertEqual(author_proxy_state.fields, [])
-        self.assertEqual(author_proxy_state.options, {"proxy": True, "ordering": ["name"], "indexes": []})
-        self.assertEqual(author_proxy_state.bases, ("migrations.author", ))
+        self.assertEqual(
+            author_proxy_state.options,
+            {"proxy": True, "ordering": ["name"], "indexes": [], "constraints": []},
+        )
+        self.assertEqual(author_proxy_state.bases, ("migrations.author",))
 
         self.assertEqual(sub_author_state.app_label, "migrations")
         self.assertEqual(sub_author_state.name, "SubAuthor")
         self.assertEqual(len(sub_author_state.fields), 2)
-        self.assertEqual(sub_author_state.bases, ("migrations.author", ))
+        self.assertEqual(sub_author_state.bases, ("migrations.author",))
 
         # The default manager is used in migrations
         self.assertEqual([name for name, mgr in food_state.managers], ['food_mgr'])
-        self.assertTrue(all(isinstance(name, six.text_type) for name, mgr in food_state.managers))
+        self.assertTrue(all(isinstance(name, str) for name, mgr in food_state.managers))
         self.assertEqual(food_state.managers[0][1].args, ('a', 'b', 1, 2))
 
         # No explicit managers defined. Migrations will fall back to the default
@@ -167,13 +174,13 @@ class StateTests(SimpleTestCase):
         # default
         self.assertEqual([name for name, mgr in food_no_default_manager_state.managers],
                          ['food_no_mgr', 'food_mgr'])
-        self.assertTrue(all(isinstance(name, six.text_type) for name, mgr in food_no_default_manager_state.managers))
+        self.assertTrue(all(isinstance(name, str) for name, mgr in food_no_default_manager_state.managers))
         self.assertEqual(food_no_default_manager_state.managers[0][1].__class__, models.Manager)
         self.assertIsInstance(food_no_default_manager_state.managers[1][1], FoodManager)
 
         self.assertEqual([name for name, mgr in food_order_manager_state.managers],
                          ['food_mgr1', 'food_mgr2'])
-        self.assertTrue(all(isinstance(name, six.text_type) for name, mgr in food_order_manager_state.managers))
+        self.assertTrue(all(isinstance(name, str) for name, mgr in food_order_manager_state.managers))
         self.assertEqual([mgr.args for name, mgr in food_order_manager_state.managers],
                          [('a', 'b', 1, 2), ('x', 'y', 3, 4)])
 
@@ -360,7 +367,7 @@ class StateTests(SimpleTestCase):
                 # The ordering we really want is objects, mgr1, mgr2
                 ('default', base_mgr),
                 ('food_mgr2', mgr2),
-                (b'food_mgr1', mgr1),
+                ('food_mgr1', mgr1),
             ]
         ))
 
@@ -373,7 +380,7 @@ class StateTests(SimpleTestCase):
         Food = new_apps.get_model("migrations", "Food")
         self.assertEqual([mgr.name for mgr in Food._meta.managers],
                          ['default', 'food_mgr1', 'food_mgr2'])
-        self.assertTrue(all(isinstance(mgr.name, six.text_type) for mgr in Food._meta.managers))
+        self.assertTrue(all(isinstance(mgr.name, str) for mgr in Food._meta.managers))
         self.assertEqual([mgr.__class__ for mgr in Food._meta.managers],
                          [models.Manager, FoodManager, FoodManager])
 
@@ -1003,9 +1010,55 @@ class ModelStateTests(SimpleTestCase):
         self.assertEqual(author_state.fields[1][1].max_length, 255)
         self.assertIs(author_state.fields[2][1].null, False)
         self.assertIs(author_state.fields[3][1].null, True)
-        self.assertEqual(author_state.options, {'swappable': 'TEST_SWAPPABLE_MODEL', 'indexes': []})
-        self.assertEqual(author_state.bases, (models.Model, ))
+        self.assertEqual(author_state.options, {'swappable': 'TEST_SWAPPABLE_MODEL', 'indexes': [], "constraints": []})
+        self.assertEqual(author_state.bases, (models.Model,))
         self.assertEqual(author_state.managers, [])
+
+    @override_settings(TEST_SWAPPABLE_MODEL='migrations.SomeFakeModel')
+    def test_create_swappable_from_abstract(self):
+        """
+        A swappable model inheriting from a hierarchy:
+        concrete -> abstract -> concrete.
+        """
+        new_apps = Apps(['migrations'])
+
+        class SearchableLocation(models.Model):
+            keywords = models.CharField(max_length=256)
+
+            class Meta:
+                app_label = 'migrations'
+                apps = new_apps
+
+        class Station(SearchableLocation):
+            name = models.CharField(max_length=128)
+
+            class Meta:
+                abstract = True
+
+        class BusStation(Station):
+            bus_routes = models.CharField(max_length=128)
+            inbound = models.BooleanField(default=False)
+
+            class Meta(Station.Meta):
+                app_label = 'migrations'
+                apps = new_apps
+                swappable = 'TEST_SWAPPABLE_MODEL'
+
+        station_state = ModelState.from_model(BusStation)
+        self.assertEqual(station_state.app_label, 'migrations')
+        self.assertEqual(station_state.name, 'BusStation')
+        self.assertEqual(
+            [x for x, y in station_state.fields],
+            ['searchablelocation_ptr', 'name', 'bus_routes', 'inbound']
+        )
+        self.assertEqual(station_state.fields[1][1].max_length, 128)
+        self.assertEqual(station_state.fields[2][1].null, False)
+        self.assertEqual(
+            station_state.options,
+            {'abstract': False, 'swappable': 'TEST_SWAPPABLE_MODEL', 'indexes': [], 'constraints': []}
+        )
+        self.assertEqual(station_state.bases, ('migrations.searchablelocation',))
+        self.assertEqual(station_state.managers, [])
 
     @override_settings(TEST_SWAPPABLE_MODEL='migrations.SomeFakeModel')
     def test_custom_manager_swappable(self):
@@ -1084,6 +1137,21 @@ class ModelStateTests(SimpleTestCase):
         index_names = [index.name for index in model_state.options['indexes']]
         self.assertEqual(index_names, ['foo_idx'])
 
+    @isolate_apps('migrations')
+    def test_from_model_constraints(self):
+        class ModelWithConstraints(models.Model):
+            size = models.IntegerField()
+
+            class Meta:
+                constraints = [models.CheckConstraint(check=models.Q(size__gt=1), name='size_gt_1')]
+
+        state = ModelState.from_model(ModelWithConstraints)
+        model_constraints = ModelWithConstraints._meta.constraints
+        state_constraints = state.options['constraints']
+        self.assertEqual(model_constraints, state_constraints)
+        self.assertIsNot(model_constraints, state_constraints)
+        self.assertIsNot(model_constraints[0], state_constraints[0])
+
 
 class RelatedModelsTests(SimpleTestCase):
 
@@ -1099,7 +1167,7 @@ class RelatedModelsTests(SimpleTestCase):
             'apps': self.apps,
             'proxy': proxy,
         }
-        meta = type(str("Meta"), tuple(), meta_contents)
+        meta = type("Meta", (), meta_contents)
         if not bases:
             bases = (models.Model,)
         body = {

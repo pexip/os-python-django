@@ -1,11 +1,9 @@
-# -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-
 import gzip
 import random
 import re
+import struct
 from io import BytesIO
-from unittest import skipIf
+from urllib.parse import quote
 
 from django.conf import settings
 from django.core import mail
@@ -20,14 +18,9 @@ from django.middleware.common import (
 )
 from django.middleware.gzip import GZipMiddleware
 from django.middleware.http import ConditionalGetMiddleware
-from django.test import (
-    RequestFactory, SimpleTestCase, ignore_warnings, override_settings,
-)
-from django.utils import six
-from django.utils.deprecation import RemovedInDjango21Warning
-from django.utils.encoding import force_str
-from django.utils.six.moves import range
-from django.utils.six.moves.urllib.parse import quote
+from django.test import RequestFactory, SimpleTestCase, override_settings
+
+int2byte = struct.Struct(">B").pack
 
 
 @override_settings(ROOT_URLCONF='middleware.urls')
@@ -288,57 +281,6 @@ class CommonMiddlewareTest(SimpleTestCase):
         self.assertEqual(r.status_code, 301)
         self.assertEqual(r.url, 'http://www.testserver/customurlconf/slash/')
 
-    # ETag + If-Not-Modified support tests
-
-    @ignore_warnings(category=RemovedInDjango21Warning)
-    @override_settings(USE_ETAGS=True)
-    def test_etag(self):
-        req = HttpRequest()
-        res = HttpResponse('content')
-        self.assertTrue(CommonMiddleware().process_response(req, res).has_header('ETag'))
-
-    @ignore_warnings(category=RemovedInDjango21Warning)
-    @override_settings(USE_ETAGS=True)
-    def test_etag_streaming_response(self):
-        req = HttpRequest()
-        res = StreamingHttpResponse(['content'])
-        res['ETag'] = 'tomatoes'
-        self.assertEqual(CommonMiddleware().process_response(req, res).get('ETag'), 'tomatoes')
-
-    @ignore_warnings(category=RemovedInDjango21Warning)
-    @override_settings(USE_ETAGS=True)
-    def test_no_etag_streaming_response(self):
-        req = HttpRequest()
-        res = StreamingHttpResponse(['content'])
-        self.assertFalse(CommonMiddleware().process_response(req, res).has_header('ETag'))
-
-    @ignore_warnings(category=RemovedInDjango21Warning)
-    @override_settings(USE_ETAGS=True)
-    def test_no_etag_no_store_cache(self):
-        req = HttpRequest()
-        res = HttpResponse('content')
-        res['Cache-Control'] = 'No-Cache, No-Store, Max-age=0'
-        self.assertFalse(CommonMiddleware().process_response(req, res).has_header('ETag'))
-
-    @ignore_warnings(category=RemovedInDjango21Warning)
-    @override_settings(USE_ETAGS=True)
-    def test_etag_extended_cache_control(self):
-        req = HttpRequest()
-        res = HttpResponse('content')
-        res['Cache-Control'] = 'my-directive="my-no-store"'
-        self.assertTrue(CommonMiddleware().process_response(req, res).has_header('ETag'))
-
-    @ignore_warnings(category=RemovedInDjango21Warning)
-    @override_settings(USE_ETAGS=True)
-    def test_if_none_match(self):
-        first_req = HttpRequest()
-        first_res = CommonMiddleware().process_response(first_req, HttpResponse('content'))
-        second_req = HttpRequest()
-        second_req.method = 'GET'
-        second_req.META['HTTP_IF_NONE_MATCH'] = first_res['ETag']
-        second_res = CommonMiddleware().process_response(second_req, HttpResponse('content'))
-        self.assertEqual(second_res.status_code, 304)
-
     # Tests for the Content-Length header
 
     def test_content_length_header_added(self):
@@ -372,7 +314,7 @@ class CommonMiddlewareTest(SimpleTestCase):
     def test_non_ascii_query_string_does_not_crash(self):
         """Regression test for #15152"""
         request = self.rf.get('/slash')
-        request.META['QUERY_STRING'] = force_str('drink=café')
+        request.META['QUERY_STRING'] = 'drink=café'
         r = CommonMiddleware().process_request(request)
         self.assertEqual(r.status_code, 301)
 
@@ -423,31 +365,13 @@ class BrokenLinkEmailsMiddlewareTest(SimpleTestCase):
         BrokenLinkEmailsMiddleware().process_response(self.req, self.resp)
         self.assertEqual(len(mail.outbox), 0)
 
-    @skipIf(six.PY3, "HTTP_REFERER is str type on Python 3")
-    def test_404_error_nonascii_referrer(self):
-        # Such referer strings should not happen, but anyway, if it happens,
-        # let's not crash
-        self.req.META['HTTP_REFERER'] = b'http://testserver/c/\xd0\xbb\xd0\xb8/'
-        BrokenLinkEmailsMiddleware().process_response(self.req, self.resp)
-        self.assertEqual(len(mail.outbox), 1)
-
-    @skipIf(six.PY3, "HTTP_USER_AGENT is str type on Python 3")
-    def test_404_error_nonascii_user_agent(self):
-        # Such user agent strings should not happen, but anyway, if it happens,
-        # let's not crash
-        self.req.META['HTTP_REFERER'] = '/another/url/'
-        self.req.META['HTTP_USER_AGENT'] = b'\xd0\xbb\xd0\xb8\xff\xff'
-        BrokenLinkEmailsMiddleware().process_response(self.req, self.resp)
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertIn('User agent: \u043b\u0438\ufffd\ufffd\n', mail.outbox[0].body)
-
     def test_custom_request_checker(self):
         class SubclassedMiddleware(BrokenLinkEmailsMiddleware):
             ignored_user_agent_patterns = (re.compile(r'Spider.*'), re.compile(r'Robot.*'))
 
             def is_ignorable_request(self, request, uri, domain, referer):
                 '''Check user-agent in addition to normal checks.'''
-                if super(SubclassedMiddleware, self).is_ignorable_request(request, uri, domain, referer):
+                if super().is_ignorable_request(request, uri, domain, referer):
                     return True
                 user_agent = request.META['HTTP_USER_AGENT']
                 return any(pattern.search(user_agent) for pattern in self.ignored_user_agent_patterns)
@@ -504,9 +428,10 @@ class BrokenLinkEmailsMiddlewareTest(SimpleTestCase):
 
 @override_settings(ROOT_URLCONF='middleware.cond_get_urls')
 class ConditionalGetMiddlewareTest(SimpleTestCase):
+    request_factory = RequestFactory()
 
     def setUp(self):
-        self.req = RequestFactory().get('/')
+        self.req = self.request_factory.get('/')
         self.resp = self.client.get(self.req.path_info)
 
     # Tests for the ETag header
@@ -645,7 +570,7 @@ class ConditionalGetMiddlewareTest(SimpleTestCase):
         """
         get_response = ConditionalGetMiddleware().process_response(self.req, self.resp)
         etag = get_response['ETag']
-        put_request = RequestFactory().put('/', HTTP_IF_MATCH=etag)
+        put_request = self.request_factory.put('/', HTTP_IF_MATCH=etag)
         put_response = HttpResponse(status=200)
         conditional_get_response = ConditionalGetMiddleware().process_response(put_request, put_response)
         self.assertEqual(conditional_get_response.status_code, 200)  # should never be a 412
@@ -656,7 +581,7 @@ class ConditionalGetMiddlewareTest(SimpleTestCase):
         HEAD request since it can't do so accurately without access to the
         response body of the corresponding GET.
         """
-        request = RequestFactory().head('/')
+        request = self.request_factory.head('/')
         response = HttpResponse(status=200)
         conditional_get_response = ConditionalGetMiddleware().process_response(request, response)
         self.assertNotIn('ETag', conditional_get_response)
@@ -773,12 +698,13 @@ class GZipMiddlewareTest(SimpleTestCase):
     """
     short_string = b"This string is too short to be worth compressing."
     compressible_string = b'a' * 500
-    incompressible_string = b''.join(six.int2byte(random.randint(0, 255)) for _ in range(500))
+    incompressible_string = b''.join(int2byte(random.randint(0, 255)) for _ in range(500))
     sequence = [b'a' * 500, b'b' * 200, b'a' * 300]
     sequence_unicode = ['a' * 500, 'é' * 200, 'a' * 300]
+    request_factory = RequestFactory()
 
     def setUp(self):
-        self.req = RequestFactory().get('/')
+        self.req = self.request_factory.get('/')
         self.req.META['HTTP_ACCEPT_ENCODING'] = 'gzip, deflate'
         self.req.META['HTTP_USER_AGENT'] = 'Mozilla/5.0 (Windows NT 5.1; rv:9.0.1) Gecko/20100101 Firefox/9.0.1'
         self.resp = HttpResponse()
@@ -826,7 +752,7 @@ class GZipMiddlewareTest(SimpleTestCase):
         r = GZipMiddleware().process_response(self.req, self.stream_resp_unicode)
         self.assertEqual(
             self.decompress(b''.join(r)),
-            b''.join(x.encode('utf-8') for x in self.sequence_unicode)
+            b''.join(x.encode() for x in self.sequence_unicode)
         )
         self.assertEqual(r.get('Content-Encoding'), 'gzip')
         self.assertFalse(r.has_header('Content-Length'))
@@ -896,8 +822,6 @@ class GZipMiddlewareTest(SimpleTestCase):
         self.assertEqual(self.get_mtime(r2.content), 0)
 
 
-@ignore_warnings(category=RemovedInDjango21Warning)
-@override_settings(USE_ETAGS=True)
 class ETagGZipMiddlewareTest(SimpleTestCase):
     """
     ETags are handled properly by GZipMiddleware.

@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 import sys
 import unittest
 
@@ -12,7 +10,6 @@ from django.db.models import fields
 from django.test import SimpleTestCase, modify_settings, override_settings
 from django.test.utils import captured_stderr
 from django.urls import reverse
-from django.utils import six
 
 from .models import Company, Person
 from .tests import AdminDocsTestCase, TestDataMixin
@@ -31,7 +28,7 @@ class AdminDocViewTests(TestDataMixin, AdminDocsTestCase):
         self.client.logout()
         response = self.client.get(reverse('django-admindocs-docroot'), follow=True)
         # Should display the login screen
-        self.assertContains(response, '<input type="hidden" name="next" value="/admindocs/" />', html=True)
+        self.assertContains(response, '<input type="hidden" name="next" value="/admindocs/">', html=True)
 
     def test_bookmarklets(self):
         response = self.client.get(reverse('django-admindocs-bookmarklets'))
@@ -61,7 +58,6 @@ class AdminDocViewTests(TestDataMixin, AdminDocsTestCase):
             html=True,
         )
 
-    @unittest.skipIf(six.PY2, "Python 2 doesn't support __qualname__.")
     def test_view_index_with_method(self):
         """
         Views that are methods are listed correctly.
@@ -97,7 +93,7 @@ class AdminDocViewTests(TestDataMixin, AdminDocsTestCase):
         """
         url = reverse('django-admindocs-views-detail', args=['django.contrib.admin.sites.AdminSite.index'])
         response = self.client.get(url)
-        self.assertEqual(response.status_code, 200 if six.PY3 else 404)
+        self.assertEqual(response.status_code, 200)
 
     def test_model_index(self):
         response = self.client.get(reverse('django-admindocs-models-index'))
@@ -136,6 +132,22 @@ class AdminDocViewTests(TestDataMixin, AdminDocsTestCase):
         del settings.SITE_ID
         response = self.client.get(reverse('django-admindocs-views-index'))
         self.assertContains(response, 'View documentation')
+
+
+@unittest.skipUnless(utils.docutils_is_available, 'no docutils installed.')
+class AdminDocViewDefaultEngineOnly(TestDataMixin, AdminDocsTestCase):
+
+    def setUp(self):
+        self.client.force_login(self.superuser)
+
+    def test_template_detail_path_traversal(self):
+        cases = ['/etc/passwd', '../passwd']
+        for fpath in cases:
+            with self.subTest(path=fpath):
+                response = self.client.get(
+                    reverse('django-admindocs-templates', args=[fpath]),
+                )
+                self.assertEqual(response.status_code, 400)
 
 
 @override_settings(TEMPLATES=[{
@@ -211,6 +223,10 @@ class TestModelDetailView(TestDataMixin, AdminDocsTestCase):
         displayed, but omitting 'self'.
         """
         self.assertContains(self.response, "<td>baz, rox, *some_args, **some_kwargs</td>")
+
+    def test_instance_of_property_methods_are_displayed(self):
+        """Model properties are displayed as fields."""
+        self.assertContains(self.response, '<td>a_property</td>')
 
     def test_method_data_types(self):
         company = Company.objects.create(name="Django")
@@ -303,6 +319,16 @@ class TestModelDetailView(TestDataMixin, AdminDocsTestCase):
     def test_model_detail_title(self):
         self.assertContains(self.response, '<h1>admin_docs.Person</h1>', html=True)
 
+    def test_app_not_found(self):
+        response = self.client.get(reverse('django-admindocs-models-detail', args=['doesnotexist', 'Person']))
+        self.assertEqual(response.context['exception'], "App 'doesnotexist' not found")
+        self.assertEqual(response.status_code, 404)
+
+    def test_model_not_found(self):
+        response = self.client.get(reverse('django-admindocs-models-detail', args=['admin_docs', 'doesnotexist']))
+        self.assertEqual(response.context['exception'], "Model 'doesnotexist' not found in app 'admin_docs'")
+        self.assertEqual(response.status_code, 404)
+
 
 class CustomField(models.Field):
     description = "A custom field type"
@@ -313,9 +339,6 @@ class DescriptionLackingField(models.Field):
 
 
 class TestFieldType(unittest.TestCase):
-    def setUp(self):
-        pass
-
     def test_field_name(self):
         with self.assertRaises(AttributeError):
             views.get_readable_field_data_type("NotAField")
@@ -349,4 +372,5 @@ class AdminDocViewFunctionsTests(SimpleTestCase):
             (r'^a/?$', '/a/'),
         )
         for pattern, output in tests:
-            self.assertEqual(simplify_regex(pattern), output)
+            with self.subTest(pattern=pattern):
+                self.assertEqual(simplify_regex(pattern), output)

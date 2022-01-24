@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 from unittest import skipIf
 
 from django.contrib.gis.db.models import fields
@@ -28,7 +26,7 @@ class OperationTestCase(TransactionTestCase):
         # Delete table after testing
         if hasattr(self, 'current_state'):
             self.apply_operations('gis', self.current_state, [migrations.DeleteModel('Neighborhood')])
-        super(OperationTestCase, self).tearDown()
+        super().tearDown()
 
     @property
     def has_spatial_indexes(self):
@@ -65,12 +63,9 @@ class OperationTestCase(TransactionTestCase):
         self.current_state = self.apply_operations('gis', ProjectState(), operations)
 
     def assertGeometryColumnsCount(self, expected_count):
-        table_name = 'gis_neighborhood'
-        if connection.features.uppercases_column_names:
-            table_name = table_name.upper()
         self.assertEqual(
             GeometryColumns.objects.filter(**{
-                GeometryColumns.table_name_col(): table_name,
+                '%s__iexact' % GeometryColumns.table_name_col(): 'gis_neighborhood',
             }).count(),
             expected_count
         )
@@ -103,7 +98,7 @@ class OperationTestCase(TransactionTestCase):
 class OperationTests(OperationTestCase):
 
     def setUp(self):
-        super(OperationTests, self).setUp()
+        super().setUp()
         self.set_up_test_model()
 
     def test_add_geom_field(self):

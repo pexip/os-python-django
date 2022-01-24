@@ -1,15 +1,10 @@
-# -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-
 import os
-import unittest
-from unittest import skipUnless
+from unittest import mock, skipUnless
 
 from django.conf import settings
 from django.contrib.gis.geoip2 import HAS_GEOIP2
-from django.contrib.gis.geos import HAS_GEOS, GEOSGeometry
-from django.test import mock
-from django.utils import six
+from django.contrib.gis.geos import GEOSGeometry
+from django.test import SimpleTestCase
 
 if HAS_GEOIP2:
     from django.contrib.gis.geoip2 import GeoIP2, GeoIP2Exception
@@ -23,9 +18,9 @@ if HAS_GEOIP2:
     HAS_GEOIP2 and getattr(settings, "GEOIP_PATH", None),
     "GeoIP is required along with the GEOIP_PATH setting."
 )
-class GeoIPTest(unittest.TestCase):
-    addr = '75.41.39.1'
-    fqdn = 'tmc.edu'
+class GeoIPTest(SimpleTestCase):
+    addr = '129.237.192.1'
+    fqdn = 'ku.edu'
 
     def test01_init(self):
         "GeoIP initialization."
@@ -51,12 +46,18 @@ class GeoIPTest(unittest.TestCase):
         for bad in bad_params:
             with self.assertRaises(GeoIP2Exception):
                 GeoIP2(cache=bad)
-            if isinstance(bad, six.string_types):
+            if isinstance(bad, str):
                 e = GeoIP2Exception
             else:
                 e = TypeError
             with self.assertRaises(e):
                 GeoIP2(bad, 0)
+
+    def test_no_database_file(self):
+        invalid_path = os.path.join(os.path.dirname(__file__), 'data')
+        msg = 'Could not load a database from %s.' % invalid_path
+        with self.assertRaisesMessage(GeoIP2Exception, msg):
+            GeoIP2(invalid_path)
 
     def test02_bad_query(self):
         "GeoIP query parameter checking."
@@ -95,11 +96,10 @@ class GeoIPTest(unittest.TestCase):
                 g.country(query)
             )
 
-    @skipUnless(HAS_GEOS, "Geos is required")
     @mock.patch('socket.gethostbyname')
     def test04_city(self, gethostbyname):
         "GeoIP city querying methods."
-        gethostbyname.return_value = '75.41.39.1'
+        gethostbyname.return_value = '129.237.192.1'
         g = GeoIP2(country='<foo>')
 
         for query in (self.fqdn, self.addr):
@@ -121,10 +121,12 @@ class GeoIPTest(unittest.TestCase):
 
             # City information dictionary.
             d = g.city(query)
+            self.assertEqual('NA', d['continent_code'])
+            self.assertEqual('North America', d['continent_name'])
             self.assertEqual('US', d['country_code'])
-            self.assertEqual('Dallas', d['city'])
-            self.assertEqual('TX', d['region'])
-
+            self.assertEqual('Lawrence', d['city'])
+            self.assertEqual('KS', d['region'])
+            self.assertEqual('America/Chicago', d['time_zone'])
             geom = g.geos(query)
             self.assertIsInstance(geom, GEOSGeometry)
 
@@ -153,3 +155,10 @@ class GeoIPTest(unittest.TestCase):
             'city': city_path,
         }
         self.assertEqual(repr(g), expected)
+
+    @mock.patch('socket.gethostbyname', return_value='expected')
+    def test_check_query(self, gethostbyname):
+        g = GeoIP2()
+        self.assertEqual(g._check_query('127.0.0.1'), '127.0.0.1')
+        self.assertEqual(g._check_query('2002:81ed:c9a5::81ed:c9a5'), '2002:81ed:c9a5::81ed:c9a5')
+        self.assertEqual(g._check_query('invalid-ip-address'), 'expected')
