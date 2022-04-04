@@ -3836,6 +3836,7 @@ docs/releases/2.2.22.txt
 docs/releases/2.2.23.txt
 docs/releases/2.2.24.txt
 docs/releases/2.2.25.txt
+docs/releases/2.2.26.txt
 docs/releases/2.2.3.txt
 docs/releases/2.2.4.txt
 docs/releases/2.2.5.txt

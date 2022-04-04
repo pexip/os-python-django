@@ -1,3 +1,51 @@
+python-django (2:2.2.26-1~deb11u1pexip1) pexip; urgency=low
+
+  * New upstream version with security updates
+
+ -- Steve McIntyre <steve.mcintyre@pexip.com>  Mon, 04 Apr 2022 11:58:53 +0100
+
+python-django (2:2.2.26-1~deb11u1) bullseye; urgency=medium
+
+  * New upstream security release:
+
+    - CVE-2021-45115: Denial-of-service possibility in
+      UserAttributeSimilarityValidator
+
+      UserAttributeSimilarityValidator incurred significant overhead evaluating
+      submitted password that were artificially large in relative to the
+      comparison values. On the assumption that access to user registration was
+      unrestricted this provided a potential vector for a denial-of-service
+      attack.
+
+      In order to mitigate this issue, relatively long values are now ignored
+      by UserAttributeSimilarityValidator.
+
+    - CVE-2021-45116: Potential information disclosure in dictsort template
+      filter
+
+      Due to leveraging the Django Template Language's variable resolution
+      logic, the dictsort template filter was potentially vulnerable to
+      information disclosure or unintended method calls, if passed a
+      suitably crafted key.
+
+      In order to avoid this possibility, dictsort now works with a
+      restricted resolution logic, that will not call methods, nor allow
+      indexing on dictionaries.
+
+    - CVE-2021-45452: Potential directory-traversal via Storage.save()
+
+      Storage.save() allowed directory-traversal if directly passed suitably
+      crafted file names.
+
+    See <https://www.djangoproject.com/weblog/2022/jan/04/security-releases/>
+    for more information. (Closes: #1003113)
+
+  * Fix a traceback around the handling of RequestSite/get_current_site() due
+    to a circular import by backporting commit 78163d1a from upstream. Thanks
+    to Raphaël Hertzog for the report. (Closes: #1003478)
+
+ -- Chris Lamb <lamby@debian.org>  Thu, 13 Jan 2022 11:11:29 +0000
+
 python-django (2:2.2.25-1~deb11u1pexip1) pexip; urgency=low
 
   * Migrate to django 2.2
