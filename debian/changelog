@@ -1,3 +1,9 @@
+python-django (2:2.2.26-1~deb11u1pexip2) pexip; urgency=medium
+
+  * Initial bullseye build
+
+ -- Mark Hymers <mark.hymers@pexip.com>  Thu, 02 Jun 2022 14:42:47 +0100
+
 python-django (2:2.2.26-1~deb11u1pexip1) pexip; urgency=low
 
   * New upstream version with security updates
