@@ -1,3 +1,10 @@
+python-django (2:2.2.26-1~deb11u1pexip1buster1) pexip; urgency=medium
+
+  * Apply patch for CVE-2022-34265.  Taken from commit
+    a9010fe5555e6086a9d9ae50069579400ef0685e upstream.
+
+ -- Mark Hymers <mark.hymers@pexip.com>  Mon, 18 Jul 2022 13:39:38 +0100
+
 python-django (2:2.2.26-1~deb11u1pexip1) pexip; urgency=low
 
   * New upstream version with security updates
