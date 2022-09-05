@@ -1,3 +1,9 @@
+python-django (2:2.2.26-1~deb11u1pexip5) pexip-bullseye; urgency=medium
+
+  * Bullseye rebuild for ARM64 inclusion
+
+ -- Mark Hymers <mark.hymers@pexip.com>  Mon, 05 Sep 2022 10:35:23 +0100
+
 python-django (2:2.2.26-1~deb11u1pexip4) pexip-bullseye; urgency=medium
 
   * Apply patch for CVE-2022-34265.  Taken from commit
