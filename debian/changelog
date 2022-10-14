@@ -1,3 +1,49 @@
+python-django (2:2.2.28-1~deb11u1) bullseye-security; urgency=medium
+
+  * New upstream security release:
+    <https://docs.djangoproject.com/en/4.0/releases/2.2.28/>
+
+    - CVE-2022-28346: Prevent a potential SQL injection in QuerySet.annotate(),
+      aggregate() and extra(). These methods were subject to SQL injection in
+      column aliases. (Closes: #1009677)
+
+    - CVE-2022-28347: Prevent a SQL injection attack via
+      QuerySet.explain(**options) when using the PostgreSQL database.
+      QuerySet.explain() method was subject to SQL injection in option names.
+      (Closes: #1009677)
+
+  * Incorporates changes from previous 2.2.27 security release:
+    <https://docs.djangoproject.com/en/4.0/releases/2.2.27/>
+
+    - CVE-2022-22818: Prevent a possible XSS vulnerability via the {% debug %}
+      template tag. This tag didn't correctly encode the current context,
+      posing an XSS attack vector. In order to avoid this vulnerability, {%
+      debug %} no longer outputs information when the DEBUG setting is False,
+      and it ensures all context variables are correctly escaped when the
+      DEBUG setting is True. (Closes: #1004752)
+
+    - CVE-2022-23833: Prevent a denial-of-service opportunity in file uploads.
+      Passing certain inputs to multipart forms could result in an infinite
+      loop when parsing files. (Closes: #1004752)
+
+  * Additionally backport the following patches from upstream:
+
+    - CVE-2022-34265: Prevent an issue with the Trunc() and Extract() database
+      functions which were potentially subject to SQL injection if untrusted
+      data was used as a kind/lookup_name value. Applications that constrain
+      the lookup name and kind choice to a known safe list were unaffected by
+      this vulnerability. (Closes: #1014541)
+
+    - CVE-2022-36359: Fix a reflected file download (RFD) attack that could be
+      exploited if the application sets the Content-Disposition header of a
+      FileResponse derived from user-supplied input.
+
+    - CVE-2022-41323: Prevent a potential denial-of-service vulnerability in
+      internationalised URLs that was exploitable via the "locale" parameter.
+      This is now escaped to avoid this possibility.
+
+ -- Chris Lamb <lamby@debian.org>  Fri, 14 Oct 2022 10:02:41 -0700
+
 python-django (2:2.2.26-1~deb11u1) bullseye; urgency=medium
 
   * New upstream security release:
