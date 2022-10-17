@@ -4,4 +4,6 @@
 0004-Set-the-default-shebang-to-new-projects-to-use-Pytho.patch
 0005-Use-usr-bin-env-python3-shebang-for-django-admin.py.patch
 0006-Moved-RequestSite-import-to-the-toplevel.patch
-9999-pexip-CVE-2022-34265.patch
+CVE-2022-34265.patch
+CVE-2022-36359.patch
+CVE-2022-41323.patch
