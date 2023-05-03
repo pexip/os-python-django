@@ -9,6 +9,7 @@ from django.shortcuts import render
 from django.template import RequestContext, Template
 from django.urls import path, re_path, reverse_lazy
 from django.views.decorators.cache import never_cache
+from django.views.i18n import set_language
 
 
 class CustomRequestAuthenticationForm(AuthenticationForm):
@@ -77,8 +78,6 @@ def login_and_permission_required_exception(request):
     pass
 
 
-uid_token = r'(?P<uidb64>[0-9A-Za-z_\-]+)/(?P<token>[0-9A-Za-z]{1,13}-[0-9A-Za-z]{1,20})'
-
 # special urls for auth test cases
 urlpatterns = auth_urlpatterns + [
     path('logout/custom_query/', views.LogoutView.as_view(redirect_field_name='follow')),
@@ -90,7 +89,10 @@ urlpatterns = auth_urlpatterns + [
     path('password_reset_from_email/', views.PasswordResetView.as_view(from_email='staffmember@example.com')),
     path(
         'password_reset_extra_email_context/',
-        views.PasswordResetView.as_view(extra_email_context={'greeting': 'Hello!'})),
+        views.PasswordResetView.as_view(
+            extra_email_context={'greeting': 'Hello!', 'domain': 'custom.example.com'},
+        ),
+    ),
     path(
         'password_reset/custom_redirect/',
         views.PasswordResetView.as_view(success_url='/custom/')),
@@ -102,20 +104,24 @@ urlpatterns = auth_urlpatterns + [
         views.PasswordResetView.as_view(
             html_email_template_name='registration/html_password_reset_email.html'
         )),
-    re_path(
-        '^reset/custom/{}/$'.format(uid_token),
+    path(
+        'reset/custom/<uidb64>/<token>/',
         views.PasswordResetConfirmView.as_view(success_url='/custom/'),
     ),
-    re_path(
-        '^reset/custom/named/{}/$'.format(uid_token),
+    path(
+        'reset/custom/named/<uidb64>/<token>/',
         views.PasswordResetConfirmView.as_view(success_url=reverse_lazy('password_reset')),
     ),
-    re_path(
-        '^reset/post_reset_login/{}/$'.format(uid_token),
+    path(
+        'reset/custom/token/<uidb64>/<token>/',
+        views.PasswordResetConfirmView.as_view(reset_url_token='set-passwordcustom'),
+    ),
+    path(
+        'reset/post_reset_login/<uidb64>/<token>/',
         views.PasswordResetConfirmView.as_view(post_reset_login=True),
     ),
-    re_path(
-        '^reset/post_reset_login_custom_backend/{}/$'.format(uid_token),
+    path(
+        'reset/post_reset_login_custom_backend/<uidb64>/<token>/',
         views.PasswordResetConfirmView.as_view(
             post_reset_login=True,
             post_reset_login_backend='django.contrib.auth.backends.AllowAllUsersModelBackend',
@@ -148,6 +154,7 @@ urlpatterns = auth_urlpatterns + [
     path('permission_required_exception/', permission_required_exception),
     path('login_and_permission_required_exception/', login_and_permission_required_exception),
 
+    path('setlang/', set_language, name='set_language'),
     # This line is only required to render the password reset with is_admin=True
     path('admin/', admin.site.urls),
 ]

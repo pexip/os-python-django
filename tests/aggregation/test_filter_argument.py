@@ -2,7 +2,8 @@ import datetime
 from decimal import Decimal
 
 from django.db.models import (
-    Avg, Case, Count, F, Q, StdDev, Sum, Variance, When,
+    Avg, Case, Count, Exists, F, Max, OuterRef, Q, StdDev, Subquery, Sum,
+    Variance, When,
 )
 from django.test import TestCase
 from django.test.utils import Approximate
@@ -100,3 +101,43 @@ class FilteredAggregateTests(TestCase):
             older_friends_count__gte=2,
         )
         self.assertEqual(qs.get(pk__in=qs.values('pk')), self.a1)
+
+    def test_filtered_aggregate_ref_annotation(self):
+        aggs = Author.objects.annotate(
+            double_age=F('age') * 2,
+        ).aggregate(
+            cnt=Count('pk', filter=Q(double_age__gt=100)),
+        )
+        self.assertEqual(aggs['cnt'], 2)
+
+    def test_filtered_aggregate_ref_subquery_annotation(self):
+        aggs = Author.objects.annotate(
+            earliest_book_year=Subquery(
+                Book.objects.filter(
+                    contact__pk=OuterRef('pk'),
+                ).order_by('pubdate').values('pubdate__year')[:1]
+            ),
+        ).aggregate(
+            cnt=Count('pk', filter=Q(earliest_book_year=2008)),
+        )
+        self.assertEqual(aggs['cnt'], 2)
+
+    def test_filtered_aggregate_ref_multiple_subquery_annotation(self):
+        aggregate = Book.objects.values('publisher').annotate(
+            has_authors=Exists(
+                Book.authors.through.objects.filter(book=OuterRef('pk')),
+            ),
+            authors_have_other_books=Exists(
+                Book.objects.filter(
+                    authors__in=Author.objects.filter(
+                        book_contact_set=OuterRef(OuterRef('pk')),
+                    )
+                ).exclude(pk=OuterRef('pk')),
+            ),
+        ).aggregate(
+            max_rating=Max(
+                'rating',
+                filter=Q(has_authors=True, authors_have_other_books=False),
+            )
+        )
+        self.assertEqual(aggregate, {'max_rating': 4.5})

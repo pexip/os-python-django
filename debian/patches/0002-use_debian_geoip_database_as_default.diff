@@ -15,7 +15,7 @@ Patch-Name: 06_use_debian_geoip_database_as_default.diff
  1 file changed, 6 insertions(+), 3 deletions(-)
 
 diff --git a/django/contrib/gis/geoip2/base.py b/django/contrib/gis/geoip2/base.py
-index b098632d39b3..7cdf81aad598 100644
+index 6b35a8acdc42..ff6141bdcc5b 100644
 --- a/django/contrib/gis/geoip2/base.py
 +++ b/django/contrib/gis/geoip2/base.py
 @@ -53,6 +53,7 @@ class GeoIP2:
@@ -46,8 +46,8 @@ index b098632d39b3..7cdf81aad598 100644
 +        path = path or GEOIP_SETTINGS.get('GEOIP_PATH', '/usr/share/GeoIP')
          if not path:
              raise GeoIP2Exception('GeoIP path must be provided via parameter or the GEOIP_PATH setting.')
-         if not isinstance(path, str):
-@@ -84,12 +87,12 @@ class GeoIP2:
+ 
+@@ -82,12 +85,12 @@ class GeoIP2:
              # Constructing the GeoIP database filenames using the settings
              # dictionary. If the database files for the GeoLite country
              # and/or city datasets exist, then try to open them.

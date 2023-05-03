@@ -1,8 +1,8 @@
-Test-Command: debian/tests/django-admin
+Tests: django-admin
 Depends:
  python3-django,
 
-Test-Command: debian/tests/test-suite
+Tests: test-suite
 Restrictions: allow-stderr
 Depends:
  @,

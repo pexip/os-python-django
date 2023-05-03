@@ -3,7 +3,9 @@
 0004-Use-locally-installed-documentation-sources.patch
 0004-Set-the-default-shebang-to-new-projects-to-use-Pytho.patch
 0005-Use-usr-bin-env-python3-shebang-for-django-admin.py.patch
-0006-Moved-RequestSite-import-to-the-toplevel.patch
-CVE-2022-34265.patch
-CVE-2022-36359.patch
-CVE-2022-41323.patch
+0006-Fixed-32690-Fixed-__in-lookup-crash-when-combining-w.patch
+0007-Refs-32786-Made-Query.clear_ordering-not-to-cause-si.patch
+0008-Refs-32690-Altered-lookups-Query-rhs-alterations-dur.patch
+0009-Fixed-33282-Fixed-a-crash-when-OR-ing-subquery-and-a.patch
+0011-Moved-RequestSite-import-to-the-toplevel.patch
+0012-Add-Python-3.11-support-for-tests.patch
