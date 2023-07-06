@@ -25,7 +25,7 @@ class MockRequest:
 
 
 class MockSuperUser:
-    def has_perm(self, perm):
+    def has_perm(self, perm, obj=None):
         return True
 
 
@@ -35,12 +35,15 @@ request.user = MockSuperUser()
 
 class ModelAdminTests(TestCase):
 
-    def setUp(self):
-        self.band = Band.objects.create(
+    @classmethod
+    def setUpTestData(cls):
+        cls.band = Band.objects.create(
             name='The Doors',
             bio='',
             sign_date=date(1965, 1, 1),
         )
+
+    def setUp(self):
         self.site = AdminSite()
 
     def test_modeladmin_str(self):
@@ -727,23 +730,19 @@ class ModelAdminPermissionTests(SimpleTestCase):
             return app_label == 'modeladmin'
 
     class MockViewUser(MockUser):
-        def has_perm(self, perm):
+        def has_perm(self, perm, obj=None):
             return perm == 'modeladmin.view_band'
 
     class MockAddUser(MockUser):
-        def has_perm(self, perm):
+        def has_perm(self, perm, obj=None):
             return perm == 'modeladmin.add_band'
 
-    class MockAddUserWithInline(MockUser):
-        def has_perm(self, perm):
-            return perm == 'modeladmin.add_concert'
-
     class MockChangeUser(MockUser):
-        def has_perm(self, perm):
+        def has_perm(self, perm, obj=None):
             return perm == 'modeladmin.change_band'
 
     class MockDeleteUser(MockUser):
-        def has_perm(self, perm):
+        def has_perm(self, perm, obj=None):
             return perm == 'modeladmin.delete_band'
 
     def test_has_view_permission(self):
@@ -792,26 +791,6 @@ class ModelAdminPermissionTests(SimpleTestCase):
         request = MockRequest()
         request.user = self.MockAddUser()
         self.assertEqual(ma.get_inline_instances(request), [])
-        band = Band(name='The Doors', bio='', sign_date=date(1965, 1, 1))
-        inline_instances = ma.get_inline_instances(request, band)
-        self.assertEqual(len(inline_instances), 1)
-        self.assertIsInstance(inline_instances[0], ConcertInline)
-
-    def test_inline_has_add_permission_without_obj(self):
-        # This test will be removed in Django 3.0 when `obj` becomes a required
-        # argument of has_add_permission() (#27991).
-        class ConcertInline(TabularInline):
-            model = Concert
-
-            def has_add_permission(self, request):
-                return super().has_add_permission(request)
-
-        class BandAdmin(ModelAdmin):
-            inlines = [ConcertInline]
-
-        ma = BandAdmin(Band, AdminSite())
-        request = MockRequest()
-        request.user = self.MockAddUserWithInline()
         band = Band(name='The Doors', bio='', sign_date=date(1965, 1, 1))
         inline_instances = ma.get_inline_instances(request, band)
         self.assertEqual(len(inline_instances), 1)

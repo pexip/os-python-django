@@ -17,7 +17,7 @@ class DebugTests(SimpleTestCase):
     def test_modules(self):
         output = self.engine.render_to_string('modules', {})
         self.assertIn(
-            '&#39;django&#39;: &lt;module &#39;django&#39; ',
+            '&#x27;django&#x27;: &lt;module &#x27;django&#x27; ',
             output,
         )
 
@@ -25,9 +25,9 @@ class DebugTests(SimpleTestCase):
     def test_plain(self):
         output = self.engine.render_to_string('plain', {'a': 1})
         self.assertTrue(output.startswith(
-            '{&#39;a&#39;: 1}'
-            '{&#39;False&#39;: False, &#39;None&#39;: None, '
-            '&#39;True&#39;: True}\n\n{'
+            '{&#x27;a&#x27;: 1}'
+            '{&#x27;False&#x27;: False, &#x27;None&#x27;: None, '
+            '&#x27;True&#x27;: True}\n\n{'
         ))
 
     @setup({'non_ascii': '{% debug %}'})
@@ -35,12 +35,12 @@ class DebugTests(SimpleTestCase):
         group = Group(name="清風")
         output = self.engine.render_to_string('non_ascii', {'group': group})
         self.assertTrue(output.startswith(
-            '{&#39;group&#39;: &lt;Group: 清風&gt;}'
+            '{&#x27;group&#x27;: &lt;Group: 清風&gt;}'
         ))
 
     @setup({'script': '{% debug %}'})
     def test_script(self):
         output = self.engine.render_to_string('script', {'frag': '<script>'})
         self.assertTrue(output.startswith(
-            '{&#39;frag&#39;: &#39;&lt;script&gt;&#39;}'
+            '{&#x27;frag&#x27;: &#x27;&lt;script&gt;&#x27;}'
         ))

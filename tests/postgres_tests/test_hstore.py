@@ -2,7 +2,8 @@ import json
 
 from django.core import checks, exceptions, serializers
 from django.db import connection
-from django.db.models.expressions import OuterRef, RawSQL, Subquery
+from django.db.models import F, OuterRef, Subquery
+from django.db.models.expressions import RawSQL
 from django.forms import Form
 from django.test.utils import CaptureQueriesContext, isolate_apps
 
@@ -136,6 +137,13 @@ class TestQuerying(PostgreSQLTestCase):
             self.objs[:2]
         )
 
+    def test_key_transform_annotation(self):
+        qs = HStoreModel.objects.annotate(a=F('field__a'))
+        self.assertCountEqual(
+            qs.values_list('a', flat=True),
+            ['b', 'b', None, None, None],
+        )
+
     def test_keys(self):
         self.assertSequenceEqual(
             HStoreModel.objects.filter(field__keys=['a']),
@@ -231,7 +239,7 @@ class TestChecks(PostgreSQLSimpleTestCase):
                 ),
                 hint='Use a callable instead, e.g., use `dict` instead of `{}`.',
                 obj=MyModel._meta.get_field('field'),
-                id='postgres.E003',
+                id='fields.E010',
             )
         ])
 
@@ -279,7 +287,7 @@ class TestValidation(PostgreSQLSimpleTestCase):
         with self.assertRaises(exceptions.ValidationError) as cm:
             field.clean({'a': 1}, None)
         self.assertEqual(cm.exception.code, 'not_a_string')
-        self.assertEqual(cm.exception.message % cm.exception.params, 'The value of "a" is not a string or null.')
+        self.assertEqual(cm.exception.message % cm.exception.params, 'The value of “a” is not a string or null.')
 
     def test_none_allowed_as_value(self):
         field = HStoreField()

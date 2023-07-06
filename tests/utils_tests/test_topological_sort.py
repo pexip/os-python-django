@@ -19,6 +19,6 @@ class TopologicalSortTests(SimpleTestCase):
         self.assertEqual(stable_topological_sort([1, 2, 3, 4, 5, 6], dependency_graph), [2, 3, 5, 1, 6, 4])
 
     def test_cyclic_dependency(self):
-        msg = 'Cyclic dependency in graph: '
+        msg = 'Cyclic dependency in graph: (1, {2}), (2, {1})'
         with self.assertRaisesMessage(CyclicDependencyError, msg):
             list(topological_sort_as_sets({1: {2}, 2: {1}}))
