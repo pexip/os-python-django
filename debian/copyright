@@ -51,14 +51,6 @@ Files: django/utils/ipv6.py
 Copyright: 2007 Google Inc.
 License: Apache-2.0
 
-Files: django/utils/lru_cache.py
-Copyright: 2012 Raymond Hettinger
-License: Expat
-
-Files: django/utils/six.py
-Copyright: 2010-2015 Benjamin Peterson
-License: Expat
-
 Files: django/utils/autoreload.py
 Copyright: 2004 CherryPy Team <team@cherrypy.org>, 2008 Ian Bicking
 Comment: "NAME" is the CherryPy Team. Also, quoting the source code:

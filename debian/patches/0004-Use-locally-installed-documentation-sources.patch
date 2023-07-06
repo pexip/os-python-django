@@ -7,16 +7,16 @@ Subject: Use locally installed documentation sources
  1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/docs/conf.py b/docs/conf.py
-index 9cbac4ad2804..803f00078109 100644
+index 362845303c78..0d8ada721666 100644
 --- a/docs/conf.py
 +++ b/docs/conf.py
-@@ -140,9 +140,9 @@ pygments_style = 'trac'
+@@ -151,9 +151,9 @@ pygments_style = 'trac'
  # Links to Python's docs should reference the most recent version of the 3.x
  # branch, which is located at this URL.
  intersphinx_mapping = {
 -    'python': ('https://docs.python.org/3/', None),
--    'sphinx': ('http://www.sphinx-doc.org/en/master/', None),
--    'psycopg2': ('http://initd.org/psycopg/docs/', None),
+-    'sphinx': ('https://www.sphinx-doc.org/en/master/', None),
+-    'psycopg2': ('https://www.psycopg.org/docs/', None),
 +    'python': ('/usr/share/doc/python3-doc/html/', None),
 +    'sphinx': ('/usr/share/doc/sphinx-doc/html/', None),
 +    'psycopg2': ('/usr/share/doc/python-psycopg2-doc/html/', None),

@@ -7,7 +7,7 @@ Subject: Set the default shebang to new projects to use Python 3.
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/django/conf/project_template/manage.py-tpl b/django/conf/project_template/manage.py-tpl
-index 9525fd7ac703..d5d5607bad93 100755
+index a628884dc80b..50920a0df19b 100755
 --- a/django/conf/project_template/manage.py-tpl
 +++ b/django/conf/project_template/manage.py-tpl
 @@ -1,4 +1,4 @@

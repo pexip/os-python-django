@@ -8,10 +8,9 @@ import tempfile
 from contextlib import contextmanager
 from importlib import import_module
 from pathlib import Path
-from threading import local
 from unittest import mock
 
-import _thread
+from asgiref.local import Local
 
 from django import forms
 from django.apps import AppConfig
@@ -23,18 +22,20 @@ from django.test import (
     RequestFactory, SimpleTestCase, TestCase, override_settings,
 )
 from django.utils import translation
+from django.utils.deprecation import RemovedInDjango40Warning
 from django.utils.formats import (
     date_format, get_format, get_format_modules, iter_format_modules, localize,
     localize_input, reset_format_cache, sanitize_separators, time_format,
 )
 from django.utils.numberformat import format as nformat
-from django.utils.safestring import SafeText, mark_safe
+from django.utils.safestring import SafeString, mark_safe
 from django.utils.translation import (
     LANGUAGE_SESSION_KEY, activate, check_for_language, deactivate,
     get_language, get_language_bidi, get_language_from_request,
     get_language_info, gettext, gettext_lazy, ngettext, ngettext_lazy,
-    npgettext, npgettext_lazy, pgettext, to_language, to_locale, trans_null,
-    trans_real, ugettext, ugettext_lazy, ungettext, ungettext_lazy,
+    npgettext, npgettext_lazy, pgettext, round_away_from_one, to_language,
+    to_locale, trans_null, trans_real, ugettext, ugettext_lazy, ugettext_noop,
+    ungettext, ungettext_lazy,
 )
 from django.utils.translation.reloader import (
     translation_file_changed, watch_for_translation_changes,
@@ -74,13 +75,39 @@ class TranslationTests(SimpleTestCase):
         """
         Pre-Django 2.0 aliases with u prefix are still available.
         """
-        self.assertEqual(ugettext("Image"), "Bild")
-        self.assertEqual(ugettext_lazy("Image"), gettext_lazy("Image"))
-        self.assertEqual(ungettext("%d year", "%d years", 0) % 0, "0 Jahre")
-        self.assertEqual(
-            ungettext_lazy("%d year", "%d years", 0) % 0,
-            ngettext_lazy("%d year", "%d years", 0) % 0,
+        msg = (
+            'django.utils.translation.ugettext_noop() is deprecated in favor '
+            'of django.utils.translation.gettext_noop().'
         )
+        with self.assertWarnsMessage(RemovedInDjango40Warning, msg):
+            self.assertEqual(ugettext_noop("Image"), "Image")
+        msg = (
+            'django.utils.translation.ugettext() is deprecated in favor of '
+            'django.utils.translation.gettext().'
+        )
+        with self.assertWarnsMessage(RemovedInDjango40Warning, msg):
+            self.assertEqual(ugettext("Image"), "Bild")
+        msg = (
+            'django.utils.translation.ugettext_lazy() is deprecated in favor '
+            'of django.utils.translation.gettext_lazy().'
+        )
+        with self.assertWarnsMessage(RemovedInDjango40Warning, msg):
+            self.assertEqual(ugettext_lazy("Image"), gettext_lazy("Image"))
+        msg = (
+            'django.utils.translation.ungettext() is deprecated in favor of '
+            'django.utils.translation.ngettext().'
+        )
+        with self.assertWarnsMessage(RemovedInDjango40Warning, msg):
+            self.assertEqual(ungettext("%d year", "%d years", 0) % 0, "0 Jahre")
+        msg = (
+            'django.utils.translation.ungettext_lazy() is deprecated in favor '
+            'of django.utils.translation.ngettext_lazy().'
+        )
+        with self.assertWarnsMessage(RemovedInDjango40Warning, msg):
+            self.assertEqual(
+                ungettext_lazy("%d year", "%d years", 0) % 0,
+                ngettext_lazy("%d year", "%d years", 0) % 0,
+            )
 
     @translation.override('fr')
     def test_plural(self):
@@ -277,7 +304,7 @@ class TranslationTests(SimpleTestCase):
 
     @override_settings(LOCALE_PATHS=extended_locale_paths)
     def test_pgettext(self):
-        trans_real._active = local()
+        trans_real._active = Local()
         trans_real._translations = {}
         with translation.override('de'):
             self.assertEqual(pgettext("unexisting", "May"), "May")
@@ -298,15 +325,15 @@ class TranslationTests(SimpleTestCase):
         Translating a string requiring no auto-escaping with gettext or pgettext
         shouldn't change the "safe" status.
         """
-        trans_real._active = local()
+        trans_real._active = Local()
         trans_real._translations = {}
         s1 = mark_safe('Password')
         s2 = mark_safe('May')
         with translation.override('de', deactivate=True):
-            self.assertIs(type(gettext(s1)), SafeText)
-            self.assertIs(type(pgettext('month name', s2)), SafeText)
-        self.assertEqual('aPassword', SafeText('a') + s1)
-        self.assertEqual('Passworda', s1 + SafeText('a'))
+            self.assertIs(type(gettext(s1)), SafeString)
+            self.assertIs(type(pgettext('month name', s2)), SafeString)
+        self.assertEqual('aPassword', SafeString('a') + s1)
+        self.assertEqual('Passworda', s1 + SafeString('a'))
         self.assertEqual('Passworda', s1 + mark_safe('a'))
         self.assertEqual('aPassword', mark_safe('a') + s1)
         self.assertEqual('as', mark_safe('a') + mark_safe('s'))
@@ -518,21 +545,29 @@ class FormattingTests(SimpleTestCase):
             self.assertEqual(0, get_format('FIRST_DAY_OF_WEEK'))
             self.assertEqual('.', get_format('DECIMAL_SEPARATOR'))
             self.assertEqual('10:15 a.m.', time_format(self.t))
-            self.assertEqual('des. 31, 2009', date_format(self.d))
+            self.assertEqual('Des. 31, 2009', date_format(self.d))
             self.assertEqual('desembre 2009', date_format(self.d, 'YEAR_MONTH_FORMAT'))
             self.assertEqual('12/31/2009 8:50 p.m.', date_format(self.dt, 'SHORT_DATETIME_FORMAT'))
             self.assertEqual('No localizable', localize('No localizable'))
             self.assertEqual('66666.666', localize(self.n))
             self.assertEqual('99999.999', localize(self.f))
             self.assertEqual('10000', localize(self.long))
-            self.assertEqual('des. 31, 2009', localize(self.d))
-            self.assertEqual('des. 31, 2009, 8:50 p.m.', localize(self.dt))
+            self.assertEqual('Des. 31, 2009', localize(self.d))
+            self.assertEqual('Des. 31, 2009, 8:50 p.m.', localize(self.dt))
             self.assertEqual('66666.666', Template('{{ n }}').render(self.ctxt))
             self.assertEqual('99999.999', Template('{{ f }}').render(self.ctxt))
-            self.assertEqual('des. 31, 2009', Template('{{ d }}').render(self.ctxt))
-            self.assertEqual('des. 31, 2009, 8:50 p.m.', Template('{{ dt }}').render(self.ctxt))
+            self.assertEqual('Des. 31, 2009', Template('{{ d }}').render(self.ctxt))
+            self.assertEqual('Des. 31, 2009, 8:50 p.m.', Template('{{ dt }}').render(self.ctxt))
             self.assertEqual('66666.67', Template('{{ n|floatformat:2 }}').render(self.ctxt))
             self.assertEqual('100000.0', Template('{{ f|floatformat }}').render(self.ctxt))
+            self.assertEqual(
+                '66666.67',
+                Template('{{ n|floatformat:"2g" }}').render(self.ctxt),
+            )
+            self.assertEqual(
+                '100000.0',
+                Template('{{ f|floatformat:"g" }}').render(self.ctxt),
+            )
             self.assertEqual('10:15 a.m.', Template('{{ t|time:"TIME_FORMAT" }}').render(self.ctxt))
             self.assertEqual('12/31/2009', Template('{{ d|date:"SHORT_DATE_FORMAT" }}').render(self.ctxt))
             self.assertEqual(
@@ -552,7 +587,7 @@ class FormattingTests(SimpleTestCase):
             self.assertEqual(['Introdu\xefu un n\xfamero.'], form.errors['decimal_field'])
             self.assertEqual(['Introdu\xefu una data v\xe0lida.'], form.errors['date_field'])
             self.assertEqual(['Introdu\xefu una data/hora v\xe0lides.'], form.errors['datetime_field'])
-            self.assertEqual(['Introdu\xefu un n\xfamero sencer.'], form.errors['integer_field'])
+            self.assertEqual(['Introdu\xefu un n\xfamero enter.'], form.errors['integer_field'])
 
             form2 = SelectDateForm({
                 'date_field_month': '12',
@@ -707,6 +742,14 @@ class FormattingTests(SimpleTestCase):
                 self.assertEqual('31 de desembre de 2009 a les 20:50', Template('{{ dt }}').render(self.ctxt))
                 self.assertEqual('66666,67', Template('{{ n|floatformat:2 }}').render(self.ctxt))
                 self.assertEqual('100000,0', Template('{{ f|floatformat }}').render(self.ctxt))
+                self.assertEqual(
+                    '66.666,67',
+                    Template('{{ n|floatformat:"2g" }}').render(self.ctxt),
+                )
+                self.assertEqual(
+                    '100.000,0',
+                    Template('{{ f|floatformat:"g" }}').render(self.ctxt),
+                )
                 self.assertEqual('10:15', Template('{{ t|time:"TIME_FORMAT" }}').render(self.ctxt))
                 self.assertEqual('31/12/2009', Template('{{ d|date:"SHORT_DATE_FORMAT" }}').render(self.ctxt))
                 self.assertEqual(
@@ -908,6 +951,14 @@ class FormattingTests(SimpleTestCase):
                 self.assertEqual('Dec. 31, 2009, 8:50 p.m.', Template('{{ dt }}').render(self.ctxt))
                 self.assertEqual('66666.67', Template('{{ n|floatformat:2 }}').render(self.ctxt))
                 self.assertEqual('100000.0', Template('{{ f|floatformat }}').render(self.ctxt))
+                self.assertEqual(
+                    '66,666.67',
+                    Template('{{ n|floatformat:"2g" }}').render(self.ctxt),
+                )
+                self.assertEqual(
+                    '100,000.0',
+                    Template('{{ f|floatformat:"g" }}').render(self.ctxt),
+                )
                 self.assertEqual('12/31/2009', Template('{{ d|date:"SHORT_DATE_FORMAT" }}').render(self.ctxt))
                 self.assertEqual(
                     '12/31/2009 8:50 p.m.',
@@ -1179,6 +1230,25 @@ class FormattingTests(SimpleTestCase):
                 self.assertEqual(template2.render(context), output2)
                 self.assertEqual(template3.render(context), output3)
 
+    def test_localized_off_numbers(self):
+        """A string representation is returned for unlocalized numbers."""
+        template = Template(
+            '{% load l10n %}{% localize off %}'
+            '{{ int }}/{{ float }}/{{ decimal }}{% endlocalize %}'
+        )
+        context = Context(
+            {'int': 1455, 'float': 3.14, 'decimal': decimal.Decimal('24.1567')}
+        )
+        for use_l10n in [True, False]:
+            with self.subTest(use_l10n=use_l10n), self.settings(
+                USE_L10N=use_l10n,
+                DECIMAL_SEPARATOR=',',
+                USE_THOUSAND_SEPARATOR=True,
+                THOUSAND_SEPARATOR='°',
+                NUMBER_GROUPING=2,
+            ):
+                self.assertEqual(template.render(context), '1455/3.14/24.1567')
+
     def test_localized_as_text_as_hidden_input(self):
         """
         Tests if form input with 'as_hidden' or 'as_text' is correctly localized. Ticket #18777
@@ -1282,6 +1352,14 @@ class MiscTests(SimpleTestCase):
             ('de;q=0.', [('de', 0.0)]),
             ('en; q=1,', [('en', 1.0)]),
             ('en; q=1.0, * ; q=0.5', [('en', 1.0), ('*', 0.5)]),
+            (
+                'en' + '-x' * 20,
+                [('en-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x', 1.0)],
+            ),
+            (
+                ', '.join(['en; q=1.0'] * 20),
+                [('en', 1.0)] * 20,
+            ),
             # Bad headers
             ('en-gb;q=1.0000', []),
             ('en;q=0.1234', []),
@@ -1297,6 +1375,10 @@ class MiscTests(SimpleTestCase):
             ('12-345', []),
             ('', []),
             ('en;q=1e0', []),
+            # Invalid as language-range value too long.
+            ('xxxxxxxx' + '-xxxxxxxx' * 500, []),
+            # Header value too long, only parse up to limit.
+            (', '.join(['en; q=1.0'] * 500), [('en', 1.0)] * 45),
         ]
         for value, expected in tests:
             with self.subTest(value=value):
@@ -1593,7 +1675,7 @@ class TestModels(TestCase):
 
     def test_safestr(self):
         c = Company(cents_paid=12, products_delivered=1)
-        c.name = SafeText('Iñtërnâtiônàlizætiøn1')
+        c.name = SafeString('Iñtërnâtiônàlizætiøn1')
         c.save()
 
 
@@ -1711,7 +1793,7 @@ class UnprefixedDefaultLanguageTests(SimpleTestCase):
     def test_no_redirect_on_404(self):
         """
         A request for a nonexistent URL shouldn't cause a redirect to
-        /<defaut_language>/<request_url> when prefix_default_language=False and
+        /<default_language>/<request_url> when prefix_default_language=False and
         /<default_language>/<request_url> has a URL match (#27402).
         """
         # A match for /group1/group2/ must exist for this to act as a
@@ -1808,13 +1890,10 @@ class TranslationFilesMissing(SimpleTestCase):
         gettext_module.find = lambda *args, **kw: None
 
     def test_failure_finding_default_mo_files(self):
-        '''
-        Ensure IOError is raised if the default language is unparseable.
-        Refs: #18192
-        '''
+        """OSError is raised if the default language is unparseable."""
         self.patchGettextFind()
         trans_real._translations = {}
-        with self.assertRaises(IOError):
+        with self.assertRaises(OSError):
             activate('en')
 
 
@@ -1837,7 +1916,7 @@ class NonDjangoLanguageTests(SimpleTestCase):
         self.assertEqual(gettext("year"), "reay")
 
     @override_settings(USE_I18N=True)
-    def test_check_for_langauge(self):
+    def test_check_for_language(self):
         with tempfile.TemporaryDirectory() as app_dir:
             os.makedirs(os.path.join(app_dir, 'locale', 'dummy_Lang', 'LC_MESSAGES'))
             open(os.path.join(app_dir, 'locale', 'dummy_Lang', 'LC_MESSAGES', 'django.mo'), 'w').close()
@@ -1881,10 +1960,16 @@ class WatchForTranslationChangesTests(SimpleTestCase):
 
     def test_i18n_app_dirs(self):
         mocked_sender = mock.MagicMock()
-        with self.settings(INSTALLED_APPS=['tests.i18n.sampleproject']):
+        with self.settings(INSTALLED_APPS=["i18n.sampleproject"]):
             watch_for_translation_changes(mocked_sender)
         project_dir = Path(__file__).parent / 'sampleproject' / 'locale'
         mocked_sender.watch_dir.assert_any_call(project_dir, '**/*.mo')
+
+    def test_i18n_app_dirs_ignore_django_apps(self):
+        mocked_sender = mock.MagicMock()
+        with self.settings(INSTALLED_APPS=['django.contrib.admin']):
+            watch_for_translation_changes(mocked_sender)
+        mocked_sender.watch_dir.assert_called_once_with(Path('locale'), '**/*.mo')
 
     def test_i18n_local_locale(self):
         mocked_sender = mock.MagicMock()
@@ -1918,4 +2003,32 @@ class TranslationFileChangedTests(SimpleTestCase):
         self.assertEqual(gettext_module._translations, {})
         self.assertEqual(trans_real._translations, {})
         self.assertIsNone(trans_real._default)
-        self.assertIsInstance(trans_real._active, _thread._local)
+        self.assertIsInstance(trans_real._active, Local)
+
+
+class UtilsTests(SimpleTestCase):
+    def test_round_away_from_one(self):
+        tests = [
+            (0, 0),
+            (0., 0),
+            (0.25, 0),
+            (0.5, 0),
+            (0.75, 0),
+            (1, 1),
+            (1., 1),
+            (1.25, 2),
+            (1.5, 2),
+            (1.75, 2),
+            (-0., 0),
+            (-0.25, -1),
+            (-0.5, -1),
+            (-0.75, -1),
+            (-1, -1),
+            (-1., -1),
+            (-1.25, -2),
+            (-1.5, -2),
+            (-1.75, -2),
+        ]
+        for value, expected in tests:
+            with self.subTest(value=value):
+                self.assertEqual(round_away_from_one(value), expected)
