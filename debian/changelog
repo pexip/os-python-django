@@ -1,3 +1,16 @@
+python-django (3:3.2.19-1+deb12u1) bookworm-security; urgency=high
+
+  * CVE-2023-36053: Potential regular expression denial of service
+    vulnerability in EmailValidator/URLValidator.
+
+    EmailValidator and URLValidator were subject to potential regular
+    expression denial of service attack via a very large number of domain name
+    labels of emails and URLs. (Closes: #1040225)
+
+  * Add/apply the URLValidator patch from sid.
+
+ -- Chris Lamb <lamby@debian.org>  Fri, 28 Jul 2023 14:24:04 +0100
+
 python-django (3:3.2.19-1) unstable; urgency=medium
 
   * New upstream security release.

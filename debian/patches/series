@@ -9,3 +9,5 @@
 0009-Fixed-33282-Fixed-a-crash-when-OR-ing-subquery-and-a.patch
 0011-Moved-RequestSite-import-to-the-toplevel.patch
 0012-Add-Python-3.11-support-for-tests.patch
+0013-fix-url-validator.patch
+CVE-2023-36053.patch
