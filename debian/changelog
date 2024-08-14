@@ -1,3 +1,25 @@
+python-django (3:3.2.19-1+pexip24u5+deb12u2) pexip; urgency=high
+
+  * Backport upstream fixes from 3:4.2.14-1:
+    * Closes: #1076069
+    * CVE-2024-39329: Standardize timing of verify_password() when
+      checking unusable passwords.
+    * CVE-2024-39330: Add extra file name validation in Storage's save
+      method.
+    * CVE-2024-39614: Mitigate potential DoS in
+      get_supported_language_variant.
+    * The patch for CVE-2024-38875 won't sensibly backport.
+  * Backport upstream fixes from 3:4.2.15-1:
+    * Closes: #1078074
+    * CVE-2024-41989: Prevent excessive memory consumption in floatformat.
+    * CVE-2024-41991: Prevente potential ReDoS in django.utils.html.urlize()
+      and AdminURLFieldWidget.
+    * CVE-2024-42005: Mitigate QuerySet.values() SQL injection attacks
+      against JSON fields.
+    * The patch for CVE-2024-41990 won't sensibly backport.
+
+ -- Steve McIntyre <steve.mcintyre@pexip.com>  Wed, 14 Aug 2024 14:51:39 +0100
+
 python-django (3:3.2.19-1+deb12u1+pexip24u4) pexip-bookworm; urgency=medium
 
   * New versioning scheme

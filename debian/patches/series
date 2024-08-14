@@ -12,3 +12,10 @@
 0013-fix-url-validator.patch
 CVE-2023-36053.patch
 revert-sphinx45.patch
+CVE-2024-39329.patch
+CVE-2024-39330.patch
+CVE-2024-39614-1.patch
+CVE-2024-39614-2.patch
+CVE-2024-41989.patch
+CVE-2024-41991.patch
+CVE-2024-42005.patch
