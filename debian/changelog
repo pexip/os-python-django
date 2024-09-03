@@ -1,8 +1,23 @@
-python-django (3:4.2.15-1~bpo12+1) bookworm-backports; urgency=medium
+python-django (3:4.2.16-1) unstable; urgency=high
 
-  * Rebuild for bookworm-backports.
+  * New upstream security release:
 
- -- Chris Lamb <lamby@debian.org>  Tue, 03 Sep 2024 12:23:16 +0100
+    - CVE-2024-45230: Potential denial-of-service vulnerability in
+      django.utils.html.urlize(). urlize and urlizetrunc were subject to a
+      potential denial-of-service attack via very large inputs with a specific
+      sequence of characters.
+
+    - CVE-2024-45231: Potential user email enumeration via response status on
+      password reset. Due to unhandled email sending failures, the
+      django.contrib.auth.forms.PasswordResetForm class allowed remote
+      attackers to enumerate user emails by issuing password reset requests and
+      observing the outcomes. To mitigate this risk, exceptions occurring
+      during password reset email sending are now handled and logged using the
+      django.contrib.auth logger.
+
+  * Bump Standards-Version to 4.7.0.
+
+ -- Chris Lamb <lamby@debian.org>  Tue, 03 Sep 2024 17:31:33 +0100
 
 python-django (3:4.2.15-1) unstable; urgency=high
 
@@ -192,19 +207,6 @@ python-django (3:3.2.20-1) unstable; urgency=high
       name labels of emails and URLs. (Closes: #1040225)
 
  -- Chris Lamb <lamby@debian.org>  Mon, 03 Jul 2023 20:34:24 +0100
-
-python-django (3:3.2.19-1+deb12u1) bookworm-security; urgency=high
-
-  * CVE-2023-36053: Potential regular expression denial of service
-    vulnerability in EmailValidator/URLValidator.
-
-    EmailValidator and URLValidator were subject to potential regular
-    expression denial of service attack via a very large number of domain name
-    labels of emails and URLs. (Closes: #1040225)
-
-  * Add/apply the URLValidator patch from sid.
-
- -- Chris Lamb <lamby@debian.org>  Fri, 28 Jul 2023 14:24:04 +0100
 
 python-django (3:3.2.19-1) unstable; urgency=medium
 
