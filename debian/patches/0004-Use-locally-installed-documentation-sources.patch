@@ -7,19 +7,19 @@ Subject: Use locally installed documentation sources
  1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/docs/conf.py b/docs/conf.py
-index 362845303c78..0d8ada721666 100644
+index e531a8b40b89..510a550d01e3 100644
 --- a/docs/conf.py
 +++ b/docs/conf.py
-@@ -151,9 +151,9 @@ pygments_style = 'trac'
+@@ -177,9 +177,9 @@ pygments_style = "trac"
  # Links to Python's docs should reference the most recent version of the 3.x
  # branch, which is located at this URL.
  intersphinx_mapping = {
--    'python': ('https://docs.python.org/3/', None),
--    'sphinx': ('https://www.sphinx-doc.org/en/master/', None),
--    'psycopg2': ('https://www.psycopg.org/docs/', None),
-+    'python': ('/usr/share/doc/python3-doc/html/', None),
-+    'sphinx': ('/usr/share/doc/sphinx-doc/html/', None),
-+    'psycopg2': ('/usr/share/doc/python-psycopg2-doc/html/', None),
+-    "python": ("https://docs.python.org/3/", None),
+-    "sphinx": ("https://www.sphinx-doc.org/en/master/", None),
+-    "psycopg": ("https://www.psycopg.org/psycopg3/docs/", None),
++    "python": ("/usr/share/doc/python3-doc/html/", None),
++    "sphinx": ("/usr/share/doc/sphinx-doc/html/", None),
++    "psycopg": ("/usr/share/doc/python-psycopg2-doc/html/", None),
  }
  
  # Python's docs don't change every week.

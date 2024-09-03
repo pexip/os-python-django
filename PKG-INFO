@@ -1,7 +1,7 @@
 Metadata-Version: 2.1
 Name: Django
-Version: 3.2.19
-Summary: A high-level Python Web framework that encourages rapid development and clean, pragmatic design.
+Version: 4.2.15
+Summary: A high-level Python web framework that encourages rapid development and clean, pragmatic design.
 Home-page: https://www.djangoproject.com/
 Author: Django Software Foundation
 Author-email: foundation@djangoproject.com
@@ -11,7 +11,6 @@ Project-URL: Release notes, https://docs.djangoproject.com/en/stable/releases/
 Project-URL: Funding, https://www.djangoproject.com/fundraising/
 Project-URL: Source, https://github.com/django/django
 Project-URL: Tracker, https://code.djangoproject.com/
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
@@ -21,28 +20,34 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Internet :: WWW/HTTP :: WSGI
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.6
-Provides-Extra: argon2
-Provides-Extra: bcrypt
+Requires-Python: >=3.8
 License-File: LICENSE
 License-File: LICENSE.python
 License-File: AUTHORS
+Requires-Dist: asgiref<4,>=3.6.0
+Requires-Dist: backports.zoneinfo; python_version < "3.9"
+Requires-Dist: sqlparse>=0.3.1
+Requires-Dist: tzdata; sys_platform == "win32"
+Provides-Extra: argon2
+Requires-Dist: argon2-cffi>=19.1.0; extra == "argon2"
+Provides-Extra: bcrypt
+Requires-Dist: bcrypt; extra == "bcrypt"
 
 ======
 Django
 ======
 
-Django is a high-level Python Web framework that encourages rapid development
+Django is a high-level Python web framework that encourages rapid development
 and clean, pragmatic design. Thanks for checking it out.
 
 All documentation is in the "``docs``" directory and online at
@@ -92,5 +97,3 @@ Supporting the Development of Django
 Django's development depends on your contributions. 
 
 If you depend on Django, remember to support the Django Software Foundation: https://www.djangoproject.com/fundraising/
-
-
