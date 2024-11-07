@@ -1,4 +1,4 @@
-python-django (3:4.2.15-1~bpo12+1+pexip24u1) UNRELEASED; urgency=medium
+python-django (3:4.2.15-1~bpo12+1+pexip24u1) pexip; urgency=medium
 
   * New upstream
   * Remove the following CVE patches which have been merged upstream:
