@@ -23,7 +23,6 @@ Build-Depends:
  python3-doc <!nodoc>,
  python3-docutils <!nodoc>,
  python3-jinja2 <!nocheck>,
- python3-mock <!nocheck>,
  python3-numpy <!nocheck>,
  python3-pil <!nocheck>,
  python3-selenium <!nocheck>,
@@ -33,7 +32,6 @@ Build-Depends:
  python3-tblib <!nocheck>,
  python3-tz <!nocheck>,
  python3-yaml <!nocheck>,
- sphinx-doc <!nodoc>,
 Build-Depends-Indep:
  libjs-jquery,
 Homepage: http://www.djangoproject.com/
@@ -49,12 +47,7 @@ Provides:
 Replaces:
  python-django-common,
 Breaks:
- lava-server (<< 2021.11),
  python-django-common,
- python3-django-countries (<< 7.1~),
- python3-django-filters (<< 2.1.0),
- python3-django-pyscss (<< 2.0.2-10~),
- python3-django-tables2 (<< 2.3.4),
  python3-mysqldb (<< 1.3.13),
 Depends:
  python3-asgiref,
@@ -74,7 +67,7 @@ Suggests:
  python-django-doc,
  python3-bcrypt,
  python3-flup,
- python3-pymemcache |  python3-pylibmc,
+ python3-memcache,
  python3-mysqldb,
  python3-pil,
  python3-psycopg2,
@@ -106,7 +99,6 @@ Description: High-level Python web development framework
 Package: python-django-doc
 Section: doc
 Architecture: all
-Multi-Arch: foreign
 Depends:
  ${misc:Depends},
  ${sphinxdoc:Depends},

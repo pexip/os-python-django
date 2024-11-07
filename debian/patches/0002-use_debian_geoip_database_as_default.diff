@@ -15,10 +15,10 @@ Patch-Name: 06_use_debian_geoip_database_as_default.diff
  1 file changed, 6 insertions(+), 3 deletions(-)
 
 diff --git a/django/contrib/gis/geoip2/base.py b/django/contrib/gis/geoip2/base.py
-index 6b35a8acdc42..ff6141bdcc5b 100644
+index b360f12a4882..a8b7b9e22dfb 100644
 --- a/django/contrib/gis/geoip2/base.py
 +++ b/django/contrib/gis/geoip2/base.py
-@@ -53,6 +53,7 @@ class GeoIP2:
+@@ -55,6 +55,7 @@ class GeoIP2:
              to where the city or country data files (*.mmdb) are located.
              Assumes that both the city and country data sets are located in
              this directory; overrides the GEOIP_PATH setting.
@@ -26,7 +26,7 @@ index 6b35a8acdc42..ff6141bdcc5b 100644
  
          * cache: The cache settings when opening up the GeoIP datasets. May be
              an integer in (0, 1, 2, 4, 8) corresponding to the MODE_AUTO,
-@@ -62,9 +63,11 @@ class GeoIP2:
+@@ -64,16 +65,18 @@ class GeoIP2:
  
          * country: The name of the GeoIP country data file. Defaults to
              'GeoLite2-Country.mmdb'; overrides the GEOIP_COUNTRY setting.
@@ -37,27 +37,26 @@ index 6b35a8acdc42..ff6141bdcc5b 100644
 +            If neither is set, defaults to 'GeoIPCity.dat'.
          """
          # Checking the given cache option.
-         if cache in self.cache_options:
-@@ -73,7 +76,7 @@ class GeoIP2:
-             raise GeoIP2Exception('Invalid GeoIP caching option: %s' % cache)
+         if cache not in self.cache_options:
+             raise GeoIP2Exception("Invalid GeoIP caching option: %s" % cache)
  
          # Getting the GeoIP data path.
--        path = path or GEOIP_SETTINGS['GEOIP_PATH']
+-        path = path or GEOIP_SETTINGS["GEOIP_PATH"]
 +        path = path or GEOIP_SETTINGS.get('GEOIP_PATH', '/usr/share/GeoIP')
          if not path:
-             raise GeoIP2Exception('GeoIP path must be provided via parameter or the GEOIP_PATH setting.')
- 
-@@ -82,12 +85,12 @@ class GeoIP2:
+             raise GeoIP2Exception(
+                 "GeoIP path must be provided via parameter or the GEOIP_PATH setting."
+@@ -84,12 +87,12 @@ class GeoIP2:
              # Constructing the GeoIP database filenames using the settings
              # dictionary. If the database files for the GeoLite country
              # and/or city datasets exist, then try to open them.
--            country_db = path / (country or GEOIP_SETTINGS['GEOIP_COUNTRY'])
+-            country_db = path / (country or GEOIP_SETTINGS["GEOIP_COUNTRY"])
 +            country_db = path / (country or GEOIP_SETTINGS.get('GEOIP_COUNTRY', 'GeoIP.dat'))
              if country_db.is_file():
                  self._country = geoip2.database.Reader(str(country_db), mode=cache)
                  self._country_file = country_db
  
--            city_db = path / (city or GEOIP_SETTINGS['GEOIP_CITY'])
+-            city_db = path / (city or GEOIP_SETTINGS["GEOIP_CITY"])
 +            city_db = path / (city or GEOIP_SETTINGS.get('GEOIP_CITY', 'GeoIPCity.dat'))
              if city_db.is_file():
                  self._city = geoip2.database.Reader(str(city_db), mode=cache)

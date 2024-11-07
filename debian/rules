@@ -15,7 +15,7 @@ override_dh_auto_clean:
 override_dh_auto_build:
 	dh_auto_build
 ifeq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
-	make -C docs html LANGUAGE=en
+	make -C docs html
 endif
 
 override_dh_auto_test:
@@ -38,9 +38,6 @@ override_dh_auto_install:
 		find $(PREFIX) -name $$FILENAME -exec \
 			ln -sfv /usr/share/javascript/jquery/$$FILENAME {} \;; \
 	done
-	
-	# Drop language extension-based executable in /usr/bin
-	rm $(PREFIX)/usr/bin/django-admin.py
 
 override_dh_install:
 	dh_install
@@ -58,7 +55,7 @@ override_dh_python3:
 	dh_python3
 	
 	# Move documentation to /usr/share/doc
-	set -e; for X in fonts img; do \
+	set -e; for X in img; do \
 		mv -v $(PREFIX)/usr/lib/python3/dist-packages/django/contrib/admin/static/admin/$$X/README.txt \
 			$(PREFIX)/usr/share/doc/python3-django/README-$$X.txt; \
 	done
