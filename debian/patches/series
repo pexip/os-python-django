@@ -2,4 +2,3 @@
 0002-use_debian_geoip_database_as_default.diff
 0004-Use-locally-installed-documentation-sources.patch
 0004-Set-the-default-shebang-to-new-projects-to-use-Pytho.patch
-revert-sphinx45.patch

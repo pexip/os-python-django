@@ -1,3 +1,18 @@
+python-django (3:4.2.15-1~bpo12+1+pexip24u1) UNRELEASED; urgency=medium
+
+  * New upstream
+  * Remove the following CVE patches which have been merged upstream:
+    - CVE-2024-39329.patch
+    - CVE-2024-39330 patch
+    - CVE-2024-39614-1.patch
+    - CVE-2024-39614-2.patch
+    - CVE-2024-41989.patch
+    - CVE-2024-41991.patch
+    - CVE-2024-42005.patch
+  * Drop the revert-sphinx45.patch as it is no longer necessary.
+
+ -- Mark Hymers <mark.hymers@pexip.com>  Thu, 07 Nov 2024 15:47:01 +0000
+
 python-django (3:4.2.15-1~bpo12+1) bookworm-backports; urgency=medium
 
   * Rebuild for bookworm-backports.
