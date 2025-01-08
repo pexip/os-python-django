@@ -1,7 +1,7 @@
 from django.db.backends.base.schema import BaseDatabaseSchemaEditor
-from django.db.backends.ddl_references import IndexColumns, Statement
+from django.db.backends.ddl_references import IndexColumns, IndexName, Statement
 from django.db.backends.postgresql.psycopg_any import sql
-from django.db.backends.utils import strip_quotes
+from django.db.backends.utils import split_identifier, strip_quotes
 
 
 class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
@@ -421,3 +421,22 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
             )
             row = cursor.fetchone()
             return row[0] if row else None
+
+    def _unique_constraint_name(self, table, columns, quote=True):
+        if len(columns) == 1:
+            # Special case for a single column: generate the same name
+            # as PostgreSQL itself would
+            def create_unique_name(table_name, column_names, suffix=""):
+                _, table_name = split_identifier(table_name)
+                max_length = (
+                    (self.connection.ops.max_name_length() or 200) - len(suffix)
+                )
+                name = f"{table_name}_{column_names[0]}"[:max_length]
+                name = f"{name}{suffix}"
+                if quote:
+                    name = self.quote_name(name)
+                return name
+
+            return IndexName(table, columns, "_key", create_unique_name)
+
+        return super()._unique_constraint_name(table, columns, quote=quote)
