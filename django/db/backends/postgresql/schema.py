@@ -1,5 +1,5 @@
 from django.db.backends.base.schema import BaseDatabaseSchemaEditor
-from django.db.backends.ddl_references import IndexColumns
+from django.db.backends.ddl_references import IndexColumns, Statement
 from django.db.backends.postgresql.psycopg_any import sql
 from django.db.backends.utils import strip_quotes
 
@@ -147,6 +147,28 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
             or (old_type.startswith("citext") and not new_type.startswith("citext"))
         )
 
+    def _remove_deferred_statements_for_index(
+        self, model, old_field, index_to_remove
+    ):
+        for sql in list(self.deferred_sql):
+            if (
+                isinstance(sql, Statement)
+                and sql.references_column(
+                    model._meta.db_table, old_field.column
+                )
+                # XXX: is there a better way than fishing around
+                # XXX: inside the statement?
+                and sql.template in (
+                    self.sql_create_index,
+                    self.sql_create_index_concurrently,
+                )
+                and "name" in sql.parts
+                and str(sql.parts["name"]) == self.quote_name(
+                    index_to_remove
+                )
+            ):
+                self.deferred_sql.remove(sql)
+
     def _alter_column_type_sql(
         self, model, old_field, new_field, new_type, old_collation, new_collation
     ):
@@ -159,6 +181,7 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
                 model._meta.db_table, [old_field.column], suffix="_like"
             )
             self.execute(self._delete_index_sql(model, index_name))
+            self._remove_deferred_statements_for_index(model, old_field, index_name)
 
         self.sql_alter_column_type = (
             "ALTER COLUMN %(column)s TYPE %(type)s%(collation)s"
@@ -318,6 +341,9 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
                 model._meta.db_table, [old_field.column], suffix="_like"
             )
             self.execute(self._delete_index_sql(model, index_to_remove))
+            self._remove_deferred_statements_for_index(
+                model, old_field, index_to_remove
+            )
 
     def _index_columns(self, table, columns, col_suffixes, opclasses):
         if opclasses:
