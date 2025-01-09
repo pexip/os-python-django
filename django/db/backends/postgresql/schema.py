@@ -1,5 +1,10 @@
 from django.db.backends.base.schema import BaseDatabaseSchemaEditor
-from django.db.backends.ddl_references import IndexColumns, IndexName, Statement
+from django.db.backends.ddl_references import (
+    IndexColumns,
+    IndexName,
+    Statement,
+    Table,
+)
 from django.db.backends.postgresql.psycopg_any import sql
 from django.db.backends.utils import split_identifier, strip_quotes
 
@@ -38,6 +43,13 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
         "ALTER TABLE %(table)s DROP CONSTRAINT %(name)s"
     )
     sql_delete_procedure = "DROP FUNCTION %(procedure)s(%(param_types)s)"
+
+    sql_rename_constraint = (
+        "ALTER TABLE %(table)s RENAME CONSTRAINT %(old_name)s TO %(new_name)s"
+    )
+    sql_graceful_rename_index = (
+        "ALTER INDEX IF EXISTS %(old_name)s RENAME TO %(new_name)s"
+    )
 
     def execute(self, sql, params=()):
         # Merge the query client-side, as PostgreSQL won't do it server-side.
@@ -300,6 +312,72 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
             [],
         )
 
+    def _rename_constraint_sql(self, model, old_name, new_name):
+        return Statement(
+            self.sql_rename_constraint,
+            table=Table(model._meta.db_table, self.quote_name),
+            old_name=self.quote_name(old_name),
+            new_name=self.quote_name(new_name),
+        )
+
+    def _graceful_rename_index_sql(self, model, old_name, new_name):
+        return Statement(
+            self.sql_graceful_rename_index,
+            table=Table(model._meta.db_table, self.quote_name),
+            old_name=self.quote_name(old_name),
+            new_name=self.quote_name(new_name),
+        )
+
+    def _rename_constraints(self, model, constraints):
+        max_length = (self.connection.ops.max_name_length() or 200)
+        for name, infodict in constraints.items():
+            if infodict["primary_key"]:
+                _, suffix = name.rsplit("_", 1)
+                new_name = (
+                    f"{model._meta.db_table}_"[:max_length-len(suffix)] + suffix
+                )
+                method = self._rename_constraint_sql
+            elif infodict["unique"]:
+                new_name = str(
+                    self._unique_constraint_name(
+                        model._meta.db_table,
+                        infodict["columns"],
+                        quote=False,
+                    )
+                )
+                method = self._rename_constraint_sql
+            elif infodict["foreign_key"]:
+                to_table, to_column = infodict["foreign_key"]
+                new_name = self._create_index_name(
+                    model._meta.db_table,
+                    infodict["columns"],
+                    suffix=f"_fk_{to_table}_{to_column}",
+                )
+                method = self._rename_constraint_sql
+            elif infodict["index"]:
+                _, suffix = name.rsplit("_", 1)
+                if len(suffix) == 8:
+                    # Bare hash (we hope): no suffix
+                    suffix = ""
+                else:
+                    suffix = f"_{suffix}"
+                new_name = self._create_index_name(
+                    model._meta.db_table,
+                    infodict["columns"],
+                    suffix=suffix,
+                )
+                method = self._graceful_rename_index_sql
+            elif infodict["check"]:
+                new_name = self._create_index_name(
+                    model._meta.db_table,
+                    infodict["columns"],
+                    suffix="_check",
+                )
+                method = self._rename_constraint_sql
+
+            if new_name != name:
+                self.execute(method(model, name, new_name))
+
     def _alter_field(
         self,
         model,
@@ -344,6 +422,32 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
             self._remove_deferred_statements_for_index(
                 model, old_field, index_to_remove
             )
+
+        # Renamed a column? Rename any constraints, too.
+        if old_field.column != new_field.column:
+            with self.connection.cursor() as cursor:
+                constraints = self.connection.introspection.get_constraints(
+                    cursor, model._meta.db_table
+                )
+            self._rename_constraints(model, constraints)
+
+    def alter_db_table(self, model, old_db_table, new_db_table):
+        # Gather the constraints before renaming (as they may not
+        # exist for renamed many-to-many tables)
+        with self.connection.cursor() as cursor:
+            constraints = self.connection.introspection.get_constraints(
+                cursor, old_db_table
+            )
+
+        super().alter_db_table(model, old_db_table, new_db_table)
+
+        if old_db_table == new_db_table or (
+            self.connection.features.ignores_table_name_case
+            and old_db_table.lower() == new_db_table.lower()
+        ):
+            return
+
+        self._rename_constraints(model, constraints)
 
     def _index_columns(self, table, columns, col_suffixes, opclasses):
         if opclasses:

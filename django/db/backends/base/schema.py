@@ -1320,7 +1320,7 @@ class BaseDatabaseSchemaEditor:
             != new_field.remote_field.through._meta.db_table
         ):
             self.alter_db_table(
-                old_field.remote_field.through,
+                new_field.remote_field.through,
                 old_field.remote_field.through._meta.db_table,
                 new_field.remote_field.through._meta.db_table,
             )
