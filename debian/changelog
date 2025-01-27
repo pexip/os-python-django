@@ -1,3 +1,9 @@
+python-django (3:4.2.18-1+pexip24u1) pexip; urgency=medium
+
+  * New upstream release
+
+ -- Huw Jones <huw@pexip.com>  Mon, 27 Jan 2025 11:10:30 +0000
+
 python-django (3:4.2.18-1) unstable; urgency=high
 
   * New upstream security release. (Closes: #1093049)
