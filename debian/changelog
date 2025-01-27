@@ -1,3 +1,50 @@
+python-django (3:4.2.18-1) unstable; urgency=high
+
+  * New upstream security release. (Closes: #1093049)
+
+    - CVE-2024-56374: Potential denial-of-service vulnerability in IPv6
+      validation.
+
+      A lack of upper bound limit enforcement in strings passed when performing
+      IPv6 validation could have led to a potential denial-of-service (DoS)
+      attack. The undocumented and private functions clean_ipv6_address and
+      is_valid_ipv6_address were vulnerable, as was the GenericIPAddressField
+      form field, which has now been updated to define a max_length of 39
+      characters. The GenericIPAddressField model field was not affected.
+
+    <https://www.djangoproject.com/weblog/2025/jan/14/security-releases/>
+
+ -- Chris Lamb <lamby@debian.org>  Wed, 15 Jan 2025 17:38:10 +0000
+
+python-django (3:4.2.17-2) unstable; urgency=medium
+
+  * Team upload.
+  * Fix CommandTypes.test_help_default_options_with_custom_arguments test on
+    Python 3.13+ (closes: #1082209).
+
+ -- Colin Watson <cjwatson@debian.org>  Thu, 02 Jan 2025 15:36:58 +0000
+
+python-django (3:4.2.17-1) unstable; urgency=medium
+
+  * New upstream security release:
+
+    - CVE-2024-53907: Potential DoS in django.utils.html.strip_tags.
+      The strip_tags() method and striptags template filter were subject to a
+      potential denial-of-service attack via certain inputs containing large
+      sequences of nested incomplete HTML entities.
+
+    - CVE-2024-53908: Potential SQL injection in HasKey(lhs, rhs) on Oracle
+      Direct usage of the django.db.models.fields.json.HasKey lookup on Oracle
+      was subject to SQL injection if untrusted data is used as a lhs value.
+      Applications that use the jsonfield.has_key lookup through the __ syntax
+      are unaffected.
+
+    <https://www.djangoproject.com/weblog/2024/dec/04/security-releases/>
+
+  * Refresh patches.
+
+ -- Chris Lamb <lamby@debian.org>  Wed, 04 Dec 2024 17:33:13 +0000
+
 python-django (3:4.2.16-1+pexip24u1) pexip; urgency=medium
 
   * New upstream release
