@@ -1,3 +1,23 @@
+python-django (3:4.2.20-1) unstable; urgency=high
+
+  * New upstream security release:
+
+    - CVE-2025-26699: Address a potential denial-of-service in
+      django.utils.text.wrap. The wrap() method and wordwrap template filter
+      were subject to a potential denial-of-service attack when used with very
+      long strings. (Closes: #1099682)
+
+    <https://www.djangoproject.com/weblog/2025/mar/06/security-releases/>
+
+ -- Chris Lamb <lamby@debian.org>  Thu, 06 Mar 2025 17:55:06 +0000
+
+python-django (3:4.2.19-1) unstable; urgency=medium
+
+  * New upstream bugfix release.
+    <https://www.djangoproject.com/weblog/2025/feb/05/bugfix-releases/>
+
+ -- Chris Lamb <lamby@debian.org>  Wed, 05 Feb 2025 16:45:05 +0000
+
 python-django (3:4.2.18-1+pexip24u1) pexip; urgency=medium
 
   * New upstream release
