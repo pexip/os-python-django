@@ -1,11 +1,10 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: Django
-Version: 4.2.20
+Version: 4.2.23
 Summary: A high-level Python web framework that encourages rapid development and clean, pragmatic design.
-Home-page: https://www.djangoproject.com/
-Author: Django Software Foundation
-Author-email: foundation@djangoproject.com
+Author-email: Django Software Foundation <foundation@djangoproject.com>
 License: BSD-3-Clause
+Project-URL: Homepage, https://www.djangoproject.com/
 Project-URL: Documentation, https://docs.djangoproject.com/
 Project-URL: Release notes, https://docs.djangoproject.com/en/stable/releases/
 Project-URL: Funding, https://www.djangoproject.com/fundraising/
@@ -31,6 +30,7 @@ Classifier: Topic :: Internet :: WWW/HTTP :: WSGI
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.8
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: LICENSE.python
 License-File: AUTHORS
@@ -42,6 +42,7 @@ Provides-Extra: argon2
 Requires-Dist: argon2-cffi>=19.1.0; extra == "argon2"
 Provides-Extra: bcrypt
 Requires-Dist: bcrypt; extra == "bcrypt"
+Dynamic: license-file
 
 ======
 Django

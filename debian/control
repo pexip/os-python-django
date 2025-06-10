@@ -7,13 +7,14 @@ Uploaders:
  Raphaël Hertzog <hertzog@debian.org>,
  Brian May <bam@debian.org>,
  Chris Lamb <lamby@debian.org>,
-Standards-Version: 4.7.0
+Standards-Version: 4.7.2
 Build-Depends:
  debhelper-compat (= 13),
  dh-python,
  dpkg-dev (>= 1.17.14),
  libgdal-dev <!nocheck>,
  libsqlite3-mod-spatialite <!nocheck>,
+ pybuild-plugin-pyproject,
  python-django-formtools-doc <!nodoc>,
  python-psycopg2-doc <!nodoc>,
  python3-all,
