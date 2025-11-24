@@ -5,3 +5,5 @@
 py313-test-help-default-options-with-custom-arguments.patch
 CVE-2025-32873.patch
 CVE-2025-48432.patch
+CVE-2025-57833.patch
+CVE-2025-64459.patch

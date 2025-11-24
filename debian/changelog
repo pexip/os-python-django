@@ -1,3 +1,13 @@
+python-django (3:4.2.20-1+pexip24u3) pexip; urgency=medium
+
+  * Backport upstream CVE fixes
+  * CVE-2025-57833:
+    https://github.com/django/django/commit/31334e6965ad136a5e369993b01721499c5d1a92
+  * CVE-2025-64459:
+    https://github.com/django/django/commit/59ae82e67053d281ff4562a24bbba21299f0a7d4
+
+ -- Mark Hymers <mark.hymers@pexip.com>  Mon, 24 Nov 2025 11:48:07 +0000
+
 python-django (3:4.2.20-1+pexip24u2) pexip; urgency=medium
 
   * Apply patch for CVE-2025-32873 and CVE-2025-48432.
