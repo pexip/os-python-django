@@ -1,3 +1,64 @@
+python-django (3:4.2.23-1) unstable; urgency=high
+
+  * New upstream bugfix release. Quoting upstream:
+
+      Following the June 4, 2025 security release [uploaded to Debian as
+      3:4.2.22-1], the Django team is issuing releases [to] complete mitigation
+      for CVE-2025-48432 […].
+
+      These follow-up releases migrate remaining response logging paths to a
+      safer logging implementation, ensuring that all untrusted input is
+      properly escaped before being written to logs. This update does not
+      introduce a new CVE but strengthens the original fix.
+
+    <https://www.djangoproject.com/weblog/2025/jun/10/bugfix-releases/>
+
+ -- Chris Lamb <lamby@debian.org>  Tue, 10 Jun 2025 09:37:03 -0700
+
+python-django (3:4.2.22-1) unstable; urgency=high
+
+  * New upstream security release:
+
+    - CVE-2025-48432: Potential log injection via unescaped request path.
+
+      Django's internal HTTP response logging used request.path directly,
+      allowing control characters (e.g. newlines or ANSI escape sequences) to
+      be written unescaped into logs. This could enable log injection or
+      forgery, letting attackers manipulate log appearance or structure,
+      especially in logs processed by external systems or viewed in terminals.
+
+      Although this does not directly impact Django's security model, it poses
+      risks when logs are consumed or interpreted by other tools.  To fix this,
+      the internal django.utils.log.log_response() function now escapes all
+      positional formatting arguments using a safe encoding.
+
+      (Closes: #1107282)
+
+    <https://www.djangoproject.com/weblog/2025/jun/04/security-releases/>
+
+ -- Chris Lamb <lamby@debian.org>  Wed, 04 Jun 2025 08:21:53 -0700
+
+python-django (3:4.2.21-1) unstable; urgency=medium
+
+  * New upstream security release:
+
+    - CVE-2025-32873: Denial-of-service possibility in strip_tags()
+
+      django.utils.html.strip_tags() would be slow to evaluate certain inputs
+      containing large sequences of incomplete HTML tags. This function is used
+      to implement the striptags template filter, which was therefore also
+      vulnerable. strip_tags() now raises a SuspiciousOperation exception if it
+      encounters an unusually large number of unclosed opening tags.
+
+      (Closes: #1104872)
+
+    <https://www.djangoproject.com/weblog/2025/may/07/security-releases/>
+
+  * Bump Standards-Version to 4.7.2.
+  * Add pybuild-plugin-pyproject to Build-Depends.
+
+ -- Chris Lamb <lamby@debian.org>  Fri, 09 May 2025 15:47:11 -0700
+
 python-django (3:4.2.20-1+pexip25u2) pexip-trixie; urgency=medium
 
   * Trixie build for product distribution
