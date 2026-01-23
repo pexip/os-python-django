@@ -1,3 +1,52 @@
+python-django (3:4.2.27-0+deb13u1) trixie-security; urgency=high
+
+  * New upstream security release:
+
+    - CVE-2025-13372: Fix a potential SQL injection attack in FilteredRelation
+      column aliases when using PostgreSQL. FilteredRelation was subject to SQL
+      injection in column aliases via a suitably crafted dictionary as the
+      **kwargs passed to QuerySet.annotate() or QuerySet.alias().
+
+    - CVE-2025-57833: Potential SQL injection in FilteredRelation column
+      aliases. The FilteredRelation feature in Django was subject to a
+      potential SQL injection vulnerability in column aliases that was
+      exploitable via suitably crafted dictionary with dictionary expansion as
+      the **kwargs passed QuerySet.annotate() or QuerySet.alias(). This CVE
+      was fixed in Django 4.2.24. (Closes: #1113865)
+
+    - CVE-2025-59681: Potential SQL injection in QuerySet.annotate(), alias(),
+      aggregate() and extra() on MySQL and MariaDB. QuerySet.annotate(),
+      QuerySet.alias(), QuerySet.aggregate() and QuerySet.extra() methods were
+      subject to SQL injection in column aliases, using a suitably crafted
+      dictionary with dictionary expansion as the **kwargs passed to these
+      methods on MySQL and MariaDB. This CVE was fixed in Django 4.2.25.
+
+    - CVE-2025-59682: Potential partial directory-traversal via
+      archive.extract(). The django.utils.archive.extract() function, used by
+      startapp --template and startproject --template allowed partial
+      directory-traversal via an archive with file paths sharing a common
+      prefix with the target directory. This CVE was fixed in Django 4.2.25.
+
+    - CVE-2025-64459: Prevent a potential SQL injection via _connector keyword
+      argument in QuerySet/Q objects. The methods QuerySet.filter(),
+      QuerySet.exclude(), and QuerySet.get() and the class Q() were subject to
+      SQL injection when using a suitably crafted dictionary (with dictionary
+      expansion) as the _connector argument. This CVE was fixed in Django
+      4.2.26.
+
+    - CVE-2025-64460: Prevent a potential denial-of-service vulnerability in
+      XML serializer text extraction. An algorithmic complexity issue in
+      django.core.serializers.xml_serializer.getInnerText() allowed a remote
+      attacker to cause a potential denial-of-service triggering CPU and memory
+      exhaustion via a specially crafted XML input submitted to a service that
+      invokes XML Deserializer. The vulnerability resulted from repeated string
+      concatenation while recursively collecting text nodes, which produced
+      superlinear computation. (Closes: #1121788)
+
+    <https://docs.djangoproject.com/en/4.2/releases/4.2.27/>
+
+ -- Chris Lamb <lamby@debian.org>  Fri, 23 Jan 2026 10:43:29 -0800
+
 python-django (3:4.2.23-1) unstable; urgency=high
 
   * New upstream bugfix release. Quoting upstream:
