@@ -1,3 +1,9 @@
+python-django (3:4.2.27-0+deb13u1+pexip25u1) pexip-trixie; urgency=medium
+
+  * New upstream release
+
+ -- Huw Jones <huw@pexip.com>  Mon, 09 Feb 2026 18:04:15 +0000
+
 python-django (3:4.2.27-0+deb13u1) trixie-security; urgency=high
 
   * New upstream security release:
