@@ -3315,6 +3315,7 @@ django/db/backends/oracle/validation.py
 django/db/backends/postgresql/__init__.py
 django/db/backends/postgresql/base.py
 django/db/backends/postgresql/client.py
+django/db/backends/postgresql/compiler.py
 django/db/backends/postgresql/creation.py
 django/db/backends/postgresql/features.py
 django/db/backends/postgresql/introspection.py
@@ -4206,6 +4207,10 @@ docs/releases/4.2.20.txt
 docs/releases/4.2.21.txt
 docs/releases/4.2.22.txt
 docs/releases/4.2.23.txt
+docs/releases/4.2.24.txt
+docs/releases/4.2.25.txt
+docs/releases/4.2.26.txt
+docs/releases/4.2.27.txt
 docs/releases/4.2.3.txt
 docs/releases/4.2.4.txt
 docs/releases/4.2.5.txt
@@ -4299,7 +4304,6 @@ js_tests/admin/inlines.test.js
 js_tests/admin/jsi18n-mocks.test.js
 js_tests/admin/navigation.test.js
 js_tests/gis/mapwidget.test.js
-scripts/manage_translations.py
 tests/.coveragerc
 tests/README.rst
 tests/runtests.py
