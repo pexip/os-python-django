@@ -1,3 +1,14 @@
+python-django (3:4.2.28-0+deb13u2) stable-proposed-updates; urgency=medium
+
+  * The fix for CVE-2025-6069 in the python3.13 source package (released
+    as part of a suite of updates in 3.13.5-2+deb13u2) modified Python's
+    html.parser.HTMLParser class in such a way that changed the behaviour of
+    Django's strip_tags() method. As a result of this change, we update the
+    testsuite here for the newly expected results in order to prevent a build
+    failure. (Closes: #1137039)
+
+ -- Chris Lamb <lamby@debian.org>  Tue, 26 May 2026 14:35:49 -0700
+
 python-django (3:4.2.28-0+deb13u1) trixie-security; urgency=high
 
   * New upstream security release:
