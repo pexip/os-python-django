@@ -1,3 +1,9 @@
+python-django (3:4.2.28-0+deb13u2+pexip25u1) pexip-trixie; urgency=medium
+
+  * New upstream release with security fixes
+
+ -- Huw Jones <huw@pexip.com>  Fri, 17 Jul 2026 17:01:15 +0100
+
 python-django (3:4.2.28-0+deb13u2) stable-proposed-updates; urgency=medium
 
   * The fix for CVE-2025-6069 in the python3.13 source package (released
