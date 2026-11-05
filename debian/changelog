@@ -1,3 +1,128 @@
+python-django (3:4.2.30-0+deb13u1) trixie-security; urgency=high
+
+  * New upstream security release (4.2.30):
+
+    - CVE-2026-3902: ASGI header spoofing via underscore/hyphen conflation.
+      ASGIRequest normalizes header names following WSGI conventions, mapping
+      hyphens to underscores. As a result, even in configurations where reverse
+      proxies carefully strip security-sensitive headers named with hyphens,
+      such a header could be spoofed by supplying a header named with
+      underscores. Under WSGI, it is the responsibility of the server or proxy
+      to avoid ambiguous mappings. (Django's runserver was patched via
+      CVE-2015-0219.) But under ASGI, there is not the same uniform
+      expectation, even if many proxies protect against this under default
+      configuration (including nginx via underscores_in_headers off;). Headers
+      containing underscores are now ignored by ASGIRequest, matching the
+      behavior of Daphne, the reference server for ASGI.
+
+    - CVE-2026-4277: Privilege abuse in GenericInlineModelAdmin. Add
+      permissions on inline model instances were not validated on submission of
+      forged POST data in GenericInlineModelAdmin.
+
+    - CVE-2026-4292: Privilege abuse in ModelAdmin.list_editable. Admin
+      changelist forms using ModelAdmin.list_editable incorrectly allowed new
+      instances to be created via forged POST data.
+
+    - CVE-2026-33033: Potential denial-of-service vulnerability in
+      MultiPartParser via base64-encoded file upload. When using
+      django.http.multipartparser.MultiPartParser, multipart uploads with
+      Content-Transfer-Encoding: base64 that include excessive whitespace may
+      trigger repeated memory copying, potentially degrading performance.
+
+    - CVE-2026-33034: Potential denial-of-service vulnerability in ASGI
+      requests via memory upload limit bypass. ASGI requests with a missing or
+      understated Content-Length header could bypass the
+      DATA_UPLOAD_MAX_MEMORY_SIZE limit when reading HttpRequest.body,
+      potentially loading an unbounded request body into memory and causing
+      service degradation.
+
+  * New upstream security release (4.2.29):
+
+    - CVE-2026-25674: Potential incorrect permissions on newly created file
+      system objects.
+
+      Django's file-system storage and file-based cache backends used the
+      process umask to control permissions when creating directories. In
+      multi-threaded environments, one thread's temporary umask change can
+      affect other threads' file and directory creation, resulting in file
+      system objects being created with unintended permissions. Django now
+      applies the requested permissions via os.chmod() after os.mkdir(),
+      removing the dependency on the process-wide umask.
+
+    - One additional issue (CVE-2026-25673) to address a Windows-specific issue
+      is also fixed in this version. This is potential denial-of-service
+      vulnerability in URLField via Unicode normalization.
+
+  * In addition:
+
+    - CVE-2026-15337: Avoid a potential denial-of-service vulnerability in the
+      check_for_language() method in the django.utils.translation method. This
+      was subject to a potential denial-of-service (DoS) attack when checking
+      many distinct, very long language codes. Each code was used as a key in
+      an in-memory cache, consuming process memory.
+
+      The language value reaches this function through the set_language() view
+      of django.views.i18n (which is not active by default) from POST data.
+      Since request data is limited by the DATA_UPLOAD_MAX_MEMORY_SIZE setting
+      and the cache is configured to store a maximum number of entries, the
+      memory that could be consumed was bounded. To mitigate this
+      vulnerability, language codes longer than 500 characters are now rejected
+      before the cached lookup.
+
+    - CVE-2026-15920: Prevent a potential cross-site scripting (XSS) attack via
+      URLField values in the Django admin. The admin renders URLField values as
+      clickable links on changelist views and read-only fields. The link was
+      generated without validating the value as a safe URL, so a stored value
+      using a potentially dangerous scheme was rendered as a link. URLField
+      values shown via display_for_field are now validated using URLValidator
+      before a link is rendered and displayed as plain text if validation is
+      failed.
+
+    - CVE-2026-77050: Potential denial-of-service vulnerability in
+      get_supported_language_variant. This method was subject to a potential
+      denial-of-service attack when processing many distinct and very long
+      language codes. Language codes were used as keys in an in-memory cache
+      before their length was limited, potentially consuming excessive process
+      memory. To mitigate this vulnerability, language codes longer than 500
+      characters are now rejected or truncated before the cached lookup.
+
+    - CVE-2026-84429: Potential denial-of-service vulnerability in HTTP header
+      parsing. django.utils.http.parse_header_parameters() was subject to a
+      potential denial-of-service attack due to quadratic time complexity when
+      parsing a value with many separators inside a quoted parameter. An
+      unauthenticated request could reach this through common headers such as
+      Accept or Content-Type, for instance via the content negotiation
+      performed by HttpRequest.accepts(). The per-call length limit does not
+      bound the combined size of repeated headers. The undocumented
+      django.utils.http.parse_header_parameters() function now uses Python's
+      email.message.Message for parsing. As a result, parsing of some malformed
+      or unusual header values may differ, for example, RFC 2231 values with a
+      missing encoding are now decoded.
+
+    - CVE-2026-108147: Prevent a potential memory exhaustion in MultiPartParser
+      via base64-encoded file uploads. When using django.http.multipartparser's
+      MultiPartParser, multipart uploads with a "Content-Transfer-Encoding:
+      base64" header could be buffered entirely in memory regardless of the
+      value of FILE_UPLOAD_MAX_MEMORY_SIZE before being passed to upload
+      handlers, potentially consuming excessive memory.
+
+    - CVE-2026-113593: Avoid a potential exposure of private data via empty and
+      missing 'Vary' headers. UpdateCacheMiddleware and cache_page() generated
+      the same cache key for a request that omitted a header listed in the
+      response's 'Vary' header and a request that sent that header with an
+      empty value. As a result, a response cached for one of these requests
+      could be served to the other which could lead to the exposure of private
+      data. Cache keys now distinguish between absent and empty header values
+      as required by RFC 9111#section-4.1. Responses previously cached for
+      requests that omitted a header listed in 'Vary' will no longer be
+      matched and will be cached again on the next request.
+
+  * Lastly, we adjust the scaling factor in the test for CVE-2025-64460 added
+    in 3:4.2.27-0+deb13u1 as it causes flakiness on loaded machines, and, in
+    particular, on the runners for Debian autopkgtests. (Closes: #1126323)
+
+ -- Chris Lamb <lamby@debian.org>  Thu, 05 Nov 2026 09:27:41 -0800
+
 python-django (3:4.2.28-0+deb13u2) stable-proposed-updates; urgency=medium
 
   * The fix for CVE-2025-6069 in the python3.13 source package (released
