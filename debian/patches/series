@@ -4,3 +4,10 @@
 0004-Set-the-default-shebang-to-new-projects-to-use-Pytho.patch
 py313-test-help-default-options-with-custom-arguments.patch
 0006-Workaround-changes-in-CVE-2025-6069.patch
+0007-CVE-2026-15337.patch
+0008-CVE-2026-15920.patch
+0009-CVE-2026-77050.patch
+0010-CVE-2026-84429.patch
+0011-CVE-2026-108147.patch
+0012-CVE-2026-113593.patch
+0013-Adjust-the-scaling-factor-in-the-test-for-CVE-2025-6.patch
