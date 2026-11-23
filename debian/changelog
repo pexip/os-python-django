@@ -2,7 +2,7 @@ python-django (3:4.2.30-0+deb13u1+pexip25u1) pexip-trixie; urgency=medium
 
   * New upstream release with security fixes
 
- -- Steve McIntyre <steve.mcintyre@pexip.com>  Mon, 34 Sep 2026 12:26:07 +0000
+ -- Steve McIntyre <steve.mcintyre@pexip.com>  Mon, 23 Nov 2026 12:26:07 +0000
 
 python-django (3:4.2.30-0+deb13u1) trixie-security; urgency=high
 
